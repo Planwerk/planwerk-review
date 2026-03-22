@@ -12,10 +12,11 @@ import (
 
 // Options configures the proposal pipeline.
 type Options struct {
-	RepoRef string
-	NoCache bool
-	Format  string // "markdown", "json", "issues"
-	Version string
+	RepoRef      string
+	NoCache      bool
+	Format       string // "markdown", "json", "issues"
+	Version      string
+	CreateIssues bool // interactive issue creation after proposal generation
 }
 
 // Run executes the full proposal pipeline:
@@ -85,6 +86,11 @@ func renderProposals(w io.Writer, result *ProposalResult, repo *github.Repo, opt
 		return nil
 	default:
 		renderer.RenderMarkdown(*result, repo.FullName(), opts.Version)
-		return nil
 	}
+
+	if opts.CreateIssues {
+		return RunInteractiveIssueCreation(w, result, repo.Owner, repo.Name)
+	}
+
+	return nil
 }

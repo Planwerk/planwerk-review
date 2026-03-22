@@ -85,6 +85,7 @@ or short form (owner/repo).`,
 	proposeFlags := proposeCmd.Flags()
 	proposeFlags.BoolVar(&proposeCfg.NoCache, "no-cache", false, "Ignore cache, force a fresh analysis")
 	proposeFlags.StringVar(&proposeCfg.Format, "format", "markdown", "Output format (markdown, json, issues)")
+	proposeFlags.BoolVar(&proposeCfg.CreateIssues, "create-issues", false, "Interactively create GitHub issues from proposals")
 
 	rootCmd.AddCommand(proposeCmd)
 	rootCmd.Version = version

@@ -24,12 +24,12 @@ Propose:
 │  GitHub Repo │────▶│  planwerk-review │────▶│  Claude CLI   │────▶│  Proposals   │
 │  (URL/Ref)   │     │  propose         │     │  (analysis)   │     │  (MD/JSON)   │
 └──────────────┘     └──────────────────┘     └───────────────┘     └──────────────┘
-                            │                        │
-                            ▼                        ▼
-                     ┌──────────────────┐     ┌───────────────┐
-                     │ Cache (SHA-based)│     │  Structure    │
-                     │                  │     │  into JSON    │
-                     └──────────────────┘     └───────────────┘
+                            │                        │                      │
+                            ▼                        ▼                      ▼
+                     ┌──────────────────┐     ┌───────────────┐     ┌──────────────┐
+                     │ Cache (SHA-based)│     │  Structure    │     │ --create-    │
+                     │                  │     │  into JSON    │     │ issues (gh)  │
+                     └──────────────────┘     └───────────────┘     └──────────────┘
 ```
 
 ### Review Workflow
@@ -102,6 +102,7 @@ Each finding is classified by actionability:
 4. **Claude Analysis**: Claude performs a deep codebase analysis covering architecture, code quality, feature gaps, DX, performance, security, testing, and CI/CD.
 5. **Structuring**: A second Claude call converts the raw analysis into structured JSON proposals with priority, category, scope, and acceptance criteria.
 6. **Output**: Proposals are rendered as Markdown (default), JSON, or GitHub issue templates.
+7. **Interactive Issue Creation** (optional): With `--create-issues`, the user is shown a summary table and walked through each proposal with a prompt to create a GitHub issue via `gh`.
 
 ### CLI Interface
 
@@ -154,6 +155,9 @@ planwerk-review propose --format issues owner/repo
 # Force fresh analysis (ignore cache)
 planwerk-review propose --no-cache owner/repo
 
+# Interactively create GitHub issues from proposals
+planwerk-review propose --create-issues owner/repo
+
 # Write proposals to file
 planwerk-review propose owner/repo > proposals.md
 ```
@@ -164,6 +168,7 @@ planwerk-review propose owner/repo > proposals.md
 |------|-------------|---------|
 | `--no-cache` | Ignore cache, force a fresh analysis | `false` |
 | `--format` | Output format (`markdown`, `json`, `issues`) | `markdown` |
+| `--create-issues` | Interactively create GitHub issues from proposals | `false` |
 
 ### Output Format
 
@@ -336,6 +341,7 @@ planwerk-review/
 │   ├── cli/
 │   │   └── cli.go              # Flag parsing, configuration
 │   ├── github/
+│   │   ├── issues.go           # Create GitHub issues (gh CLI)
 │   │   ├── pr.go               # Fetch PR data (gh CLI)
 │   │   ├── pr_test.go
 │   │   ├── repo.go             # Clone repo, fetch HEAD SHA
@@ -349,23 +355,24 @@ planwerk-review/
 │   │   └── propose_test.go
 │   ├── patterns/
 │   │   ├── loader.go           # Load patterns from directories
-│   │   ├── loader_test.go
 │   │   ├── pattern.go          # Pattern data structure + parsing
 │   │   └── pattern_test.go
 │   ├── propose/
+│   │   ├── interactive.go      # Interactive GitHub issue creation flow
 │   │   ├── proposal.go         # Proposal data structure + categorization
 │   │   ├── proposal_test.go
 │   │   ├── proposer.go         # Orchestration: Repo → Claude → Proposals
 │   │   ├── proposer_test.go
 │   │   └── renderer.go         # Markdown/JSON/Issues output
 │   └── report/
-│       ├── finding.go          # Finding data structure
-│       ├── renderer.go         # Markdown/JSON output
-│       ├── renderer_test.go
 │       ├── categorizer.go      # Severity categorization
-│       └── categorizer_test.go
-├── patterns/                   # General review patterns
-│   └── hardcoded-matrix-values.md
+│       ├── categorizer_test.go
+│       ├── finding.go          # Finding data structure
+│       ├── finding_test.go
+│       ├── renderer.go         # Markdown/JSON output
+│       └── renderer_test.go
+├── patterns/                   # General review patterns (.gitkeep)
+├── Makefile
 ├── go.mod
 ├── go.sum
 ├── .golangci.yml
@@ -398,14 +405,14 @@ planwerk-review/
 
 ### Dependencies
 
-- **Go 1.25.x** (as specified — Go 1.25 is not yet released, 1.24 as fallback if needed)
+- **Go 1.25+**
 - **Claude CLI**: Must be installed and authenticated on the system (`claude` in PATH)
 - **gh CLI**: Required for fetching PR metadata and checkout (`gh` in PATH)
 - **git**: Required for cloning repositories
 
 ### Prerequisites
 
-1. Go 1.25+ installed (or use release binary)
+1. Go 1.25+ installed (or download a release binary)
 2. Claude CLI installed and authenticated (`claude` in PATH)
 3. `gh` CLI installed and authenticated (`gh auth login`)
 4. Access to the target repository (for checkout/clone)
@@ -421,7 +428,7 @@ planwerk-review/
 | 5 | **Review caching** | Based on PR HEAD SHA | Avoids repeated reviews of unchanged PR state |
 | 6 | **Propose: two-step Claude** | Analysis → Structure | First call explores codebase freely; second call converts to strict JSON schema |
 | 7 | **Propose: cache invalidation** | Based on default branch HEAD SHA | Cache key includes `git ls-remote` HEAD, so proposals refresh when the repo changes |
-| 8 | **Propose: output formats** | Markdown, JSON, Issues | Markdown for reading, JSON for automation, Issues for direct GitHub issue creation |
+| 8 | **Propose: output formats** | Markdown, JSON, Issues, Interactive | Markdown for reading, JSON for automation, Issues for templates, `--create-issues` for interactive `gh issue create` |
 | 9 | **Review prompt structure** | Multi-section structured prompt | Persona framing, scope analysis, two-pass checklist, suppressions, and anti-sycophancy rules produce higher-quality, more consistent reviews (inspired by [gstack](https://github.com/garrytan/gstack)) |
 | 10 | **Actionability classification** | auto-fix / needs-discussion / architectural | Helps teams prioritize which findings to address immediately vs. discuss first |
 | 11 | **Scope drift detection** | PR title + body analyzed before code review | Catches scope creep and missing requirements — often the most valuable review feedback |
@@ -434,5 +441,4 @@ planwerk-review/
 - **Multi-reviewer**: Integrate other review tools alongside Claude
 - **Dashboard**: Overview of review statistics per repository
 - **GitHub Action**: Publish as a GitHub Action for automated PR reviews
-- **Propose: auto-create issues**: Directly create GitHub issues from proposals via `gh issue create`
 - **Propose: incremental analysis**: Track which proposals have been addressed across runs
