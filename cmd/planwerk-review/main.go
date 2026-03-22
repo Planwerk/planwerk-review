@@ -7,7 +7,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/planwerk/planwerk-review/internal/cache"
+	"github.com/planwerk/planwerk-review/internal/claude"
 	"github.com/planwerk/planwerk-review/internal/cli"
+	"github.com/planwerk/planwerk-review/internal/propose"
 	"github.com/planwerk/planwerk-review/internal/report"
 	"github.com/planwerk/planwerk-review/internal/review"
 )
@@ -61,6 +63,30 @@ or short form (owner/repo#123).`,
 	flags.BoolVar(&cfg.ClearCache, "clear-cache", false, "Clear all cached reviews and exit")
 	flags.StringVar(&cfg.Format, "format", "markdown", "Output format (markdown, json)")
 
+	// propose subcommand
+	var proposeCfg cli.ProposeConfig
+
+	proposeCmd := &cobra.Command{
+		Use:   "propose <repo-ref>",
+		Short: "Analyze a codebase and generate feature proposals",
+		Long: `Analyze a GitHub repository in depth and generate concrete, actionable
+feature proposals as structured Markdown suitable for GitHub issues.
+
+Repository reference can be a URL (https://github.com/owner/repo)
+or short form (owner/repo).`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			proposeCfg.RepoRef = args[0]
+			opts := proposeCfg.ToProposeOptions(version)
+			return propose.Run(os.Stdout, opts, claude.Propose)
+		},
+	}
+
+	proposeFlags := proposeCmd.Flags()
+	proposeFlags.BoolVar(&proposeCfg.NoCache, "no-cache", false, "Ignore cache, force a fresh analysis")
+	proposeFlags.StringVar(&proposeCfg.Format, "format", "markdown", "Output format (markdown, json, issues)")
+
+	rootCmd.AddCommand(proposeCmd)
 	rootCmd.Version = version
 
 	if err := rootCmd.Execute(); err != nil {

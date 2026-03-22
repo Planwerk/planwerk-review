@@ -51,6 +51,31 @@ func Put(key string, result *report.ReviewResult) error {
 	return os.WriteFile(filepath.Join(cacheDir, key+".json"), data, 0o600)
 }
 
+// RepoKey generates a cache key for repository analysis.
+// It includes the HEAD SHA so the cache invalidates when the repo changes.
+func RepoKey(owner, repo, headSHA string) string {
+	h := sha256.Sum256([]byte(fmt.Sprintf("propose:%s/%s@%s", owner, repo, headSHA)))
+	return fmt.Sprintf("%x", h[:16])
+}
+
+// GetRaw retrieves raw cached data.
+func GetRaw(key string) ([]byte, bool) {
+	path := filepath.Join(cacheDir, key+".json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false
+	}
+	return data, true
+}
+
+// PutRaw stores raw data in the cache.
+func PutRaw(key string, data []byte) error {
+	if err := os.MkdirAll(cacheDir, 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(cacheDir, key+".json"), data, 0o600)
+}
+
 // Clear removes all cached review results.
 func Clear() error {
 	entries, err := os.ReadDir(cacheDir)

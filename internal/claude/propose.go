@@ -1,0 +1,179 @@
+package claude
+
+import (
+	"encoding/json"
+	"fmt"
+	"os/exec"
+	"strings"
+
+	"github.com/planwerk/planwerk-review/internal/propose"
+)
+
+// Propose invokes Claude to analyze the codebase and generate feature proposals.
+// It runs two Claude calls:
+//  1. Deep analysis of the codebase
+//  2. Structuring the analysis into JSON proposals
+func Propose(dir string) (*propose.ProposalResult, error) {
+	// Step 1: Deep analysis
+	rawAnalysis, err := runAnalysis(dir)
+	if err != nil {
+		return nil, fmt.Errorf("running analysis: %w", err)
+	}
+
+	// Step 2: Structure into JSON proposals
+	result, err := structureProposals(rawAnalysis)
+	if err != nil {
+		return nil, fmt.Errorf("structuring proposals: %w", err)
+	}
+
+	assignProposalIDs(result)
+	return result, nil
+}
+
+func runAnalysis(dir string) (string, error) {
+	prompt := buildAnalysisPrompt()
+
+	cmd := exec.Command("claude", "-p", prompt, "--output-format", "json")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("claude analysis: %w\nstderr: %s", err, exitErr.Stderr)
+		}
+		return "", fmt.Errorf("claude analysis: %w", err)
+	}
+
+	text, err := extractText(out)
+	if err != nil {
+		return "", err
+	}
+
+	return text, nil
+}
+
+func buildAnalysisPrompt() string {
+	return `You are a senior software architect performing a comprehensive codebase analysis. Your goal is to deeply understand this project and generate concrete, actionable feature proposals.
+
+Analyze the entire codebase systematically:
+
+1. **Architecture & Structure**: Understand the overall architecture, module structure, dependencies, and design patterns used.
+2. **Code Quality**: Identify areas where code quality could be improved — missing tests, error handling gaps, inconsistencies.
+3. **Feature Gaps**: Identify missing features that would make the project more complete, useful, or production-ready.
+4. **Developer Experience**: Look for improvements to DX — better CLI output, configuration, documentation, tooling.
+5. **Performance & Scalability**: Identify potential bottlenecks or areas where performance could be improved.
+6. **Security**: Look for security hardening opportunities.
+7. **Testing**: Identify gaps in test coverage and testing strategy.
+8. **CI/CD & Operations**: Look for improvements to build, release, and deployment processes.
+
+For each area, think about:
+- What exists today and what is missing?
+- What would a production-ready version of this project need?
+- What would make the biggest impact for users?
+- What is achievable with reasonable effort?
+
+Be specific and concrete in your analysis. Reference actual files, functions, and code patterns you observe.
+Provide a detailed, structured analysis covering all the areas above.
+
+IMPORTANT: Do NOT just list generic software improvements. Your proposals must be specific to THIS codebase and grounded in what you actually observe in the code.`
+}
+
+func structureProposals(rawAnalysis string) (*propose.ProposalResult, error) {
+	prompt := buildProposalStructurePrompt(rawAnalysis)
+
+	cmd := exec.Command("claude", "-p", prompt, "--output-format", "json")
+	out, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return nil, fmt.Errorf("claude structuring call: %w\nstderr: %s", err, exitErr.Stderr)
+		}
+		return nil, fmt.Errorf("claude structuring call: %w", err)
+	}
+
+	text, err := extractText(out)
+	if err != nil {
+		return nil, err
+	}
+
+	text = stripMarkdownFences(text)
+
+	var result propose.ProposalResult
+	if err := json.Unmarshal([]byte(text), &result); err != nil {
+		return nil, fmt.Errorf("parsing structured proposals as JSON: %w\nraw output:\n%s", err, text)
+	}
+
+	return &result, nil
+}
+
+func buildProposalStructurePrompt(rawAnalysis string) string {
+	return `Convert the following codebase analysis into structured JSON feature proposals. Extract every concrete, actionable proposal mentioned.
+
+Output ONLY valid JSON matching this exact schema (no markdown fences, no surrounding text):
+
+{
+  "repository_overview": "A concise summary of what this repository is, its tech stack, architecture, and current state of maturity (3-5 sentences).",
+  "proposals": [
+    {
+      "id": "",
+      "priority": "HIGH|MEDIUM|LOW",
+      "category": "feature|improvement|refactoring|testing|documentation|security|performance",
+      "title": "Short, descriptive title suitable as GitHub issue title",
+      "description": "Detailed description of what should be implemented or changed. Be specific about the technical approach.",
+      "motivation": "Why this proposal matters. What problem does it solve? What value does it add?",
+      "scope": "Small|Medium|Large",
+      "affected_areas": ["path/to/relevant/file.go", "package/name", "subsystem"],
+      "acceptance_criteria": ["Criterion 1", "Criterion 2"]
+    }
+  ]
+}
+
+Priority levels:
+- HIGH: Critical for production readiness, security, or core functionality — should be addressed soon
+- MEDIUM: Valuable improvements that enhance quality, DX, or capabilities — plan for next iterations
+- LOW: Nice-to-have improvements, minor enhancements — consider when time allows
+
+Categories:
+- feature: New user-facing functionality
+- improvement: Enhancement to existing functionality
+- refactoring: Internal code quality improvement
+- testing: Test coverage or test infrastructure
+- documentation: Documentation improvements
+- security: Security hardening
+- performance: Performance optimization
+
+Scope:
+- Small: < 1 day of work, single file or function changes
+- Medium: 1-3 days of work, multiple files or a new module
+- Large: > 3 days of work, significant new functionality or architectural changes
+
+Leave the "id" field as an empty string — it will be assigned automatically.
+Each proposal should be specific and actionable, referencing actual code areas.
+Generate between 5 and 20 proposals, depending on the size and complexity of the codebase.
+
+<analysis-output>
+` + rawAnalysis + `
+</analysis-output>`
+}
+
+func assignProposalIDs(result *propose.ProposalResult) {
+	counters := map[string]int{
+		"HIGH":   0,
+		"MEDIUM": 0,
+		"LOW":    0,
+	}
+	prefixes := map[string]string{
+		"HIGH":   "H",
+		"MEDIUM": "M",
+		"LOW":    "L",
+	}
+
+	for i := range result.Proposals {
+		prio := strings.ToUpper(result.Proposals[i].Priority)
+		result.Proposals[i].Priority = prio
+		counters[prio]++
+		prefix := prefixes[prio]
+		if prefix == "" {
+			prefix = "X"
+		}
+		result.Proposals[i].ID = fmt.Sprintf("%s-%03d", prefix, counters[prio])
+	}
+}

@@ -1,12 +1,13 @@
 # planwerk-review
 
-AI-powered code review tool for GitHub Pull Requests. Uses Claude CLI (`/review`) to automatically analyze PR changes and produces structured, categorized review results as Markdown output.
+AI-powered code review and codebase analysis tool for GitHub repositories. Uses Claude CLI to automatically analyze PR changes and produce structured review results, or to analyze entire repositories and generate actionable feature proposals.
 
 ## Concept
 
 ### Overview
 
 ```
+Review:
 ┌──────────────┐     ┌──────────────────┐     ┌───────────────┐     ┌──────────────┐
 │  GitHub PR   │────▶│  planwerk-review │────▶│  Claude CLI   │────▶│  Markdown    │
 │  (URL/Ref)   │     │                  │     │  /review      │     │  Report      │
@@ -17,9 +18,21 @@ AI-powered code review tool for GitHub Pull Requests. Uses Claude CLI (`/review`
                      │ Review Patterns  │                          │  stdout      │
                      │ (local + repo)   │                          │  (Copy/Paste)│
                      └──────────────────┘                          └──────────────┘
+
+Propose:
+┌──────────────┐     ┌──────────────────┐     ┌───────────────┐     ┌──────────────┐
+│  GitHub Repo │────▶│  planwerk-review │────▶│  Claude CLI   │────▶│  Proposals   │
+│  (URL/Ref)   │     │  propose         │     │  (analysis)   │     │  (MD/JSON)   │
+└──────────────┘     └──────────────────┘     └───────────────┘     └──────────────┘
+                            │                        │
+                            ▼                        ▼
+                     ┌──────────────────┐     ┌───────────────┐
+                     │ Cache (SHA-based)│     │  Structure    │
+                     │                  │     │  into JSON    │
+                     └──────────────────┘     └───────────────┘
 ```
 
-### Workflow
+### Review Workflow
 
 1. **PR Input**: The tool receives a GitHub PR as input (URL or `owner/repo#number`).
 2. **Checkout**: The PR is checked out locally (diff between base and head).
@@ -30,7 +43,18 @@ AI-powered code review tool for GitHub Pull Requests. Uses Claude CLI (`/review`
 5. **Result Aggregation**: Review results are collected, deduplicated, and categorized by severity.
 6. **Markdown Output**: A structured report is written to `stdout`.
 
+### Propose Workflow
+
+1. **Repo Input**: The tool receives a GitHub repository reference (URL or `owner/repo`).
+2. **Clone**: The repository is cloned locally with a partial clone filter.
+3. **Cache Check**: The default branch HEAD SHA is fetched via `git ls-remote`. If a cached result exists for this SHA, it is reused.
+4. **Claude Analysis**: Claude performs a deep codebase analysis covering architecture, code quality, feature gaps, DX, performance, security, testing, and CI/CD.
+5. **Structuring**: A second Claude call converts the raw analysis into structured JSON proposals with priority, category, scope, and acceptance criteria.
+6. **Output**: Proposals are rendered as Markdown (default), JSON, or GitHub issue templates.
+
 ### CLI Interface
+
+#### Review (default command)
 
 ```bash
 # Simple invocation with PR URL
@@ -49,7 +73,7 @@ planwerk-review --min-severity warning owner/repo#123
 planwerk-review owner/repo#123 > review.md
 ```
 
-#### Flags
+##### Flags
 
 | Flag | Description | Default |
 |------|-------------|---------|
@@ -57,7 +81,38 @@ planwerk-review owner/repo#123 > review.md
 | `--min-severity` | Minimum severity level for output (`info`, `warning`, `critical`, `blocking`) | `info` |
 | `--no-repo-patterns` | Ignore repo-specific patterns | `false` |
 | `--no-local-patterns` | Ignore local patterns from the tool | `false` |
+| `--no-cache` | Ignore cache, force a fresh review | `false` |
+| `--clear-cache` | Clear all cached reviews and exit | `false` |
 | `--format` | Output format (`markdown`, `json`) | `markdown` |
+
+#### Propose (subcommand)
+
+```bash
+# Analyze a repository and generate feature proposals
+planwerk-review propose https://github.com/owner/repo
+
+# Short form
+planwerk-review propose owner/repo
+
+# Output as JSON
+planwerk-review propose --format json owner/repo
+
+# Output as GitHub issue templates
+planwerk-review propose --format issues owner/repo
+
+# Force fresh analysis (ignore cache)
+planwerk-review propose --no-cache owner/repo
+
+# Write proposals to file
+planwerk-review propose owner/repo > proposals.md
+```
+
+##### Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--no-cache` | Ignore cache, force a fresh analysis | `false` |
+| `--format` | Output format (`markdown`, `json`, `issues`) | `markdown` |
 
 ### Output Format
 
@@ -211,23 +266,36 @@ planwerk-review/
 │       └── release.yml         # GoReleaser on tag push
 ├── cmd/
 │   └── planwerk-review/
-│       └── main.go             # CLI entrypoint (cobra)
+│       └── main.go             # CLI entrypoint (cobra): review + propose
 ├── internal/
+│   ├── cache/
+│   │   ├── cache.go            # SHA-based caching (review + propose)
+│   │   └── cache_test.go
 │   ├── cli/
 │   │   └── cli.go              # Flag parsing, configuration
 │   ├── github/
-│   │   └── pr.go               # Fetch PR data (gh CLI or API)
+│   │   ├── pr.go               # Fetch PR data (gh CLI)
+│   │   ├── pr_test.go
+│   │   ├── repo.go             # Clone repo, fetch HEAD SHA
+│   │   └── repo_test.go
 │   ├── review/
-│   │   ├── reviewer.go         # Orchestration: PR → Claude → Report
-│   │   └── reviewer_test.go
+│   │   └── reviewer.go         # Orchestration: PR → Claude → Report
 │   ├── claude/
-│   │   ├── claude.go           # Invoke Claude CLI (/review)
-│   │   └── claude_test.go
+│   │   ├── claude.go           # Invoke Claude CLI for PR review
+│   │   ├── claude_test.go
+│   │   ├── propose.go          # Invoke Claude CLI for codebase analysis
+│   │   └── propose_test.go
 │   ├── patterns/
 │   │   ├── loader.go           # Load patterns from directories
 │   │   ├── loader_test.go
 │   │   ├── pattern.go          # Pattern data structure + parsing
 │   │   └── pattern_test.go
+│   ├── propose/
+│   │   ├── proposal.go         # Proposal data structure + categorization
+│   │   ├── proposal_test.go
+│   │   ├── proposer.go         # Orchestration: Repo → Claude → Proposals
+│   │   ├── proposer_test.go
+│   │   └── renderer.go         # Markdown/JSON/Issues output
 │   └── report/
 │       ├── finding.go          # Finding data structure
 │       ├── renderer.go         # Markdown/JSON output
@@ -269,14 +337,16 @@ planwerk-review/
 ### Dependencies
 
 - **Go 1.25.x** (as specified — Go 1.25 is not yet released, 1.24 as fallback if needed)
-- **Claude CLI**: Must be installed and authenticated on the system
-- **gh CLI** (optional): For fetching PR data, alternatively GitHub API directly
+- **Claude CLI**: Must be installed and authenticated on the system (`claude` in PATH)
+- **gh CLI**: Required for fetching PR metadata and checkout (`gh` in PATH)
+- **git**: Required for cloning repositories
 
 ### Prerequisites
 
 1. Go 1.25+ installed (or use release binary)
 2. Claude CLI installed and authenticated (`claude` in PATH)
-3. Access to the target repository (for checkout)
+3. `gh` CLI installed and authenticated (`gh auth login`)
+4. Access to the target repository (for checkout/clone)
 
 ### Design Decisions
 
@@ -286,7 +356,10 @@ planwerk-review/
 | 2 | **Pattern delivery** | Inline in the prompt before `/review` | Patterns are prepended to the `/review` command so Claude considers them during its built-in review |
 | 3 | **Result parsing** | Second Claude call for structuring | `/review` returns unstructured text; a second `claude -p` call converts it to JSON matching the `ReviewResult` schema |
 | 4 | **Authentication** | `gh auth` | Simplest setup; leverages existing developer workflow |
-| 5 | **Caching** | Yes, based on PR HEAD SHA | Avoids repeated reviews of unchanged PR state |
+| 5 | **Review caching** | Based on PR HEAD SHA | Avoids repeated reviews of unchanged PR state |
+| 6 | **Propose: two-step Claude** | Analysis → Structure | First call explores codebase freely; second call converts to strict JSON schema |
+| 7 | **Propose: cache invalidation** | Based on default branch HEAD SHA | Cache key includes `git ls-remote` HEAD, so proposals refresh when the repo changes |
+| 8 | **Propose: output formats** | Markdown, JSON, Issues | Markdown for reading, JSON for automation, Issues for direct GitHub issue creation |
 
 ### Future Extensions
 
@@ -296,3 +369,5 @@ planwerk-review/
 - **Multi-reviewer**: Integrate other review tools alongside Claude
 - **Dashboard**: Overview of review statistics per repository
 - **GitHub Action**: Publish as a GitHub Action for automated PR reviews
+- **Propose: auto-create issues**: Directly create GitHub issues from proposals via `gh issue create`
+- **Propose: incremental analysis**: Track which proposals have been addressed across runs
