@@ -17,6 +17,8 @@ type Config struct {
 	ClearCache      bool
 	Format          string
 	PostReview      bool
+	Thorough        bool
+	CoverageMap     bool
 }
 
 func (c Config) ToReviewOptions(version string) review.Options {
@@ -30,6 +32,8 @@ func (c Config) ToReviewOptions(version string) review.Options {
 		Format:          c.Format,
 		Version:         version,
 		PostReview:      c.PostReview,
+		Thorough:        c.Thorough,
+		CoverageMap:     c.CoverageMap,
 	}
 }
 

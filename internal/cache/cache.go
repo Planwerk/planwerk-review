@@ -19,9 +19,13 @@ func defaultCacheDir() string {
 	return filepath.Join(os.TempDir(), "planwerk-review-cache")
 }
 
-// Key generates a cache key from the PR head SHA.
-func Key(owner, repo string, number int, headSHA string) string {
-	h := sha256.Sum256([]byte(fmt.Sprintf("%s/%s#%d@%s", owner, repo, number, headSHA)))
+// Key generates a cache key from the PR head SHA and review flags.
+func Key(owner, repo string, number int, headSHA string, flags ...string) string {
+	input := fmt.Sprintf("%s/%s#%d@%s", owner, repo, number, headSHA)
+	for _, f := range flags {
+		input += "+" + f
+	}
+	h := sha256.Sum256([]byte(input))
 	return fmt.Sprintf("%x", h[:16])
 }
 

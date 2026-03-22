@@ -43,10 +43,27 @@ func (s Severity) MeetsMinimum(min Severity) bool {
 type Actionability string
 
 const (
-	ActionabilityAutoFix          Actionability = "auto-fix"
-	ActionabilityNeedsDiscussion  Actionability = "needs-discussion"
-	ActionabilityArchitectural    Actionability = "architectural"
+	ActionabilityAutoFix         Actionability = "auto-fix"
+	ActionabilityNeedsDiscussion Actionability = "needs-discussion"
+	ActionabilityArchitectural   Actionability = "architectural"
 )
+
+// FixClass indicates whether a finding can be auto-fixed or requires user input.
+type FixClass string
+
+const (
+	FixClassAutoFix FixClass = "AUTO-FIX"
+	FixClassAsk     FixClass = "ASK"
+)
+
+// DeriveFixClass maps an Actionability value to a FixClass.
+// auto-fix → AUTO-FIX, everything else → ASK.
+func DeriveFixClass(a Actionability) FixClass {
+	if a == ActionabilityAutoFix {
+		return FixClassAutoFix
+	}
+	return FixClassAsk
+}
 
 var validActionability = map[string]Actionability{
 	"auto-fix":         ActionabilityAutoFix,
@@ -75,12 +92,13 @@ type Finding struct {
 	Line          int           `json:"line,omitempty"`
 	Pattern       string        `json:"pattern,omitempty"`
 	Actionability Actionability `json:"actionability,omitempty"`
+	FixClass      FixClass      `json:"fix_class,omitempty"`
 	Problem       string        `json:"problem"`
 	Action        string        `json:"action"`
 }
 
 type ReviewResult struct {
-	Findings      []Finding `json:"findings"`
-	Summary       string    `json:"summary"`
-	Recommendation string   `json:"recommendation"`
+	Findings       []Finding `json:"findings"`
+	Summary        string    `json:"summary"`
+	Recommendation string    `json:"recommendation"`
 }

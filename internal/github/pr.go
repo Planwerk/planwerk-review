@@ -11,13 +11,14 @@ import (
 )
 
 type PR struct {
-	Owner   string
-	Repo    string
-	Number  int
-	Title   string
-	Body    string
-	HeadSHA string
-	Dir     string // local checkout directory (temp dir, caller must clean up)
+	Owner      string
+	Repo       string
+	Number     int
+	Title      string
+	Body       string
+	HeadSHA    string
+	BaseBranch string // base branch name (e.g. "main")
+	Dir        string // local checkout directory (temp dir, caller must clean up)
 }
 
 // FetchAndCheckout retrieves PR metadata and checks out the PR locally into a temp directory.
@@ -43,6 +44,7 @@ func FetchAndCheckout(ref string) (*PR, error) {
 	pr.Title = meta.Title
 	pr.Body = meta.Body
 	pr.HeadSHA = meta.HeadRefOid
+	pr.BaseBranch = meta.BaseRefName
 
 	// Clone and checkout PR into temp directory
 	dir, err := checkoutPR(fullName, number)

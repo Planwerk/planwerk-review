@@ -6,17 +6,29 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/planwerk/planwerk-review/internal/doccheck"
 	"github.com/planwerk/planwerk-review/internal/patterns"
 	"github.com/planwerk/planwerk-review/internal/report"
 )
+
+// ReviewContext holds all context needed to build the review prompt.
+type ReviewContext struct {
+	Patterns    []patterns.Pattern
+	PRTitle     string
+	PRBody      string
+	Checklist   string                // external checklist content (empty = use built-in)
+	CommitLog   string                // git log output for scope drift detection
+	StaleDocs   []doccheck.StaleDocHint // documentation files that may need updating
+	TodoContent string                // content of TODOS.md if present
+}
 
 // Review invokes `claude /review` in the given directory and returns structured findings.
 // It runs two Claude calls:
 //  1. `claude /review` to get the unstructured review output
 //  2. `claude -p` to structure the output into JSON
-func Review(dir string, pats []patterns.Pattern, prTitle, prBody string) (*report.ReviewResult, error) {
+func Review(dir string, ctx ReviewContext) (*report.ReviewResult, error) {
 	// Step 1: Run /review
-	rawReview, err := runReview(dir, pats, prTitle, prBody)
+	rawReview, err := runReview(dir, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("running /review: %w", err)
 	}
@@ -32,8 +44,8 @@ func Review(dir string, pats []patterns.Pattern, prTitle, prBody string) (*repor
 }
 
 // runReview invokes `claude -p` with a prompt that includes patterns and the /review command.
-func runReview(dir string, pats []patterns.Pattern, prTitle, prBody string) (string, error) {
-	prompt := buildReviewPrompt(pats, prTitle, prBody)
+func runReview(dir string, ctx ReviewContext) (string, error) {
+	prompt := buildReviewPrompt(ctx)
 
 	cmd := exec.Command("claude", "-p", prompt, "--output-format", "json")
 	cmd.Dir = dir
@@ -54,7 +66,7 @@ func runReview(dir string, pats []patterns.Pattern, prTitle, prBody string) (str
 }
 
 // buildReviewPrompt constructs a prompt that includes patterns and triggers /review.
-func buildReviewPrompt(pats []patterns.Pattern, prTitle, prBody string) string {
+func buildReviewPrompt(ctx ReviewContext) string {
 	var sb strings.Builder
 
 	// Staff Engineer persona
@@ -67,50 +79,65 @@ func buildReviewPrompt(pats []patterns.Pattern, prTitle, prBody string) string {
 `)
 
 	// Review patterns
-	if len(pats) > 0 {
+	if len(ctx.Patterns) > 0 {
 		sb.WriteString("Before running the review, consider these additional review patterns. Flag violations of these patterns in your review:\n\n")
 		sb.WriteString("<review-patterns>\n")
-		sb.WriteString(patterns.FormatAllForPrompt(pats))
+		sb.WriteString(patterns.FormatAllForPrompt(ctx.Patterns))
 		sb.WriteString("</review-patterns>\n\n")
 	}
 
 	// Scope Drift Detection
-	if prTitle != "" || prBody != "" {
+	if ctx.PRTitle != "" || ctx.PRBody != "" || ctx.CommitLog != "" {
 		sb.WriteString("## Scope Analysis (run FIRST, before code quality review)\n\n")
-		if prTitle != "" {
-			fmt.Fprintf(&sb, "PR Title: %s\n", prTitle)
+		if ctx.PRTitle != "" {
+			fmt.Fprintf(&sb, "PR Title: %s\n", ctx.PRTitle)
 		}
-		if prBody != "" {
+		if ctx.PRBody != "" {
 			sb.WriteString("<pr-body>\n")
-			sb.WriteString(prBody)
+			sb.WriteString(ctx.PRBody)
 			sb.WriteString("\n</pr-body>\n")
+		}
+		if ctx.CommitLog != "" {
+			sb.WriteString("<commit-log>\n")
+			sb.WriteString(ctx.CommitLog)
+			sb.WriteString("\n</commit-log>\n")
 		}
 		sb.WriteString(`
 Before reviewing code quality, check:
-1. SCOPE CREEP: Are there files changed that seem unrelated to the PR title/description? Flag each as WARNING with title "Scope Creep: <file or area>"
+1. SCOPE CREEP: Are there files changed that seem unrelated to the PR title/description? Also cross-reference with commit messages — do any commits address unrelated concerns? Flag each as WARNING with title "Scope Creep: <file or area>"
 2. MISSING REQUIREMENTS: Are there requirements mentioned in the PR description that are NOT addressed in the diff? Flag each as WARNING with title "Missing Requirement: <requirement>"
+3. COMMIT COHERENCE: Do the commit messages tell a coherent story? Are there commits that seem to belong to a different PR? Flag as INFO with title "Commit Coherence: <observation>"
 
 `)
 	}
 
-	// Two-pass review checklist
-	sb.WriteString(`## Review Checklist (work through systematically)
+	// Review checklist (always provided — checklist.Load() returns embedded default as fallback)
+	if ctx.Checklist != "" {
+		sb.WriteString(ctx.Checklist)
+		sb.WriteString("\n\n")
+	}
 
-### Pass 1 — CRITICAL (always check these)
-- [ ] SQL & Data Safety: raw queries, missing parameterization, unsafe migrations
-- [ ] Race Conditions: shared mutable state, missing locks, concurrent map access
-- [ ] Error Handling: swallowed errors, missing nil checks, panic-worthy paths
-- [ ] Security: hardcoded secrets, injection vectors, auth/authz gaps
-- [ ] Input Validation: unvalidated user input at system boundaries
+	// TODO cross-reference
+	if ctx.TodoContent != "" {
+		sb.WriteString("## TODO Cross-Reference\n\n")
+		sb.WriteString("The project has a TODOS.md file. Review the PR against these open items:\n\n")
+		sb.WriteString("<todos-content>\n")
+		sb.WriteString(ctx.TodoContent)
+		sb.WriteString("\n</todos-content>\n\n")
+		sb.WriteString("Check:\n")
+		sb.WriteString("1. Does this PR complete any TODO items? If so, flag as INFO with title \"TODO Completed: <item>\"\n")
+		sb.WriteString("2. Does this PR introduce work that should be tracked as a TODO? If so, flag as INFO with title \"New TODO Needed: <description>\"\n\n")
+	}
 
-### Pass 2 — INFORMATIONAL (check if time permits)
-- [ ] Magic Numbers: unexplained constants, config that should be externalized
-- [ ] Dead Code: unused functions, unreachable branches, commented-out code
-- [ ] Test Gaps: untested error paths, missing edge cases
-- [ ] Performance: N+1 queries, unbounded allocations, missing pagination
-- [ ] API Contract: breaking changes to public interfaces without versioning
-
-`)
+	// Documentation staleness hints
+	if len(ctx.StaleDocs) > 0 {
+		sb.WriteString("## Documentation Staleness Hints\n\n")
+		sb.WriteString("The following documentation files may need updating based on code changes in this PR:\n\n")
+		for _, doc := range ctx.StaleDocs {
+			fmt.Fprintf(&sb, "- %s references code in %s which was modified\n", doc.DocFile, strings.Join(doc.RelatedDirs, ", "))
+		}
+		sb.WriteString("\nConsider flagging as INFO with title \"Stale Documentation: <file>\" if the docs are actually outdated.\n\n")
+	}
 
 	// False-positive suppressions
 	sb.WriteString(`## Suppressions — DO NOT flag these
@@ -121,6 +148,27 @@ Before reviewing code quality, check:
 - Variable naming that follows the project's existing conventions, even if you'd prefer different names
 - Missing documentation on unexported/private functions
 - Minor style preferences that don't affect correctness or readability
+- "X is redundant with Y" when the redundancy is harmless and aids readability (defense in depth)
+- Threshold or constant comments that would rot faster than the code they describe
+- Assertions that already cover the behavior being tested (e.g. "this assertion could be tighter")
+- Consistency-only suggestions ("use X style everywhere") with no correctness impact
+- Issues that are already addressed elsewhere in the same diff — read the FULL diff before commenting
+- Suggestions to "add logging" when the error path already returns a descriptive error
+- "Consider using X library" when the current approach works correctly
+
+`)
+
+	// Verification of claims — anti-hallucination rules
+	sb.WriteString(`## Verification of Claims
+
+These rules are MANDATORY. Violating them produces a misleading review.
+
+- NEVER say "this is probably tested" — name the specific test file and test function, or flag as "test coverage unknown"
+- NEVER say "this is handled elsewhere" — cite the exact file and line that handles it, or say "not verified"
+- NEVER say "the caller validates this" — name the caller and the validation, or say "unverified assumption"
+- NEVER assume error handling exists unless you can see it in the diff or trace it in the codebase
+- If you are uncertain whether something is a real issue, say "UNVERIFIED: [claim]" rather than presenting it as fact
+- When referencing code outside the diff, always prefix with the file path (e.g. "In cmd/main.go:42, ...")
 
 `)
 
@@ -199,10 +247,10 @@ Severity levels:
 - WARNING: Code quality issues, potential problems — should be fixed
 - INFO: Style suggestions, minor improvements — optional
 
-Actionability classification:
-- auto-fix: A senior engineer would apply this fix without discussion (dead code, magic numbers, missing error wrapping, stale comments)
-- needs-discussion: Requires team input before fixing (security decisions, API changes, race condition fixes that change behavior)
-- architectural: Fundamental design issue that needs a broader conversation (wrong abstraction, missing layer, significant refactor needed)
+Actionability classification (determines fix approach):
+- auto-fix: A senior engineer would apply this fix without discussion (dead code removal, N+1 query fixes, stale comment cleanup, magic number extraction, missing error wrapping, simple nil checks). These will be marked as AUTO-FIX — an agent should apply them directly.
+- needs-discussion: Requires team input before fixing (security fixes, race condition resolutions, API/design changes, anything changing observable behavior). These will be marked as ASK — requires human confirmation.
+- architectural: Fundamental design issue that needs a broader conversation (wrong abstraction, missing layer, significant refactor needed). These will be marked as ASK.
 
 Leave the "id" field as an empty string — it will be assigned automatically.
 If there are no findings, return an empty findings array.
@@ -259,6 +307,7 @@ func assignIDs(result *report.ReviewResult) {
 		sev := strings.ToUpper(result.Findings[i].Severity)
 		result.Findings[i].Severity = sev
 		result.Findings[i].Actionability = report.NormalizeActionability(string(result.Findings[i].Actionability))
+		result.Findings[i].FixClass = report.DeriveFixClass(result.Findings[i].Actionability)
 		counters[sev]++
 		prefix := prefixes[sev]
 		if prefix == "" {

@@ -34,7 +34,7 @@ func TestRenderResult_PostReview(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	err := renderResult(&out, result, pr, opts)
+	err := renderResult(&out, result, pr, opts, nil)
 	if err != nil {
 		t.Fatalf("renderResult returned error: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestRenderResult_NoPost(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	err := renderResult(&out, result, pr, opts)
+	err := renderResult(&out, result, pr, opts, nil)
 	if err != nil {
 		t.Fatalf("renderResult returned error: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestRenderResult_PostReviewError(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	err := renderResult(&out, result, pr, opts)
+	err := renderResult(&out, result, pr, opts, nil)
 	if err == nil {
 		t.Fatal("expected error when PostPRComment fails")
 	}

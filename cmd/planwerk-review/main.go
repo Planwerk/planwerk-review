@@ -67,6 +67,8 @@ or short form (owner/repo#123).`,
 	flags.BoolVar(&cfg.ClearCache, "clear-cache", false, "Clear all cached reviews and exit")
 	flags.StringVar(&cfg.Format, "format", "markdown", "Output format (markdown, json)")
 	flags.BoolVar(&cfg.PostReview, "post-review", false, "Post the review as a comment on the PR")
+	flags.BoolVar(&cfg.Thorough, "thorough", false, "Run additional adversarial review pass")
+	flags.BoolVar(&cfg.CoverageMap, "coverage-map", false, "Generate test coverage map for changed functions")
 
 	// propose subcommand
 	var proposeCfg cli.ProposeConfig

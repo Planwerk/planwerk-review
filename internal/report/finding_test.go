@@ -39,6 +39,28 @@ func TestParseSeverity(t *testing.T) {
 	}
 }
 
+func TestDeriveFixClass(t *testing.T) {
+	tests := []struct {
+		input Actionability
+		want  FixClass
+	}{
+		{ActionabilityAutoFix, FixClassAutoFix},
+		{ActionabilityNeedsDiscussion, FixClassAsk},
+		{ActionabilityArchitectural, FixClassAsk},
+		{"", FixClassAsk},
+		{"unknown", FixClassAsk},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.input), func(t *testing.T) {
+			got := DeriveFixClass(tt.input)
+			if got != tt.want {
+				t.Errorf("DeriveFixClass(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestMeetsMinimum(t *testing.T) {
 	tests := []struct {
 		sev  Severity
