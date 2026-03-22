@@ -16,6 +16,7 @@ type Config struct {
 	NoCache         bool
 	ClearCache      bool
 	Format          string
+	PostReview      bool
 }
 
 func (c Config) ToReviewOptions(version string) review.Options {
@@ -28,6 +29,7 @@ func (c Config) ToReviewOptions(version string) review.Options {
 		MinSeverity:     c.MinSeverity,
 		Format:          c.Format,
 		Version:         version,
+		PostReview:      c.PostReview,
 	}
 }
 

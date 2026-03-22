@@ -1,6 +1,7 @@
 package review
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +14,10 @@ import (
 	"github.com/planwerk/planwerk-review/internal/report"
 )
 
+// postCommentFunc is the function used to post PR comments.
+// It is a variable so tests can replace it.
+var postCommentFunc = github.PostPRComment
+
 type Options struct {
 	PRRef           string
 	PatternDirs     []string
@@ -22,6 +27,7 @@ type Options struct {
 	MinSeverity     report.Severity
 	Format          string
 	Version         string
+	PostReview      bool
 }
 
 // Run executes the full review pipeline:
@@ -103,7 +109,6 @@ func Run(w io.Writer, opts Options) error {
 }
 
 func renderResult(w io.Writer, result *report.ReviewResult, pr *github.PR, opts Options) error {
-	renderer := report.NewRenderer(w)
 	prInfo := report.PRInfo{
 		Owner:  pr.Owner,
 		Repo:   pr.Repo,
@@ -111,11 +116,32 @@ func renderResult(w io.Writer, result *report.ReviewResult, pr *github.PR, opts 
 		Title:  pr.Title,
 	}
 
+	// If posting review, capture output in a buffer as well
+	var buf bytes.Buffer
+	output := io.Writer(w)
+	if opts.PostReview {
+		output = io.MultiWriter(w, &buf)
+	}
+
+	renderer := report.NewRenderer(output)
+
 	switch opts.Format {
 	case "json":
-		return renderer.RenderJSON(*result, opts.MinSeverity)
+		if err := renderer.RenderJSON(*result, opts.MinSeverity); err != nil {
+			return err
+		}
 	default:
 		renderer.RenderMarkdown(*result, prInfo, opts.MinSeverity, opts.Version)
-		return nil
 	}
+
+	if opts.PostReview {
+		fmt.Fprintln(os.Stderr, "Posting review as PR comment (will update existing if found)...")
+		result, err := postCommentFunc(pr.Owner, pr.Repo, pr.Number, buf.String())
+		if err != nil {
+			return fmt.Errorf("posting PR comment: %w", err)
+		}
+		fmt.Fprintf(os.Stderr, "Review posted: %s\n", result)
+	}
+
+	return nil
 }

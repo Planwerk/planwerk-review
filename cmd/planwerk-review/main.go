@@ -49,6 +49,10 @@ or short form (owner/repo#123).`,
 				cfg.MinSeverity = report.SeverityInfo
 			}
 
+			if cfg.PostReview && cfg.Format == "json" {
+				return fmt.Errorf("--post-review cannot be used with --format json")
+			}
+
 			opts := cfg.ToReviewOptions(version)
 			return review.Run(os.Stdout, opts)
 		},
@@ -62,6 +66,7 @@ or short form (owner/repo#123).`,
 	flags.BoolVar(&cfg.NoCache, "no-cache", false, "Ignore cache, force a fresh review")
 	flags.BoolVar(&cfg.ClearCache, "clear-cache", false, "Clear all cached reviews and exit")
 	flags.StringVar(&cfg.Format, "format", "markdown", "Output format (markdown, json)")
+	flags.BoolVar(&cfg.PostReview, "post-review", false, "Post the review as a comment on the PR")
 
 	// propose subcommand
 	var proposeCfg cli.ProposeConfig
