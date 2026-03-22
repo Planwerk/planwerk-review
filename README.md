@@ -136,6 +136,9 @@ planwerk-review owner/repo#123 > review.md
 | `--no-cache` | Ignore cache, force a fresh review | `false` |
 | `--clear-cache` | Clear all cached reviews and exit | `false` |
 | `--format` | Output format (`markdown`, `json`) | `markdown` |
+| `--post-review` | Post review as a comment on the PR (updates existing if found) | `false` |
+| `--thorough` | Run additional adversarial review pass for security and failure modes | `false` |
+| `--coverage-map` | Generate test coverage map for changed functions | `false` |
 
 #### Propose (subcommand)
 
@@ -338,21 +341,30 @@ planwerk-review/
 │   ├── cache/
 │   │   ├── cache.go            # SHA-based caching (review + propose)
 │   │   └── cache_test.go
+│   ├── checklist/
+│   │   ├── checklist.go        # Load review checklist (embedded default + override)
+│   │   ├── checklist.md        # Default review checklist (embedded)
+│   │   └── checklist_test.go
 │   ├── cli/
 │   │   └── cli.go              # Flag parsing, configuration
+│   ├── claude/
+│   │   ├── claude.go           # Claude CLI invocation + review structuring
+│   │   ├── claude_test.go
+│   │   ├── adversarial.go      # Adversarial review pass (--thorough)
+│   │   ├── coverage.go         # Test coverage map generation (--coverage-map)
+│   │   ├── propose.go          # Codebase analysis for proposals
+│   │   └── propose_test.go
+│   ├── doccheck/
+│   │   ├── doccheck.go         # Detect stale documentation files
+│   │   └── doccheck_test.go
 │   ├── github/
-│   │   ├── issues.go           # Create GitHub issues (gh CLI)
-│   │   ├── pr.go               # Fetch PR data (gh CLI)
+│   │   ├── comments.go         # Post/update PR comments (gh CLI)
+│   │   ├── comments_test.go
+│   │   ├── issues.go           # Create/search GitHub issues (gh CLI)
+│   │   ├── pr.go               # Fetch PR data, checkout (gh CLI)
 │   │   ├── pr_test.go
 │   │   ├── repo.go             # Clone repo, fetch HEAD SHA
 │   │   └── repo_test.go
-│   ├── review/
-│   │   └── reviewer.go         # Orchestration: PR → Claude → Report
-│   ├── claude/
-│   │   ├── claude.go           # Invoke Claude CLI for PR review
-│   │   ├── claude_test.go
-│   │   ├── propose.go          # Invoke Claude CLI for codebase analysis
-│   │   └── propose_test.go
 │   ├── patterns/
 │   │   ├── loader.go           # Load patterns from directories
 │   │   ├── pattern.go          # Pattern data structure + parsing
@@ -364,13 +376,23 @@ planwerk-review/
 │   │   ├── proposer.go         # Orchestration: Repo → Claude → Proposals
 │   │   ├── proposer_test.go
 │   │   └── renderer.go         # Markdown/JSON/Issues output
-│   └── report/
-│       ├── categorizer.go      # Severity categorization
-│       ├── categorizer_test.go
-│       ├── finding.go          # Finding data structure
-│       ├── finding_test.go
-│       ├── renderer.go         # Markdown/JSON output
-│       └── renderer_test.go
+│   ├── report/
+│   │   ├── categorizer.go      # Severity categorization
+│   │   ├── categorizer_test.go
+│   │   ├── coverage.go         # Coverage result data structure + rendering
+│   │   ├── coverage_test.go
+│   │   ├── finding.go          # Finding data structure (Severity, Actionability)
+│   │   ├── finding_test.go
+│   │   ├── renderer.go         # Markdown/JSON output
+│   │   └── renderer_test.go
+│   ├── review/
+│   │   ├── reviewer.go         # Orchestration: PR → Claude → Report
+│   │   ├── reviewer_test.go
+│   │   ├── merge.go            # Merge results from multiple review passes
+│   │   └── merge_test.go
+│   └── todocheck/
+│       ├── todocheck.go        # Load TODOS.md for cross-reference
+│       └── todocheck_test.go
 ├── patterns/                   # General review patterns (.gitkeep)
 ├── Makefile
 ├── go.mod
@@ -432,10 +454,13 @@ planwerk-review/
 | 9 | **Review prompt structure** | Multi-section structured prompt | Persona framing, scope analysis, two-pass checklist, suppressions, and anti-sycophancy rules produce higher-quality, more consistent reviews (inspired by [gstack](https://github.com/garrytan/gstack)) |
 | 10 | **Actionability classification** | auto-fix / needs-discussion / architectural | Helps teams prioritize which findings to address immediately vs. discuss first |
 | 11 | **Scope drift detection** | PR title + body analyzed before code review | Catches scope creep and missing requirements — often the most valuable review feedback |
+| 12 | **PR comment posting** | `--post-review` updates existing comment | Idempotent: detects and replaces prior planwerk-review comment via HTML signature. Truncates to GitHub's 65 536-char limit. |
+| 13 | **Adversarial review** | `--thorough` runs a second pass | Independent security-focused review merged with primary results, deduplicating by file+line+title |
+| 14 | **Coverage map** | `--coverage-map` maps changed functions to tests | Produces a table rating each changed function's test coverage (★★★/★★/★/GAP) |
+| 15 | **External command timeouts** | All `claude`, `gh`, `git` calls have timeouts | Claude: 15 min, git clone: 5 min, gh: 2 min — prevents indefinite blocking |
 
 ### Future Extensions
 
-- **Direct PR review posting**: Post results directly as a GitHub PR review comment (not just stdout)
 - **Pattern suggestions**: Automatically generate new pattern suggestions after a review
 - **Diff-based re-review**: Only check new changes since the last review
 - **Multi-reviewer**: Integrate other review tools alongside Claude

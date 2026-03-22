@@ -1,6 +1,7 @@
 package github
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,6 +9,16 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
+)
+
+const (
+	// ghTimeout is the maximum time allowed for a gh CLI invocation.
+	ghTimeout = 2 * time.Minute
+	// gitCloneTimeout is the maximum time allowed for a git clone operation.
+	gitCloneTimeout = 5 * time.Minute
+	// gitRemoteTimeout is the maximum time allowed for git remote operations (e.g. ls-remote).
+	gitRemoteTimeout = 2 * time.Minute
 )
 
 type PR struct {
@@ -71,7 +82,9 @@ type prMeta struct {
 }
 
 func ghJSON(repo string, number int) (prMeta, error) {
-	cmd := exec.Command("gh", "pr", "view", strconv.Itoa(number),
+	ctx, cancel := context.WithTimeout(context.Background(), ghTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "gh", "pr", "view", strconv.Itoa(number),
 		"--repo", repo,
 		"--json", "title,body,headRefOid,baseRefName")
 	out, err := cmd.Output()
@@ -93,7 +106,9 @@ func checkoutPR(repo string, number int) (string, error) {
 
 	// Clone the repo
 	cloneURL := fmt.Sprintf("https://github.com/%s.git", repo)
-	clone := exec.Command("git", "clone", "--filter=blob:none", cloneURL, dir)
+	cloneCtx, cloneCancel := context.WithTimeout(context.Background(), gitCloneTimeout)
+	defer cloneCancel()
+	clone := exec.CommandContext(cloneCtx, "git", "clone", "--filter=blob:none", cloneURL, dir)
 	clone.Stderr = os.Stderr
 	if err := clone.Run(); err != nil {
 		_ = os.RemoveAll(dir)
@@ -101,7 +116,9 @@ func checkoutPR(repo string, number int) (string, error) {
 	}
 
 	// Checkout the PR using gh
-	checkout := exec.Command("gh", "pr", "checkout", strconv.Itoa(number), "--repo", repo)
+	checkoutCtx, checkoutCancel := context.WithTimeout(context.Background(), ghTimeout)
+	defer checkoutCancel()
+	checkout := exec.CommandContext(checkoutCtx, "gh", "pr", "checkout", strconv.Itoa(number), "--repo", repo)
 	checkout.Dir = dir
 	checkout.Stderr = os.Stderr
 	if err := checkout.Run(); err != nil {

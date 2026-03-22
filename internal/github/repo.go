@@ -1,6 +1,7 @@
 package github
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -50,7 +51,9 @@ func (r *Repo) FullName() string {
 // This is used for cache invalidation so proposals are refreshed when the repo changes.
 func DefaultBranchHEAD(owner, repo string) (string, error) {
 	url := fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
-	cmd := exec.Command("git", "ls-remote", url, "HEAD")
+	ctx, cancel := context.WithTimeout(context.Background(), gitRemoteTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "ls-remote", url, "HEAD")
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("git ls-remote: %w", err)
@@ -69,7 +72,9 @@ func cloneRepo(owner, name string) (string, error) {
 	}
 
 	cloneURL := fmt.Sprintf("https://github.com/%s/%s.git", owner, name)
-	clone := exec.Command("git", "clone", "--filter=blob:none", cloneURL, dir)
+	ctx, cancel := context.WithTimeout(context.Background(), gitCloneTimeout)
+	defer cancel()
+	clone := exec.CommandContext(ctx, "git", "clone", "--filter=blob:none", cloneURL, dir)
 	clone.Stderr = os.Stderr
 	if err := clone.Run(); err != nil {
 		_ = os.RemoveAll(dir)

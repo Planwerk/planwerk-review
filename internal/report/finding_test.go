@@ -1,6 +1,9 @@
 package report
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 func TestParseSeverity(t *testing.T) {
 	tests := []struct {
@@ -58,6 +61,52 @@ func TestDeriveFixClass(t *testing.T) {
 				t.Errorf("DeriveFixClass(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSeverityUnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    Severity
+		wantErr bool
+	}{
+		{"uppercase", `"CRITICAL"`, SeverityCritical, false},
+		{"lowercase", `"warning"`, SeverityWarning, false},
+		{"mixed case", `"Blocking"`, SeverityBlocking, false},
+		{"with whitespace", `" info "`, SeverityInfo, false},
+		{"unknown passes through", `"custom"`, Severity("CUSTOM"), false},
+		{"invalid json", `123`, Severity(""), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got Severity
+			err := json.Unmarshal([]byte(tt.input), &got)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("UnmarshalJSON(%s) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFindingUnmarshalNormalizesSeverity(t *testing.T) {
+	input := `{"severity": "critical", "title": "test", "problem": "p", "action": "a"}`
+	var f Finding
+	if err := json.Unmarshal([]byte(input), &f); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if f.Severity != SeverityCritical {
+		t.Errorf("Finding.Severity = %q, want %q", f.Severity, SeverityCritical)
 	}
 }
 

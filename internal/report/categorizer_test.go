@@ -4,12 +4,12 @@ import "testing"
 
 func TestCategorize(t *testing.T) {
 	findings := []Finding{
-		{Severity: "BLOCKING", Title: "b1"},
-		{Severity: "CRITICAL", Title: "c1"},
-		{Severity: "CRITICAL", Title: "c2"},
-		{Severity: "WARNING", Title: "w1"},
-		{Severity: "INFO", Title: "i1"},
-		{Severity: "INFO", Title: "i2"},
+		{Severity: SeverityBlocking, Title: "b1"},
+		{Severity: SeverityCritical, Title: "c1"},
+		{Severity: SeverityCritical, Title: "c2"},
+		{Severity: SeverityWarning, Title: "w1"},
+		{Severity: SeverityInfo, Title: "i1"},
+		{Severity: SeverityInfo, Title: "i2"},
 	}
 
 	cf := Categorize(findings, SeverityInfo)
@@ -32,9 +32,9 @@ func TestCategorize(t *testing.T) {
 
 func TestCategorize_MinSeverity(t *testing.T) {
 	findings := []Finding{
-		{Severity: "BLOCKING", Title: "b1"},
-		{Severity: "WARNING", Title: "w1"},
-		{Severity: "INFO", Title: "i1"},
+		{Severity: SeverityBlocking, Title: "b1"},
+		{Severity: SeverityWarning, Title: "w1"},
+		{Severity: SeverityInfo, Title: "i1"},
 	}
 
 	cf := Categorize(findings, SeverityWarning)

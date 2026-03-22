@@ -22,7 +22,7 @@ func TestRenderResult_PostReview(t *testing.T) {
 		Summary:        "Looks good",
 		Recommendation: "Merge it",
 		Findings: []report.Finding{
-			{ID: "F1", Severity: "WARNING", Title: "Test finding", File: "main.go", Problem: "Issue", Action: "Fix it"},
+			{ID: "F1", Severity: report.SeverityWarning, Title: "Test finding", File: "main.go", Problem: "Issue", Action: "Fix it"},
 		},
 	}
 	pr := &github.PR{Owner: "test", Repo: "repo", Number: 1, Title: "Test PR"}

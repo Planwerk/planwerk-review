@@ -2,12 +2,14 @@ package review
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/planwerk/planwerk-review/internal/cache"
 	"github.com/planwerk/planwerk-review/internal/checklist"
@@ -209,13 +211,18 @@ func renderResult(w io.Writer, result *report.ReviewResult, pr *github.PR, opts 
 	return nil
 }
 
+// gitLogTimeout is the maximum time allowed for local git log operations.
+const gitLogTimeout = 30 * time.Second
+
 // getCommitLog returns the one-line commit log between the base branch and HEAD.
 // Returns empty string on error (non-fatal).
 func getCommitLog(dir, baseBranch string) string {
 	if baseBranch == "" {
-		baseBranch = "main"
+		baseBranch = claude.DefaultBaseBranch
 	}
-	cmd := exec.Command("git", "log", "origin/"+baseBranch+"..HEAD", "--oneline")
+	ctx, cancel := context.WithTimeout(context.Background(), gitLogTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "log", "origin/"+baseBranch+"..HEAD", "--oneline")
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {

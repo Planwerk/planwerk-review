@@ -10,11 +10,13 @@ type CategorizedFindings struct {
 func Categorize(findings []Finding, minSeverity Severity) CategorizedFindings {
 	var cf CategorizedFindings
 	for _, f := range findings {
-		sev, err := ParseSeverity(f.Severity)
-		if err != nil || !sev.MeetsMinimum(minSeverity) {
+		if _, ok := severityOrder[f.Severity]; !ok {
+			continue // skip unknown severity
+		}
+		if !f.Severity.MeetsMinimum(minSeverity) {
 			continue
 		}
-		switch sev {
+		switch f.Severity {
 		case SeverityBlocking:
 			cf.Blocking = append(cf.Blocking, f)
 		case SeverityCritical:

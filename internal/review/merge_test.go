@@ -8,7 +8,7 @@ import (
 
 func TestMergeResults_NilAdversarial(t *testing.T) {
 	primary := &report.ReviewResult{
-		Findings: []report.Finding{{ID: "C-001", Severity: "CRITICAL", File: "main.go"}},
+		Findings: []report.Finding{{ID: "C-001", Severity: report.SeverityCritical, File: "main.go"}},
 		Summary:  "Test",
 	}
 	result := mergeResults(primary, nil)
@@ -19,7 +19,7 @@ func TestMergeResults_NilAdversarial(t *testing.T) {
 
 func TestMergeResults_EmptyAdversarial(t *testing.T) {
 	primary := &report.ReviewResult{
-		Findings: []report.Finding{{ID: "C-001", Severity: "CRITICAL", File: "main.go"}},
+		Findings: []report.Finding{{ID: "C-001", Severity: report.SeverityCritical, File: "main.go"}},
 	}
 	adv := &report.ReviewResult{}
 	result := mergeResults(primary, adv)
@@ -31,13 +31,13 @@ func TestMergeResults_EmptyAdversarial(t *testing.T) {
 func TestMergeResults_NewFindings(t *testing.T) {
 	primary := &report.ReviewResult{
 		Findings: []report.Finding{
-			{ID: "C-001", Severity: "CRITICAL", File: "main.go", Line: 10},
+			{ID: "C-001", Severity: report.SeverityCritical, File: "main.go", Line: 10},
 		},
 		Summary: "Primary review",
 	}
 	adv := &report.ReviewResult{
 		Findings: []report.Finding{
-			{Severity: "WARNING", File: "handler.go", Line: 20, Title: "SSRF vector"},
+			{Severity: report.SeverityWarning, File: "handler.go", Line: 20, Title: "SSRF vector"},
 		},
 	}
 
@@ -53,12 +53,12 @@ func TestMergeResults_NewFindings(t *testing.T) {
 func TestMergeResults_DuplicateKeepsHigherSeverity(t *testing.T) {
 	primary := &report.ReviewResult{
 		Findings: []report.Finding{
-			{ID: "W-001", Severity: "WARNING", File: "auth.go", Line: 42, Title: "Weak check"},
+			{ID: "W-001", Severity: report.SeverityWarning, File: "auth.go", Line: 42, Title: "Weak check"},
 		},
 	}
 	adv := &report.ReviewResult{
 		Findings: []report.Finding{
-			{Severity: "CRITICAL", File: "auth.go", Line: 42, Title: "Weak check"},
+			{Severity: report.SeverityCritical, File: "auth.go", Line: 42, Title: "Weak check"},
 		},
 	}
 
@@ -66,7 +66,7 @@ func TestMergeResults_DuplicateKeepsHigherSeverity(t *testing.T) {
 	if len(result.Findings) != 1 {
 		t.Fatalf("expected 1 finding (deduplicated), got %d", len(result.Findings))
 	}
-	if result.Findings[0].Severity != "CRITICAL" {
+	if result.Findings[0].Severity != report.SeverityCritical {
 		t.Errorf("expected higher severity CRITICAL, got %s", result.Findings[0].Severity)
 	}
 	if result.Findings[0].ID != "W-001" {
@@ -77,12 +77,12 @@ func TestMergeResults_DuplicateKeepsHigherSeverity(t *testing.T) {
 func TestMergeResults_DuplicateKeepsPrimaryWhenEqual(t *testing.T) {
 	primary := &report.ReviewResult{
 		Findings: []report.Finding{
-			{ID: "C-001", Severity: "CRITICAL", File: "db.go", Line: 10, Title: "SQL injection"},
+			{ID: "C-001", Severity: report.SeverityCritical, File: "db.go", Line: 10, Title: "SQL injection"},
 		},
 	}
 	adv := &report.ReviewResult{
 		Findings: []report.Finding{
-			{Severity: "CRITICAL", File: "db.go", Line: 10, Title: "SQL injection"},
+			{Severity: report.SeverityCritical, File: "db.go", Line: 10, Title: "SQL injection"},
 		},
 	}
 
@@ -99,12 +99,12 @@ func TestMergeResults_DuplicateKeepsPrimaryWhenEqual(t *testing.T) {
 func TestMergeResults_DifferentTitlesSameLocation(t *testing.T) {
 	primary := &report.ReviewResult{
 		Findings: []report.Finding{
-			{ID: "W-001", Severity: "WARNING", File: "auth.go", Line: 42, Title: "Missing nil check"},
+			{ID: "W-001", Severity: report.SeverityWarning, File: "auth.go", Line: 42, Title: "Missing nil check"},
 		},
 	}
 	adv := &report.ReviewResult{
 		Findings: []report.Finding{
-			{Severity: "CRITICAL", File: "auth.go", Line: 42, Title: "Auth bypass"},
+			{Severity: report.SeverityCritical, File: "auth.go", Line: 42, Title: "Auth bypass"},
 		},
 	}
 
@@ -120,7 +120,7 @@ func TestMergeResults_SummaryUpdated(t *testing.T) {
 	}
 	adv := &report.ReviewResult{
 		Findings: []report.Finding{
-			{Severity: "INFO", File: "util.go", Line: 1},
+			{Severity: report.SeverityInfo, File: "util.go", Line: 1},
 		},
 	}
 

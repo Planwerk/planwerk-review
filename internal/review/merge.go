@@ -27,11 +27,11 @@ func mergeResults(primary, adversarial *report.ReviewResult) *report.ReviewResul
 		}
 	}
 
-	severityRank := map[string]int{
-		"BLOCKING": 0,
-		"CRITICAL": 1,
-		"WARNING":  2,
-		"INFO":     3,
+	severityRank := map[report.Severity]int{
+		report.SeverityBlocking: 0,
+		report.SeverityCritical: 1,
+		report.SeverityWarning:  2,
+		report.SeverityInfo:     3,
 	}
 
 	for _, af := range adversarial.Findings {

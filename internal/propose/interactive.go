@@ -35,7 +35,8 @@ func RunInteractiveIssueCreation(w io.Writer, result *ProposalResult, owner, nam
 		_, _ = fmt.Fprintf(w, "%s\n\n", strings.Repeat("=", 80))
 
 		// Show full proposal content
-		printProposalFull(w, p)
+		r := NewRenderer(w)
+		r.renderProposal(p)
 
 		// Ask user
 		_, _ = fmt.Fprintf(w, "\nCreate issue for this proposal in %s/%s? [y/N/q] ", owner, name)
@@ -114,30 +115,6 @@ func printSummaryTable(w io.Writer, cp CategorizedProposals) {
 		_, _ = fmt.Fprintf(w, "| %d | %s | %-8s | %-14s | %-6s | %-58s |\n", n, p.ID, p.Priority, p.Category, p.Scope, truncate(p.Title, 58))
 	}
 	_, _ = fmt.Fprintln(w)
-}
-
-func printProposalFull(w io.Writer, p Proposal) {
-	_, _ = fmt.Fprintf(w, "## %s Priority\n\n", p.Priority)
-	_, _ = fmt.Fprintf(w, "### %s: %s\n\n", p.ID, p.Title)
-	_, _ = fmt.Fprintf(w, "**Category**: %s | **Scope**: %s\n\n", p.Category, p.Scope)
-	_, _ = fmt.Fprintf(w, "**Description**: %s\n\n", p.Description)
-	_, _ = fmt.Fprintf(w, "**Motivation**: %s\n\n", p.Motivation)
-
-	if len(p.AffectedAreas) > 0 {
-		_, _ = fmt.Fprint(w, "**Affected Areas**:\n")
-		for _, area := range p.AffectedAreas {
-			_, _ = fmt.Fprintf(w, "- `%s`\n", area)
-		}
-		_, _ = fmt.Fprintln(w)
-	}
-
-	if len(p.AcceptanceCriteria) > 0 {
-		_, _ = fmt.Fprint(w, "**Acceptance Criteria**:\n")
-		for _, ac := range p.AcceptanceCriteria {
-			_, _ = fmt.Fprintf(w, "- [ ] %s\n", ac)
-		}
-		_, _ = fmt.Fprintln(w)
-	}
 }
 
 func buildIssueBody(p Proposal) string {

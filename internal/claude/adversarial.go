@@ -2,7 +2,6 @@ package claude
 
 import (
 	"fmt"
-	"os/exec"
 
 	"github.com/planwerk/planwerk-review/internal/report"
 )
@@ -33,29 +32,12 @@ func AdversarialReview(dir, baseBranch string) (*report.ReviewResult, error) {
 }
 
 func runAdversarialReview(dir, baseBranch string) (string, error) {
-	prompt := buildAdversarialPrompt(baseBranch)
-
-	cmd := exec.Command("claude", "-p", prompt, "--output-format", "json")
-	cmd.Dir = dir
-	out, err := cmd.Output()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return "", fmt.Errorf("claude adversarial review: %w\nstderr: %s", err, exitErr.Stderr)
-		}
-		return "", fmt.Errorf("claude adversarial review: %w", err)
-	}
-
-	text, err := extractText(out)
-	if err != nil {
-		return "", err
-	}
-
-	return text, nil
+	return runClaude(dir, buildAdversarialPrompt(baseBranch))
 }
 
 func buildAdversarialPrompt(baseBranch string) string {
 	if baseBranch == "" {
-		baseBranch = "main"
+		baseBranch = DefaultBaseBranch
 	}
 	return fmt.Sprintf(`You are a security researcher and chaos engineer performing an adversarial code review.
 Your job is to find ways this code will fail in production.

@@ -1,11 +1,13 @@
 package github
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
@@ -38,7 +40,9 @@ func PostPRComment(owner, repo string, number int, body string) (string, error) 
 		"--body", body,
 	}
 
-	cmd := exec.Command("gh", args...)
+	ctx, cancel := context.WithTimeout(context.Background(), ghTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "gh", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("gh pr comment: %s: %w", strings.TrimSpace(string(out)), err)
@@ -48,13 +52,19 @@ func PostPRComment(owner, repo string, number int, body string) (string, error) 
 }
 
 // truncateComment ensures body does not exceed GitHub's comment size limit.
+// It avoids splitting multi-byte UTF-8 characters at the cut point.
 func truncateComment(body string) string {
 	if len(body) <= maxCommentLen {
 		return body
 	}
 	// Reserve space for truncation notice + signature
 	suffix := truncationNotice + commentSignature
-	return body[:maxCommentLen-len(suffix)] + suffix
+	cutPoint := maxCommentLen - len(suffix)
+	// Avoid splitting a multi-byte UTF-8 character: walk back to a valid boundary.
+	for cutPoint > 0 && !utf8.RuneStart(body[cutPoint]) {
+		cutPoint--
+	}
+	return body[:cutPoint] + suffix
 }
 
 type ghComment struct {
@@ -70,7 +80,9 @@ func findExistingComment(repo string, number int) (string, error) {
 		"--jq", `.comments[] | select(.body | contains("` + commentSignature + `")) | {id, body}`,
 	}
 
-	cmd := exec.Command("gh", args...)
+	ctx, cancel := context.WithTimeout(context.Background(), ghTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "gh", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("gh pr view comments: %s: %w", strings.TrimSpace(string(out)), err)
@@ -100,22 +112,21 @@ func findExistingComment(repo string, number int) (string, error) {
 }
 
 // editComment updates an existing comment by its node ID.
+// Uses GraphQL variables to avoid injection via commentID or body.
 func editComment(repo, commentID, body string) (string, error) {
-	// gh api to update the comment via GraphQL node ID
-	mutation := fmt.Sprintf(`mutation { updateIssueComment(input: {id: "%s", body: %s}) { issueComment { url } } }`,
-		commentID, jsonString(body))
+	query := `mutation($id: ID!, $body: String!) { updateIssueComment(input: {id: $id, body: $body}) { issueComment { url } } }`
 
-	cmd := exec.Command("gh", "api", "graphql", "-f", "query="+mutation)
+	ctx, cancel := context.WithTimeout(context.Background(), ghTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "gh", "api", "graphql",
+		"-f", "query="+query,
+		"-f", "id="+commentID,
+		"-f", "body="+body,
+	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("gh api graphql (update comment): %s: %w", strings.TrimSpace(string(out)), err)
 	}
 
 	return strings.TrimSpace(string(out)), nil
-}
-
-// jsonString returns s as a JSON-encoded string literal.
-func jsonString(s string) string {
-	b, _ := json.Marshal(s)
-	return string(b)
 }

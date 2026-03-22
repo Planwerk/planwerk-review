@@ -1,6 +1,7 @@
 package github
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -20,7 +21,9 @@ func SearchIssues(owner, name, query string) ([]string, error) {
 		"--template", `{{range .}}{{.title}}{{"\t"}}{{.url}}{{"\n"}}{{end}}`,
 	}
 
-	cmd := exec.Command("gh", args...)
+	ctx, cancel := context.WithTimeout(context.Background(), ghTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "gh", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("gh issue list: %s: %w", strings.TrimSpace(string(out)), err)
@@ -43,7 +46,9 @@ func CreateIssue(owner, name, title, body string) (string, error) {
 		"--body", body,
 	}
 
-	cmd := exec.Command("gh", args...)
+	ctx, cancel := context.WithTimeout(context.Background(), ghTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "gh", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("gh issue create: %s: %w", strings.TrimSpace(string(out)), err)

@@ -49,6 +49,12 @@ or short form (owner/repo#123).`,
 				cfg.MinSeverity = report.SeverityInfo
 			}
 
+			switch cfg.Format {
+			case "markdown", "json":
+			default:
+				return fmt.Errorf("unknown format %q, supported: markdown, json", cfg.Format)
+			}
+
 			if cfg.PostReview && cfg.Format == "json" {
 				return fmt.Errorf("--post-review cannot be used with --format json")
 			}
@@ -84,6 +90,13 @@ or short form (owner/repo).`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			proposeCfg.RepoRef = args[0]
+
+			switch proposeCfg.Format {
+			case "markdown", "json", "issues":
+			default:
+				return fmt.Errorf("unknown format %q, supported: markdown, json, issues", proposeCfg.Format)
+			}
+
 			opts := proposeCfg.ToProposeOptions(version)
 			return propose.Run(os.Stdout, opts, claude.Propose)
 		},

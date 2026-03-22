@@ -3,7 +3,6 @@ package claude
 import (
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"github.com/planwerk/planwerk-review/internal/propose"
@@ -31,24 +30,7 @@ func Propose(dir string) (*propose.ProposalResult, error) {
 }
 
 func runAnalysis(dir string) (string, error) {
-	prompt := buildAnalysisPrompt()
-
-	cmd := exec.Command("claude", "-p", prompt, "--output-format", "json")
-	cmd.Dir = dir
-	out, err := cmd.Output()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return "", fmt.Errorf("claude analysis: %w\nstderr: %s", err, exitErr.Stderr)
-		}
-		return "", fmt.Errorf("claude analysis: %w", err)
-	}
-
-	text, err := extractText(out)
-	if err != nil {
-		return "", err
-	}
-
-	return text, nil
+	return runClaude(dir, buildAnalysisPrompt())
 }
 
 func buildAnalysisPrompt() string {
@@ -78,18 +60,7 @@ IMPORTANT: Do NOT just list generic software improvements. Your proposals must b
 }
 
 func structureProposals(rawAnalysis string) (*propose.ProposalResult, error) {
-	prompt := buildProposalStructurePrompt(rawAnalysis)
-
-	cmd := exec.Command("claude", "-p", prompt, "--output-format", "json")
-	out, err := cmd.Output()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("claude structuring call: %w\nstderr: %s", err, exitErr.Stderr)
-		}
-		return nil, fmt.Errorf("claude structuring call: %w", err)
-	}
-
-	text, err := extractText(out)
+	text, err := runClaude("", buildProposalStructurePrompt(rawAnalysis))
 	if err != nil {
 		return nil, err
 	}

@@ -3,28 +3,14 @@ package claude
 import (
 	"encoding/json"
 	"fmt"
-	"os/exec"
 
 	"github.com/planwerk/planwerk-review/internal/report"
 )
 
-
 // CoverageMap runs a Claude call that analyzes test coverage of changed functions.
 // baseBranch determines which branch to diff against (e.g. "main").
 func CoverageMap(dir, baseBranch string) (*report.CoverageResult, error) {
-	prompt := buildCoveragePrompt(baseBranch)
-
-	cmd := exec.Command("claude", "-p", prompt, "--output-format", "json")
-	cmd.Dir = dir
-	out, err := cmd.Output()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("claude coverage map: %w\nstderr: %s", err, exitErr.Stderr)
-		}
-		return nil, fmt.Errorf("claude coverage map: %w", err)
-	}
-
-	text, err := extractText(out)
+	text, err := runClaude(dir, buildCoveragePrompt(baseBranch))
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +27,7 @@ func CoverageMap(dir, baseBranch string) (*report.CoverageResult, error) {
 
 func buildCoveragePrompt(baseBranch string) string {
 	if baseBranch == "" {
-		baseBranch = "main"
+		baseBranch = DefaultBaseBranch
 	}
 	return fmt.Sprintf(`Analyze test coverage for every function and method that was changed in the current branch compared to origin/%s.
 

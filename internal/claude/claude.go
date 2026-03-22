@@ -1,15 +1,44 @@
 package claude
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/planwerk/planwerk-review/internal/doccheck"
 	"github.com/planwerk/planwerk-review/internal/patterns"
 	"github.com/planwerk/planwerk-review/internal/report"
 )
+
+const (
+	// claudeTimeout is the maximum time allowed for a Claude CLI invocation.
+	claudeTimeout = 15 * time.Minute
+)
+
+// DefaultBaseBranch is the fallback base branch name when none is specified.
+const DefaultBaseBranch = "main"
+
+// runClaude invokes `claude -p <prompt> --output-format json` in the given
+// directory and returns the extracted text response.
+func runClaude(dir, prompt string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), claudeTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "claude", "-p", prompt, "--output-format", "json")
+	if dir != "" {
+		cmd.Dir = dir
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("claude: %w\nstderr: %s", err, exitErr.Stderr)
+		}
+		return "", fmt.Errorf("claude: %w", err)
+	}
+	return extractText(out)
+}
 
 // ReviewContext holds all context needed to build the review prompt.
 type ReviewContext struct {
@@ -44,25 +73,8 @@ func Review(dir string, ctx ReviewContext) (*report.ReviewResult, error) {
 }
 
 // runReview invokes `claude -p` with a prompt that includes patterns and the /review command.
-func runReview(dir string, ctx ReviewContext) (string, error) {
-	prompt := buildReviewPrompt(ctx)
-
-	cmd := exec.Command("claude", "-p", prompt, "--output-format", "json")
-	cmd.Dir = dir
-	out, err := cmd.Output()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return "", fmt.Errorf("claude /review: %w\nstderr: %s", err, exitErr.Stderr)
-		}
-		return "", fmt.Errorf("claude /review: %w", err)
-	}
-
-	text, err := extractText(out)
-	if err != nil {
-		return "", err
-	}
-
-	return text, nil
+func runReview(dir string, rctx ReviewContext) (string, error) {
+	return runClaude(dir, buildReviewPrompt(rctx))
 }
 
 // buildReviewPrompt constructs a prompt that includes patterns and triggers /review.
@@ -192,18 +204,7 @@ Be direct and decisive in your findings. Do NOT hedge:
 
 // structureReview calls Claude to convert unstructured review text into JSON.
 func structureReview(rawReview string) (*report.ReviewResult, error) {
-	prompt := buildStructurePrompt(rawReview)
-
-	cmd := exec.Command("claude", "-p", prompt, "--output-format", "json")
-	out, err := cmd.Output()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("claude structuring call: %w\nstderr: %s", err, exitErr.Stderr)
-		}
-		return nil, fmt.Errorf("claude structuring call: %w", err)
-	}
-
-	text, err := extractText(out)
+	text, err := runClaude("", buildStructurePrompt(rawReview))
 	if err != nil {
 		return nil, err
 	}
@@ -290,21 +291,21 @@ func stripMarkdownFences(s string) string {
 }
 
 func assignIDs(result *report.ReviewResult) {
-	counters := map[string]int{
-		"BLOCKING": 0,
-		"CRITICAL": 0,
-		"WARNING":  0,
-		"INFO":     0,
+	counters := map[report.Severity]int{
+		report.SeverityBlocking: 0,
+		report.SeverityCritical: 0,
+		report.SeverityWarning:  0,
+		report.SeverityInfo:     0,
 	}
-	prefixes := map[string]string{
-		"BLOCKING": "B",
-		"CRITICAL": "C",
-		"WARNING":  "W",
-		"INFO":     "I",
+	prefixes := map[report.Severity]string{
+		report.SeverityBlocking: "B",
+		report.SeverityCritical: "C",
+		report.SeverityWarning:  "W",
+		report.SeverityInfo:     "I",
 	}
 
 	for i := range result.Findings {
-		sev := strings.ToUpper(result.Findings[i].Severity)
+		sev := report.Severity(strings.ToUpper(string(result.Findings[i].Severity)))
 		result.Findings[i].Severity = sev
 		result.Findings[i].Actionability = report.NormalizeActionability(string(result.Findings[i].Actionability))
 		result.Findings[i].FixClass = report.DeriveFixClass(result.Findings[i].Actionability)

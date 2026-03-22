@@ -59,13 +59,13 @@ func TestAssignIDs(t *testing.T) {
 
 	expected := []struct {
 		id       string
-		severity string
+		severity report.Severity
 	}{
-		{"B-001", "BLOCKING"},
-		{"C-001", "CRITICAL"},
-		{"C-002", "CRITICAL"},
-		{"W-001", "WARNING"},
-		{"I-001", "INFO"},
+		{"B-001", report.SeverityBlocking},
+		{"C-001", report.SeverityCritical},
+		{"C-002", report.SeverityCritical},
+		{"W-001", report.SeverityWarning},
+		{"I-001", report.SeverityInfo},
 	}
 
 	for i, exp := range expected {

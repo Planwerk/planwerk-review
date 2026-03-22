@@ -1,6 +1,7 @@
 package report
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -22,18 +23,30 @@ var severityOrder = map[Severity]int{
 }
 
 func ParseSeverity(s string) (Severity, error) {
-	switch s {
-	case "BLOCKING", "blocking":
+	switch strings.ToUpper(strings.TrimSpace(s)) {
+	case "BLOCKING":
 		return SeverityBlocking, nil
-	case "CRITICAL", "critical":
+	case "CRITICAL":
 		return SeverityCritical, nil
-	case "WARNING", "warning":
+	case "WARNING":
 		return SeverityWarning, nil
-	case "INFO", "info":
+	case "INFO":
 		return SeverityInfo, nil
 	default:
 		return "", fmt.Errorf("unknown severity: %q", s)
 	}
+}
+
+// UnmarshalJSON normalizes severity values during JSON parsing,
+// so downstream code always sees uppercase canonical values.
+func (s *Severity) UnmarshalJSON(data []byte) error {
+	var raw string
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	// Normalize to uppercase; unknown values pass through for downstream handling.
+	*s = Severity(strings.ToUpper(strings.TrimSpace(raw)))
+	return nil
 }
 
 func (s Severity) MeetsMinimum(min Severity) bool {
@@ -76,17 +89,17 @@ var validActionability = map[string]Actionability{
 }
 
 // NormalizeActionability maps common variants to the canonical value.
-// Unknown values are returned as empty string.
+// Unknown values default to needs-discussion.
 func NormalizeActionability(s string) Actionability {
 	if a, ok := validActionability[strings.ToLower(strings.TrimSpace(s))]; ok {
 		return a
 	}
-	return ""
+	return ActionabilityNeedsDiscussion
 }
 
 type Finding struct {
 	ID            string        `json:"id"`
-	Severity      string        `json:"severity"`
+	Severity      Severity      `json:"severity"`
 	Title         string        `json:"title"`
 	File          string        `json:"file"`
 	Line          int           `json:"line,omitempty"`
