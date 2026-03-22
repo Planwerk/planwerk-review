@@ -35,13 +35,64 @@ Propose:
 ### Review Workflow
 
 1. **PR Input**: The tool receives a GitHub PR as input (URL or `owner/repo#number`).
-2. **Checkout**: The PR is checked out locally (diff between base and head).
+2. **Checkout**: The PR is checked out locally (diff between base and head). PR title and description are fetched for scope analysis.
 3. **Load Review Patterns**: Patterns are loaded from two sources:
    - `patterns/` in the planwerk-review repository (general patterns)
    - `.planwerk/review_patterns/` in the target repository (repo-specific patterns)
-4. **Claude CLI Review**: `claude /review` is executed for all changed files in the PR. Loaded review patterns are passed as additional context to Claude.
-5. **Result Aggregation**: Review results are collected, deduplicated, and categorized by severity.
+4. **Claude CLI Review**: `claude /review` is executed with a structured prompt that includes persona framing, scope analysis, a two-pass checklist, suppression rules, and review patterns.
+5. **Result Aggregation**: Review results are collected, deduplicated, categorized by severity, and classified by actionability.
 6. **Markdown Output**: A structured report is written to `stdout`.
+
+### Review Methodology
+
+The review prompt uses techniques inspired by [gstack](https://github.com/garrytan/gstack) to maximize review quality:
+
+#### Staff Engineer Persona
+
+Claude is instructed to review as a Staff Engineer, applying specific cognitive patterns:
+- *"What happens at 10x scale?"* — Load, data volume, concurrent users
+- *"What's the blast radius?"* — If this code fails, what else breaks?
+- *"What happens at 3am?"* — Error paths, oncall clarity, log quality
+- *"Would a new team member understand this?"* — Code clarity and intent
+
+#### Scope Drift Detection
+
+Before reviewing code quality, the tool checks for:
+- **Scope Creep**: Files changed that are unrelated to the PR title/description
+- **Missing Requirements**: Requirements from the PR description not addressed in the diff
+
+#### Two-Pass Review Checklist
+
+Claude works through a structured checklist in two passes:
+
+| Pass | Focus | Categories |
+|------|-------|------------|
+| **Pass 1 — Critical** | Always checked | SQL & Data Safety, Race Conditions, Error Handling, Security, Input Validation |
+| **Pass 2 — Informational** | Checked if time permits | Magic Numbers, Dead Code, Test Gaps, Performance, API Contract |
+
+#### Suppressions
+
+To reduce false positives, the following are explicitly suppressed:
+- TODO/FIXME comments with issue tracker references
+- Missing tests for trivial getters/setters
+- Import ordering or formatting differences
+- Variable naming matching existing project conventions
+- Missing documentation on private functions
+- Minor style preferences
+
+#### Anti-Sycophancy Rules
+
+Claude is instructed to be direct and decisive — no hedging with phrases like "you might want to consider" or "this could potentially cause". Every finding takes a clear position.
+
+#### Actionability Classification
+
+Each finding is classified by actionability:
+
+| Classification | Meaning | Examples |
+|----------------|---------|----------|
+| **auto-fix** | A senior engineer would apply without discussion | Dead code, magic numbers, missing error wrapping |
+| **needs-discussion** | Requires team input before fixing | Security decisions, API changes, behavioral changes |
+| **architectural** | Needs a broader design conversation | Wrong abstraction, missing layer, significant refactor |
 
 ### Propose Workflow
 
@@ -129,6 +180,7 @@ The generated Markdown report follows a fixed structure:
 ### B-001: Hardcoded secrets in configuration
 **File**: `config/auth.go:42`
 **Pattern**: *Hardcoded values* (if detected by pattern)
+**Actionability**: needs-discussion
 
 **Problem**: API secret is hardcoded directly in the source code.
 
@@ -141,6 +193,7 @@ environment variable or secret manager.
 
 ### C-001: SQL Injection in User Query
 **File**: `db/users.go:87`
+**Actionability**: needs-discussion
 
 **Problem**: User input is used in SQL query without sanitization.
 
@@ -149,6 +202,7 @@ environment variable or secret manager.
 
 ### C-002: Missing error handling
 **File**: `handlers/login.go:23`
+**Actionability**: auto-fix
 
 **Problem**: Error from `ValidateToken()` is ignored.
 
@@ -189,6 +243,14 @@ environment variable or secret manager.
 | **CRITICAL** | Bugs, security vulnerabilities, severe problems | Must be fixed before merge |
 | **WARNING** | Code quality, potential issues | Should be fixed |
 | **INFO** | Style questions, improvement suggestions | Optional, for information |
+
+#### Actionability Levels
+
+| Level | Meaning | Action |
+|-------|---------|--------|
+| **auto-fix** | A senior engineer would fix without discussion | Apply the suggested fix directly |
+| **needs-discussion** | Requires team input before fixing | Discuss in PR comments or team sync |
+| **architectural** | Fundamental design issue | Needs broader design conversation |
 
 ### Review Patterns
 
@@ -360,6 +422,9 @@ planwerk-review/
 | 6 | **Propose: two-step Claude** | Analysis → Structure | First call explores codebase freely; second call converts to strict JSON schema |
 | 7 | **Propose: cache invalidation** | Based on default branch HEAD SHA | Cache key includes `git ls-remote` HEAD, so proposals refresh when the repo changes |
 | 8 | **Propose: output formats** | Markdown, JSON, Issues | Markdown for reading, JSON for automation, Issues for direct GitHub issue creation |
+| 9 | **Review prompt structure** | Multi-section structured prompt | Persona framing, scope analysis, two-pass checklist, suppressions, and anti-sycophancy rules produce higher-quality, more consistent reviews (inspired by [gstack](https://github.com/garrytan/gstack)) |
+| 10 | **Actionability classification** | auto-fix / needs-discussion / architectural | Helps teams prioritize which findings to address immediately vs. discuss first |
+| 11 | **Scope drift detection** | PR title + body analyzed before code review | Catches scope creep and missing requirements — often the most valuable review feedback |
 
 ### Future Extensions
 

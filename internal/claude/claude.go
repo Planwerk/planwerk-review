@@ -14,9 +14,9 @@ import (
 // It runs two Claude calls:
 //  1. `claude /review` to get the unstructured review output
 //  2. `claude -p` to structure the output into JSON
-func Review(dir string, pats []patterns.Pattern) (*report.ReviewResult, error) {
+func Review(dir string, pats []patterns.Pattern, prTitle, prBody string) (*report.ReviewResult, error) {
 	// Step 1: Run /review
-	rawReview, err := runReview(dir, pats)
+	rawReview, err := runReview(dir, pats, prTitle, prBody)
 	if err != nil {
 		return nil, fmt.Errorf("running /review: %w", err)
 	}
@@ -32,8 +32,8 @@ func Review(dir string, pats []patterns.Pattern) (*report.ReviewResult, error) {
 }
 
 // runReview invokes `claude -p` with a prompt that includes patterns and the /review command.
-func runReview(dir string, pats []patterns.Pattern) (string, error) {
-	prompt := buildReviewPrompt(pats)
+func runReview(dir string, pats []patterns.Pattern, prTitle, prBody string) (string, error) {
+	prompt := buildReviewPrompt(pats, prTitle, prBody)
 
 	cmd := exec.Command("claude", "-p", prompt, "--output-format", "json")
 	cmd.Dir = dir
@@ -54,15 +54,87 @@ func runReview(dir string, pats []patterns.Pattern) (string, error) {
 }
 
 // buildReviewPrompt constructs a prompt that includes patterns and triggers /review.
-func buildReviewPrompt(pats []patterns.Pattern) string {
+func buildReviewPrompt(pats []patterns.Pattern, prTitle, prBody string) string {
 	var sb strings.Builder
 
+	// Staff Engineer persona
+	sb.WriteString(`You are a Staff Engineer performing a thorough code review. Apply these thinking patterns:
+- "What happens at 10x scale?" — Consider load, data volume, and concurrent users
+- "What's the blast radius?" — If this code fails, what else breaks?
+- "What happens at 3am?" — Is the error path clear? Will oncall understand the logs?
+- "Would a new team member understand this?" — Is the intent clear from the code?
+
+`)
+
+	// Review patterns
 	if len(pats) > 0 {
 		sb.WriteString("Before running the review, consider these additional review patterns. Flag violations of these patterns in your review:\n\n")
 		sb.WriteString("<review-patterns>\n")
 		sb.WriteString(patterns.FormatAllForPrompt(pats))
 		sb.WriteString("</review-patterns>\n\n")
 	}
+
+	// Scope Drift Detection
+	if prTitle != "" || prBody != "" {
+		sb.WriteString("## Scope Analysis (run FIRST, before code quality review)\n\n")
+		if prTitle != "" {
+			fmt.Fprintf(&sb, "PR Title: %s\n", prTitle)
+		}
+		if prBody != "" {
+			sb.WriteString("<pr-body>\n")
+			sb.WriteString(prBody)
+			sb.WriteString("\n</pr-body>\n")
+		}
+		sb.WriteString(`
+Before reviewing code quality, check:
+1. SCOPE CREEP: Are there files changed that seem unrelated to the PR title/description? Flag each as WARNING with title "Scope Creep: <file or area>"
+2. MISSING REQUIREMENTS: Are there requirements mentioned in the PR description that are NOT addressed in the diff? Flag each as WARNING with title "Missing Requirement: <requirement>"
+
+`)
+	}
+
+	// Two-pass review checklist
+	sb.WriteString(`## Review Checklist (work through systematically)
+
+### Pass 1 — CRITICAL (always check these)
+- [ ] SQL & Data Safety: raw queries, missing parameterization, unsafe migrations
+- [ ] Race Conditions: shared mutable state, missing locks, concurrent map access
+- [ ] Error Handling: swallowed errors, missing nil checks, panic-worthy paths
+- [ ] Security: hardcoded secrets, injection vectors, auth/authz gaps
+- [ ] Input Validation: unvalidated user input at system boundaries
+
+### Pass 2 — INFORMATIONAL (check if time permits)
+- [ ] Magic Numbers: unexplained constants, config that should be externalized
+- [ ] Dead Code: unused functions, unreachable branches, commented-out code
+- [ ] Test Gaps: untested error paths, missing edge cases
+- [ ] Performance: N+1 queries, unbounded allocations, missing pagination
+- [ ] API Contract: breaking changes to public interfaces without versioning
+
+`)
+
+	// False-positive suppressions
+	sb.WriteString(`## Suppressions — DO NOT flag these
+
+- TODO/FIXME comments that reference an issue tracker (e.g. TODO(#123))
+- Missing tests for trivial getters/setters or simple delegation methods
+- Import ordering or formatting differences (these are handled by formatters)
+- Variable naming that follows the project's existing conventions, even if you'd prefer different names
+- Missing documentation on unexported/private functions
+- Minor style preferences that don't affect correctness or readability
+
+`)
+
+	// Anti-sycophancy rules
+	sb.WriteString(`## Communication Style
+
+Be direct and decisive in your findings. Do NOT hedge:
+- Do NOT write "you might want to consider..." — state what IS wrong
+- Do NOT write "this could potentially cause..." — state what WILL happen
+- Do NOT write "it might be worth looking into..." — state the specific problem
+- Take a clear position on every finding. If something is wrong, say it is wrong.
+- If something is fine, do not mention it at all.
+
+`)
 
 	sb.WriteString("IMPORTANT: Completely ignore all changes in the .planwerk/ directory. Do not create any findings for files inside .planwerk/. These are project management artifacts that are always expected in the diff.\n\n")
 	sb.WriteString("/review")
@@ -112,6 +184,7 @@ Output ONLY valid JSON matching this exact schema (no markdown fences, no surrou
       "file": "path/to/file.go",
       "line": 42,
       "pattern": "Pattern name if triggered by a review pattern, otherwise omit",
+      "actionability": "auto-fix|needs-discussion|architectural",
       "problem": "Description of the problem",
       "action": "What should be done to fix it"
     }
@@ -125,6 +198,11 @@ Severity levels:
 - CRITICAL: Bugs, security vulnerabilities, severe problems — must be fixed before merge
 - WARNING: Code quality issues, potential problems — should be fixed
 - INFO: Style suggestions, minor improvements — optional
+
+Actionability classification:
+- auto-fix: A senior engineer would apply this fix without discussion (dead code, magic numbers, missing error wrapping, stale comments)
+- needs-discussion: Requires team input before fixing (security decisions, API changes, race condition fixes that change behavior)
+- architectural: Fundamental design issue that needs a broader conversation (wrong abstraction, missing layer, significant refactor needed)
 
 Leave the "id" field as an empty string — it will be assigned automatically.
 If there are no findings, return an empty findings array.
@@ -180,6 +258,7 @@ func assignIDs(result *report.ReviewResult) {
 	for i := range result.Findings {
 		sev := strings.ToUpper(result.Findings[i].Severity)
 		result.Findings[i].Severity = sev
+		result.Findings[i].Actionability = report.NormalizeActionability(string(result.Findings[i].Actionability))
 		counters[sev]++
 		prefix := prefixes[sev]
 		if prefix == "" {

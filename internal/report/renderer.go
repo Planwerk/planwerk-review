@@ -64,6 +64,9 @@ func (r *Renderer) renderSection(label string, findings []Finding) {
 		if f.Pattern != "" {
 			_, _ = fmt.Fprintf(r.w, "**Pattern**: *%s*\n", f.Pattern)
 		}
+		if f.Actionability != "" {
+			_, _ = fmt.Fprintf(r.w, "**Actionability**: %s\n", f.Actionability)
+		}
 		_, _ = fmt.Fprintln(r.w)
 		_, _ = fmt.Fprintf(r.w, "**Problem**: %s\n\n", f.Problem)
 		_, _ = fmt.Fprintf(r.w, "**Action Required**: %s\n\n", f.Action)

@@ -85,7 +85,7 @@ func Run(w io.Writer, opts Options) error {
 
 	// 4. Run Claude /review + structuring
 	fmt.Fprintln(os.Stderr, "Running Claude /review...")
-	result, err := claude.Review(pr.Dir, pats)
+	result, err := claude.Review(pr.Dir, pats, pr.Title, pr.Body)
 	if err != nil {
 		return fmt.Errorf("claude review: %w", err)
 	}
