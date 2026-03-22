@@ -1,0 +1,149 @@
+package github
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"regexp"
+	"strconv"
+	"strings"
+)
+
+type PR struct {
+	Owner   string
+	Repo    string
+	Number  int
+	Title   string
+	HeadSHA string
+	Dir     string // local checkout directory (temp dir, caller must clean up)
+}
+
+// FetchAndCheckout retrieves PR metadata and checks out the PR locally into a temp directory.
+func FetchAndCheckout(ref string) (*PR, error) {
+	owner, repo, number, err := ParseRef(ref)
+	if err != nil {
+		return nil, err
+	}
+
+	fullName := fmt.Sprintf("%s/%s", owner, repo)
+
+	pr := &PR{
+		Owner:  owner,
+		Repo:   repo,
+		Number: number,
+	}
+
+	// Fetch PR metadata
+	meta, err := ghJSON(fullName, number)
+	if err != nil {
+		return nil, fmt.Errorf("fetching PR metadata: %w", err)
+	}
+	pr.Title = meta.Title
+	pr.HeadSHA = meta.HeadRefOid
+
+	// Clone and checkout PR into temp directory
+	dir, err := checkoutPR(fullName, number)
+	if err != nil {
+		return nil, fmt.Errorf("checking out PR: %w", err)
+	}
+	pr.Dir = dir
+
+	return pr, nil
+}
+
+// Cleanup removes the temporary checkout directory.
+func (pr *PR) Cleanup() {
+	if pr.Dir != "" {
+		_ = os.RemoveAll(pr.Dir)
+	}
+}
+
+type prMeta struct {
+	Title      string `json:"title"`
+	HeadRefOid string `json:"headRefOid"`
+	BaseRefName string `json:"baseRefName"`
+}
+
+func ghJSON(repo string, number int) (prMeta, error) {
+	cmd := exec.Command("gh", "pr", "view", strconv.Itoa(number),
+		"--repo", repo,
+		"--json", "title,headRefOid,baseRefName")
+	out, err := cmd.Output()
+	if err != nil {
+		return prMeta{}, fmt.Errorf("gh pr view: %w", err)
+	}
+	var m prMeta
+	if err := json.Unmarshal(out, &m); err != nil {
+		return prMeta{}, fmt.Errorf("parsing gh output: %w", err)
+	}
+	return m, nil
+}
+
+func checkoutPR(repo string, number int) (string, error) {
+	dir, err := os.MkdirTemp("", "planwerk-review-*")
+	if err != nil {
+		return "", fmt.Errorf("creating temp dir: %w", err)
+	}
+
+	// Clone the repo
+	cloneURL := fmt.Sprintf("https://github.com/%s.git", repo)
+	clone := exec.Command("git", "clone", "--filter=blob:none", cloneURL, dir)
+	clone.Stderr = os.Stderr
+	if err := clone.Run(); err != nil {
+		_ = os.RemoveAll(dir)
+		return "", fmt.Errorf("git clone: %w", err)
+	}
+
+	// Checkout the PR using gh
+	checkout := exec.Command("gh", "pr", "checkout", strconv.Itoa(number), "--repo", repo)
+	checkout.Dir = dir
+	checkout.Stderr = os.Stderr
+	if err := checkout.Run(); err != nil {
+		_ = os.RemoveAll(dir)
+		return "", fmt.Errorf("gh pr checkout: %w", err)
+	}
+
+	return dir, nil
+}
+
+var (
+	// https://github.com/owner/repo/pull/123
+	urlRe = regexp.MustCompile(`github\.com/([^/]+)/([^/]+)/pull/(\d+)`)
+	// owner/repo#123
+	shortRe = regexp.MustCompile(`^([^/]+)/([^#]+)#(\d+)$`)
+	// Valid GitHub owner/repo name characters
+	validNameRe = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+)
+
+// ParseRef parses a PR reference in URL or short form.
+func ParseRef(ref string) (owner, repo string, number int, err error) {
+	if m := urlRe.FindStringSubmatch(ref); m != nil {
+		number, _ = strconv.Atoi(m[3])
+		owner, repo = m[1], m[2]
+		if err := validateOwnerRepo(owner, repo); err != nil {
+			return "", "", 0, err
+		}
+		return owner, repo, number, nil
+	}
+	ref = strings.TrimSpace(ref)
+	if m := shortRe.FindStringSubmatch(ref); m != nil {
+		number, _ = strconv.Atoi(m[3])
+		owner, repo = m[1], m[2]
+		if err := validateOwnerRepo(owner, repo); err != nil {
+			return "", "", 0, err
+		}
+		return owner, repo, number, nil
+	}
+	return "", "", 0, fmt.Errorf("invalid PR reference %q: expected URL or owner/repo#number", ref)
+}
+
+func validateOwnerRepo(owner, repo string) error {
+	if !validNameRe.MatchString(owner) {
+		return fmt.Errorf("invalid owner name %q: must contain only alphanumeric characters, dots, hyphens, or underscores", owner)
+	}
+	if !validNameRe.MatchString(repo) {
+		return fmt.Errorf("invalid repo name %q: must contain only alphanumeric characters, dots, hyphens, or underscores", repo)
+	}
+	return nil
+}

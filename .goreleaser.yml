@@ -1,0 +1,40 @@
+version: 2
+
+builds:
+  - main: ./cmd/planwerk-review
+    binary: planwerk-review
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    goos:
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+sboms:
+  - artifacts: archive
+    cmd: syft
+    args: ["${artifact}", "--output", "spdx-json=${document}"]
+
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    output: true
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"

@@ -1,0 +1,9 @@
+# Compiled binary
+planwerk-review
+!cmd/planwerk-review/
+
+# Go build artifacts
+dist/
+
+# OS files
+.DS_Store

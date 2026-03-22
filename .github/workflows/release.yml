@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  build-darwin:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Get version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - name: Build
+        run: |
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build \
+            -ldflags "-s -w -X main.version=${{ steps.version.outputs.version }}" \
+            -o planwerk-review \
+            ./cmd/planwerk-review
+      - name: Create archive
+        run: tar czf planwerk-review_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz planwerk-review
+      - uses: anchore/sbom-action/download-syft@v0
+      - name: Generate SBOM
+        run: >
+          syft
+          planwerk-review_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz
+          --output spdx-json=planwerk-review_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz.sbom.spdx.json
+      - name: Generate checksum
+        run: shasum -a 256 planwerk-review_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz >> planwerk-review_${{ steps.version.outputs.version }}_checksums.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: darwin-artifacts
+          path: |
+            planwerk-review_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz
+            planwerk-review_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz.sbom.spdx.json
+            planwerk-review_${{ steps.version.outputs.version }}_checksums.txt
+
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: sigstore/cosign-installer@v3
+      - uses: anchore/sbom-action/download-syft@v0
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  attach-darwin:
+    needs: [build-darwin, release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: darwin-artifacts
+      - name: Upload Darwin artifacts to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ github.ref_name }} planwerk-review_*_darwin_arm64.* planwerk-review_*_checksums.txt --repo ${{ github.repository }}
+
+  provenance:
+    needs: [release, attach-darwin]
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base-inputs-digest: sha256
+      upload-assets: true
