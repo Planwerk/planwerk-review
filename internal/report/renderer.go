@@ -35,8 +35,13 @@ func (r *Renderer) RenderMarkdown(result ReviewResult, pr PRInfo, minSeverity Se
 	cf := Categorize(result.Findings, minSeverity)
 
 	_, _ = fmt.Fprintf(r.w, "# Review: %s/%s#%d\n\n", pr.Owner, pr.Repo, pr.Number)
-	_, _ = fmt.Fprintf(r.w, "> *%s*\n", pr.Title)
+	_, _ = fmt.Fprintf(r.w, "> *%s*  \n", pr.Title)
 	_, _ = fmt.Fprintf(r.w, "> Reviewed by planwerk-review %s with Claude CLI\n\n", version)
+
+	// Machine-readable summary for tooling (Claude Code, CI scripts, etc.)
+	_, _ = fmt.Fprintf(r.w, "<!-- planwerk-review: blocking=%d critical=%d warning=%d info=%d recommendation=%s -->\n\n",
+		len(cf.Blocking), len(cf.Critical), len(cf.Warning), len(cf.Info),
+		r.recommendationKey(cf, result.Recommendation))
 
 	r.renderSection("BLOCKING", cf.Blocking)
 	r.renderSection("CRITICAL", cf.Critical)
@@ -47,49 +52,69 @@ func (r *Renderer) RenderMarkdown(result ReviewResult, pr PRInfo, minSeverity Se
 	r.renderRecommendation(cf, result.Recommendation)
 }
 
-func (r *Renderer) renderSection(label string, findings []Finding) {
-	_, _ = fmt.Fprintf(r.w, "## %s (%d)\n\n", label, len(findings))
-	if len(findings) == 0 {
-		_, _ = fmt.Fprint(r.w, "No findings.\n\n")
-		_, _ = fmt.Fprint(r.w, "---\n\n")
-		return
+// recommendationKey returns a short machine-readable verdict for the HTML comment.
+func (r *Renderer) recommendationKey(cf CategorizedFindings, custom string) string {
+	if custom != "" {
+		return "CUSTOM"
 	}
-	for _, f := range findings {
+	if cf.HasBlockersOrCritical() {
+		return "HOLD"
+	}
+	if len(cf.Warning) > 0 {
+		return "REVIEW"
+	}
+	return "MERGE"
+}
+
+func (r *Renderer) renderSection(label string, findings []Finding) {
+	if len(findings) == 0 {
+		return // skip empty sections — no noise for tooling or readers
+	}
+	_, _ = fmt.Fprintf(r.w, "## %s (%d)\n\n", label, len(findings))
+	for i, f := range findings {
 		_, _ = fmt.Fprintf(r.w, "### %s: %s\n", f.ID, f.Title)
-		if f.Line > 0 {
-			_, _ = fmt.Fprintf(r.w, "**File**: `%s:%d`\n", f.File, f.Line)
-		} else {
-			_, _ = fmt.Fprintf(r.w, "**File**: `%s`\n", f.File)
+
+		// Compact single-line metadata: File — Fix — Pattern
+		meta := fmt.Sprintf("**File**: `%s`", fileRef(f))
+		if f.FixClass != "" {
+			meta += fmt.Sprintf(" — **Fix**: %s", f.FixClass)
 		}
 		if f.Pattern != "" {
-			_, _ = fmt.Fprintf(r.w, "**Pattern**: *%s*\n", f.Pattern)
+			meta += fmt.Sprintf(" — **Pattern**: %s", f.Pattern)
 		}
-		if f.Actionability != "" {
-			_, _ = fmt.Fprintf(r.w, "**Actionability**: %s\n", f.Actionability)
-		}
-		if f.FixClass != "" {
-			_, _ = fmt.Fprintf(r.w, "**Fix**: %s\n", f.FixClass)
-		}
+		_, _ = fmt.Fprintln(r.w, meta)
 		_, _ = fmt.Fprintln(r.w)
 		_, _ = fmt.Fprintf(r.w, "**Problem**: %s\n\n", f.Problem)
 		_, _ = fmt.Fprintf(r.w, "**Action Required**: %s\n\n", f.Action)
+
+		if i < len(findings)-1 {
+			_, _ = fmt.Fprint(r.w, "---\n\n")
+		}
 	}
 	_, _ = fmt.Fprint(r.w, "---\n\n")
 }
 
+// fileRef returns "file:line" when a line number is known, otherwise just "file".
+func fileRef(f Finding) string {
+	if f.Line > 0 {
+		return fmt.Sprintf("%s:%d", f.File, f.Line)
+	}
+	return f.File
+}
+
 func (r *Renderer) renderSummary(cf CategorizedFindings) {
 	_, _ = fmt.Fprint(r.w, "## Summary\n\n")
-	_, _ = fmt.Fprintln(r.w, "| Category  | Count |")
-	_, _ = fmt.Fprintln(r.w, "|-----------|-------|")
-	_, _ = fmt.Fprintf(r.w, "| BLOCKING  | %-5d |\n", len(cf.Blocking))
-	_, _ = fmt.Fprintf(r.w, "| CRITICAL  | %-5d |\n", len(cf.Critical))
-	_, _ = fmt.Fprintf(r.w, "| WARNING   | %-5d |\n", len(cf.Warning))
-	_, _ = fmt.Fprintf(r.w, "| INFO      | %-5d |\n\n", len(cf.Info))
+	_, _ = fmt.Fprintln(r.w, "| Severity | Count |")
+	_, _ = fmt.Fprintln(r.w, "|----------|-------|")
+	_, _ = fmt.Fprintf(r.w, "| BLOCKING | %d |\n", len(cf.Blocking))
+	_, _ = fmt.Fprintf(r.w, "| CRITICAL | %d |\n", len(cf.Critical))
+	_, _ = fmt.Fprintf(r.w, "| WARNING  | %d |\n", len(cf.Warning))
+	_, _ = fmt.Fprintf(r.w, "| INFO     | %d |\n\n", len(cf.Info))
 }
 
 func (r *Renderer) renderRecommendation(cf CategorizedFindings, custom string) {
 	if custom != "" {
-		_, _ = fmt.Fprintf(r.w, "**Recommendation**: %s\n", custom)
+		_, _ = fmt.Fprintf(r.w, "> [!IMPORTANT]\n> **Recommendation**: %s\n", custom)
 		return
 	}
 	var parts []string
@@ -100,12 +125,12 @@ func (r *Renderer) renderRecommendation(cf CategorizedFindings, custom string) {
 		parts = append(parts, fmt.Sprintf("%d CRITICAL", len(cf.Critical)))
 	}
 	if cf.HasBlockersOrCritical() {
-		_, _ = fmt.Fprintf(r.w, "**Recommendation**: PR should not be merged due to %s findings until they are resolved.\n",
+		_, _ = fmt.Fprintf(r.w, "> [!CAUTION]\n> **Do not merge** — %s findings must be resolved first.\n",
 			strings.Join(parts, " and "))
 	} else if len(cf.Warning) > 0 {
-		_, _ = fmt.Fprintf(r.w, "**Recommendation**: PR can be merged but has %d warnings that should be addressed.\n", len(cf.Warning))
+		_, _ = fmt.Fprintf(r.w, "> [!WARNING]\n> **Review before merging** — %d warning(s) should be addressed.\n", len(cf.Warning))
 	} else {
-		_, _ = fmt.Fprintln(r.w, "**Recommendation**: PR looks good to merge.")
+		_, _ = fmt.Fprint(r.w, "> [!TIP]\n> **Ready to merge** — no blocking or critical findings.\n")
 	}
 }
 
