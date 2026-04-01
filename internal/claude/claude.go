@@ -205,6 +205,7 @@ For every NEW public API, CLI flag, configuration option, or user-facing behavio
 - Issues that are already addressed elsewhere in the same diff — read the FULL diff before commenting
 - Suggestions to "add logging" when the error path already returns a descriptive error
 - "Consider using X library" when the current approach works correctly
+- Code that was not changed in this diff — only review and comment on added or modified lines, never on unchanged surrounding context
 
 `)
 
@@ -241,7 +242,11 @@ For EVERY finding you report, you MUST include:
 
 1. **Code Snippet**: Quote the exact 3-5 lines of problematic code from the diff. Use the original line numbers. If the issue spans multiple lines, include all affected lines.
 
-2. **Suggested Fix**: For auto-fix findings, provide the EXACT replacement code that resolves the issue. This must be copy-paste ready — no placeholders, no "..." elisions. For needs-discussion and architectural findings, describe the fix approach concretely.
+2. **Suggested Fix**: For auto-fix findings, provide the EXACT replacement code that resolves the issue. The fix code MUST:
+   - Use the exact indentation from the original file
+   - Contain NO markdown fences, NO comments, NO explanations — pure replacement code only
+   - Be directly copy-paste ready with no placeholders or "..." elisions
+   For needs-discussion and architectural findings, describe the fix approach concretely.
 
 3. **Line Range**: When a finding affects multiple lines, specify both the start line and end line.
 
@@ -251,6 +256,17 @@ For EVERY finding you report, you MUST include:
    - "uncertain": Potential issue that requires investigation (e.g., possible race condition, performance concern under load)
 
 5. **Related Findings**: If two or more findings are connected (e.g., a missing nil check and a missing test for that nil check), note the relationship by referencing the other finding's title.
+
+`)
+
+	// Review Summary instructions
+	sb.WriteString(`## Review Summary
+
+At the end of your review, write a brief overall summary (2-4 sentences) that:
+1. Mentions what the PR does well (if anything stands out positively)
+2. Highlights the most important issues found
+3. Gives an overall assessment of the PR quality
+Keep it balanced and constructive — acknowledge good work, but be direct about problems.
 
 `)
 
@@ -297,11 +313,11 @@ Output ONLY valid JSON matching this exact schema (no markdown fences, no surrou
       "problem": "Description of the problem",
       "action": "What should be done to fix it",
       "code_snippet": "The exact problematic lines from the diff, preserving indentation",
-      "suggested_fix": "The exact replacement code for auto-fix findings, or a concrete description for others",
+      "suggested_fix": "The exact replacement code for auto-fix findings (no markdown fences, no comments, correct indentation), or a concrete description for others",
       "related_to": ["titles of related findings from this review"]
     }
   ],
-  "summary": "Brief overall summary of the review",
+  "summary": "Overall summary: what was done well, key issues found, and overall quality assessment (2-4 sentences, balanced and constructive)",
   "recommendation": "Whether the PR should be merged and under what conditions"
 }
 
@@ -324,7 +340,7 @@ Confidence levels:
 Field rules:
 - Leave the "id" field as an empty string — it will be assigned automatically.
 - "code_snippet": REQUIRED for every finding. Quote the exact lines from the diff.
-- "suggested_fix": REQUIRED for auto-fix findings (provide exact replacement code). For other findings, provide a concrete description of what to change.
+- "suggested_fix": REQUIRED for auto-fix findings. Must contain ONLY the replacement code — no markdown fences, no inline comments explaining the fix, correct indentation from the original file. For other findings, provide a concrete description of what to change.
 - "line_end": Include when the finding spans multiple lines. Omit if it is a single-line issue.
 - "confidence": REQUIRED for every finding.
 - "related_to": Include titles of other findings in this review that are related. Use an empty array if none.

@@ -82,6 +82,7 @@ To reduce false positives, the following are explicitly suppressed:
 - Variable naming matching existing project conventions
 - Missing documentation on private functions (does not suppress missing docs for public APIs)
 - Minor style preferences
+- Code that was not changed in the diff (only added or modified lines are reviewed)
 
 #### Test & Documentation Verification
 
@@ -240,6 +241,8 @@ environment variable or secret manager.
 ---
 
 ## Summary
+
+The PR introduces user authentication with a well-structured handler layer, but hardcoded secrets and an SQL injection vulnerability must be addressed before merge. Error handling is inconsistent across the new endpoints.
 
 | Severity | Count |
 |----------|-------|

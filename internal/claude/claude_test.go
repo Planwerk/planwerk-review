@@ -118,6 +118,33 @@ func TestBuildReviewPrompt_NoNewFeatureHints(t *testing.T) {
 	}
 }
 
+func TestBuildReviewPrompt_SuppressesUnchangedCode(t *testing.T) {
+	prompt := buildReviewPrompt(ReviewContext{})
+	if !strings.Contains(prompt, "not changed in this diff") {
+		t.Error("suppressions should include rule against commenting on unchanged code")
+	}
+}
+
+func TestBuildReviewPrompt_ContainsSummaryInstructions(t *testing.T) {
+	prompt := buildReviewPrompt(ReviewContext{})
+	if !strings.Contains(prompt, "Review Summary") {
+		t.Error("prompt should contain Review Summary section")
+	}
+	if !strings.Contains(prompt, "does well") {
+		t.Error("prompt should instruct to mention what PR does well")
+	}
+}
+
+func TestBuildReviewPrompt_SuggestionFormattingRules(t *testing.T) {
+	prompt := buildReviewPrompt(ReviewContext{})
+	if !strings.Contains(prompt, "NO markdown fences") {
+		t.Error("prompt should specify no markdown fences in suggested fixes")
+	}
+	if !strings.Contains(prompt, "exact indentation from the original file") {
+		t.Error("prompt should require exact indentation in suggested fixes")
+	}
+}
+
 func TestBuildReviewPrompt_ContainsFindingEnrichment(t *testing.T) {
 	prompt := buildReviewPrompt(ReviewContext{})
 	checks := []string{

@@ -48,7 +48,7 @@ func (r *Renderer) RenderMarkdown(result ReviewResult, pr PRInfo, minSeverity Se
 	r.renderSection("WARNING", cf.Warning)
 	r.renderSection("INFO", cf.Info)
 
-	r.renderSummary(cf)
+	r.renderSummary(cf, result.Summary)
 	r.renderRecommendation(cf, result.Recommendation)
 }
 
@@ -117,8 +117,11 @@ func fileRef(f Finding) string {
 	return f.File
 }
 
-func (r *Renderer) renderSummary(cf CategorizedFindings) {
+func (r *Renderer) renderSummary(cf CategorizedFindings, summary string) {
 	_, _ = fmt.Fprint(r.w, "## Summary\n\n")
+	if summary != "" {
+		_, _ = fmt.Fprintf(r.w, "%s\n\n", summary)
+	}
 	_, _ = fmt.Fprintln(r.w, "| Severity | Count |")
 	_, _ = fmt.Fprintln(r.w, "|----------|-------|")
 	_, _ = fmt.Fprintf(r.w, "| BLOCKING | %d |\n", len(cf.Blocking))
