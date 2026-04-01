@@ -13,11 +13,11 @@ Review:
 │  (URL/Ref)   │     │                  │     │  /review      │     │  Report      │
 └──────────────┘     └──────────────────┘     └───────────────┘     └──────────────┘
                             │                                              │
-                            ▼                                              ▼
-                     ┌──────────────────┐                          ┌──────────────┐
-                     │ Review Patterns  │                          │  stdout      │
-                     │ (local + repo)   │                          │  (Copy/Paste)│
-                     └──────────────────┘                          └──────────────┘
+                            ▼                                              ├──▶ stdout
+                     ┌──────────────────┐                                  ├──▶ PR comment (--post-review)
+                     │ Review Patterns  │                                  └──▶ Inline review (--inline)
+                     │ (local + repo)   │
+                     └──────────────────┘
 
 Propose:
 ┌──────────────┐     ┌──────────────────┐     ┌───────────────┐     ┌──────────────┐
@@ -40,8 +40,8 @@ Propose:
    - `patterns/` in the planwerk-review repository (general patterns)
    - `.planwerk/review_patterns/` in the target repository (repo-specific patterns)
 4. **Claude CLI Review**: `claude /review` is executed with a structured prompt that includes persona framing, scope analysis, a two-pass checklist, suppression rules, and review patterns.
-5. **Result Aggregation**: Review results are collected, deduplicated, categorized by severity, and classified by actionability.
-6. **Markdown Output**: A structured report is written to `stdout`.
+5. **Result Aggregation**: Review results are collected, deduplicated, categorized by severity, and classified by actionability. Findings are enriched with code snippets, suggested fixes, confidence levels, and cross-references.
+6. **Output**: A structured report is written to `stdout`, optionally posted as a PR comment (`--post-review`), or posted as inline review comments on the PR diff (`--inline`).
 
 ### Review Methodology
 
@@ -131,6 +131,9 @@ planwerk-review --patterns ./custom-patterns owner/repo#123
 # Only output specific severity levels
 planwerk-review --min-severity warning owner/repo#123
 
+# Post review as inline comments on the PR
+planwerk-review --inline owner/repo#123
+
 # Write output to file
 planwerk-review owner/repo#123 > review.md
 ```
@@ -147,6 +150,7 @@ planwerk-review owner/repo#123 > review.md
 | `--clear-cache` | Clear all cached reviews and exit | `false` |
 | `--format` | Output format (`markdown`, `json`) | `markdown` |
 | `--post-review` | Post review as a comment on the PR (updates existing if found) | `false` |
+| `--inline` | Post review with inline comments using GitHub Review API (implies `--post-review`) | `false` |
 | `--thorough` | Run additional adversarial review pass for security and failure modes | `false` |
 | `--coverage-map` | Generate test coverage map for changed functions | `false` |
 
@@ -193,12 +197,12 @@ The generated Markdown report follows a fixed structure:
 > *Feature: Add user authentication*
 > Reviewed by planwerk-review vX.Y.Z with Claude CLI
 
+<!-- planwerk-review: blocking=1 critical=2 warning=3 info=1 recommendation=HOLD -->
+
 ## BLOCKING (1)
 
 ### B-001: Hardcoded secrets in configuration
-**File**: `config/auth.go:42`
-**Pattern**: *Hardcoded values* (if detected by pattern)
-**Actionability**: needs-discussion
+**File**: `config/auth.go:42` — **Fix**: ASK — **Confidence**: verified — **Pattern**: Hardcoded values
 
 **Problem**: API secret is hardcoded directly in the source code.
 
@@ -210,21 +214,22 @@ environment variable or secret manager.
 ## CRITICAL (2)
 
 ### C-001: SQL Injection in User Query
-**File**: `db/users.go:87`
-**Actionability**: needs-discussion
+**File**: `db/users.go:87-92` — **Fix**: ASK — **Confidence**: verified
 
 **Problem**: User input is used in SQL query without sanitization.
 
 **Action Required**: Use prepared statements.
-`db.Query("SELECT * FROM users WHERE id = ?", userID)`
+
+---
 
 ### C-002: Missing error handling
-**File**: `handlers/login.go:23`
-**Actionability**: auto-fix
+**File**: `handlers/login.go:23` — **Fix**: AUTO-FIX — **Confidence**: likely
 
 **Problem**: Error from `ValidateToken()` is ignored.
 
 **Action Required**: Check error and return HTTP 401 on failure.
+
+**Related**: B-001
 
 ---
 
@@ -234,23 +239,17 @@ environment variable or secret manager.
 
 ---
 
-## INFO (1)
-
-### I-001: ...
-
----
-
 ## Summary
 
-| Category  | Count |
-|-----------|-------|
-| BLOCKING  | 1     |
-| CRITICAL  | 2     |
-| WARNING   | 3     |
-| INFO      | 1     |
+| Severity | Count |
+|----------|-------|
+| BLOCKING | 1     |
+| CRITICAL | 2     |
+| WARNING  | 3     |
+| INFO     | 1     |
 
-**Recommendation**: PR should not be merged due to 1 BLOCKING and
-2 CRITICAL findings until they are resolved.
+> [!CAUTION]
+> **Do not merge** — 1 BLOCKING and 2 CRITICAL findings must be resolved first.
 ```
 
 #### Severity Levels
@@ -269,6 +268,41 @@ environment variable or secret manager.
 | **auto-fix** | A senior engineer would fix without discussion | Apply the suggested fix directly |
 | **needs-discussion** | Requires team input before fixing | Discuss in PR comments or team sync |
 | **architectural** | Fundamental design issue | Needs broader design conversation |
+
+#### Enriched Finding Fields
+
+Each finding includes additional metadata for tooling and automation:
+
+| Field | Description |
+|-------|-------------|
+| **FixClass** | `AUTO-FIX` or `ASK` — derived from Actionability, indicates whether the fix can be applied directly |
+| **Confidence** | `verified`, `likely`, or `uncertain` — how certain the reviewer is about the finding |
+| **CodeSnippet** | The relevant code fragment from the diff |
+| **SuggestedFix** | Concrete replacement code for auto-fix findings |
+| **RelatedTo** | IDs of related findings (e.g., `["B-001", "C-003"]`) |
+| **LineEnd** | End line for multi-line findings (enables line-range comments) |
+
+#### Machine-Readable Output
+
+The Markdown report includes an HTML comment with counts and recommendation verdict for machine consumption:
+
+```html
+<!-- planwerk-review: blocking=1 critical=2 warning=0 info=3 recommendation=HOLD -->
+```
+
+Verdict values: `HOLD` (blockers/criticals present), `REVIEW` (warnings only), `MERGE` (clean), `CUSTOM` (manual recommendation).
+
+Recommendations use GitHub Alert syntax (`[!CAUTION]`, `[!WARNING]`, `[!TIP]`, `[!IMPORTANT]`) for native rendering.
+
+#### Inline Review Mode (`--inline`)
+
+With `--inline`, findings are posted as inline comments on the PR using the GitHub Review API instead of (or in addition to) a single summary comment:
+
+- Each finding that maps to a line in the PR diff becomes an inline comment on that line
+- Auto-fix findings with a `SuggestedFix` use GitHub's `suggestion` syntax, enabling one-click apply
+- Findings that cannot be mapped to diff lines are included in the review summary body
+- The PR diff is fetched and parsed to validate that finding lines are within the diff (right side)
+- Implies `--post-review`
 
 ### Review Patterns
 
@@ -370,11 +404,15 @@ planwerk-review/
 │   ├── github/
 │   │   ├── comments.go         # Post/update PR comments (gh CLI)
 │   │   ├── comments_test.go
+│   │   ├── diff.go             # Fetch and parse PR diffs (DiffMap)
+│   │   ├── diff_test.go
 │   │   ├── issues.go           # Create/search GitHub issues (gh CLI)
 │   │   ├── pr.go               # Fetch PR data, checkout (gh CLI)
 │   │   ├── pr_test.go
 │   │   ├── repo.go             # Clone repo, fetch HEAD SHA
-│   │   └── repo_test.go
+│   │   ├── repo_test.go
+│   │   ├── review.go           # Submit PR reviews via GitHub Review API
+│   │   └── review_test.go
 │   ├── patterns/
 │   │   ├── loader.go           # Load patterns from directories
 │   │   ├── pattern.go          # Pattern data structure + parsing
@@ -391,9 +429,11 @@ planwerk-review/
 │   │   ├── categorizer_test.go
 │   │   ├── coverage.go         # Coverage result data structure + rendering
 │   │   ├── coverage_test.go
-│   │   ├── finding.go          # Finding data structure (Severity, Actionability)
+│   │   ├── finding.go          # Finding data structure (Severity, Actionability, FixClass, Confidence)
 │   │   ├── finding_test.go
-│   │   ├── renderer.go         # Markdown/JSON output
+│   │   ├── inline.go           # Format findings as GitHub inline review comments
+│   │   ├── inline_test.go
+│   │   ├── renderer.go         # Markdown/JSON output (compact format, GitHub Alerts)
 │   │   └── renderer_test.go
 │   ├── review/
 │   │   ├── reviewer.go         # Orchestration: PR → Claude → Report
@@ -469,6 +509,10 @@ planwerk-review/
 | 14 | **Coverage map** | `--coverage-map` maps changed functions to tests | Produces a table rating each changed function's test coverage (★★★/★★/★/GAP) |
 | 15 | **External command timeouts** | All `claude`, `gh`, `git` calls have timeouts | Claude: 15 min, git clone: 5 min, gh: 2 min — prevents indefinite blocking |
 | 16 | **Test & doc verification** | Dedicated prompt section + checklist items for test/doc completeness | Missing tests and documentation are the most common review gaps; explicit checks at SEMANTIC severity ensure they are flagged consistently |
+| 17 | **Enriched findings** | Code snippets, suggested fixes, confidence, fix class, line ranges, relationships | Enables downstream tooling (Claude Code, CI) to process, apply, and correlate findings programmatically |
+| 18 | **Inline review comments** | `--inline` posts via GitHub Review API with `suggestion` syntax | Puts findings exactly where the code is; auto-fix suggestions become one-click "Apply suggestion" buttons on GitHub |
+| 19 | **Machine-readable comment** | HTML comment with counts + verdict in Markdown output | CI scripts and Claude Code can parse review results without processing full Markdown |
+| 20 | **Compact Markdown format** | Empty sections skipped, single-line metadata, GitHub Alert syntax | Reduces noise for human readers and GitHub rendering; no "No findings." placeholders |
 
 ### Future Extensions
 
