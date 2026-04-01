@@ -139,13 +139,19 @@ After completing the checklist, perform these additional checks:
 
 ### Test Completeness
 For every NEW or SIGNIFICANTLY MODIFIED function/method/class in the diff:
-1. Identify the testing convention used in this project (e.g., _test.go files, __tests__ directories, *.spec.ts files)
-2. Check whether the PR includes corresponding test additions or modifications
-3. If the project already has unit tests, integration tests, or E2E tests, new code must include matching test types — as comprehensively as the project already does
-4. If no test exists for new code:
+1. Identify ALL testing conventions used in this project. Check for:
+   - Unit tests: _test.go, test_*.py, *.test.ts, *.spec.ts, __tests__/
+   - Integration tests: tests/integration/, test/integration/
+   - E2E tests: e2e/, tests/e2e/, chainsaw/, .chainsaw/, chainsaw-test.yaml
+   - Kubernetes/Infrastructure E2E: Chainsaw test manifests (chainsaw-test.yaml with apiVersion: chainsaw.kyverno.io), Helm chart tests (tests/), kuttl tests
+2. Check whether the PR includes corresponding test additions or modifications FOR EACH test type the project uses
+3. If the project already has unit tests, integration tests, or E2E tests, new code must include matching test types — as comprehensively as the project already does. This is CRITICAL: if a project has Chainsaw E2E tests for existing features, new features MUST also have Chainsaw tests.
+4. Actively search for test directories: look for chainsaw/, e2e/, tests/, test/ directories in the repository. If they exist and contain tests for similar features, flag missing tests for the new code.
+5. If no test exists for new code:
    - If the project has tests elsewhere: flag as WARNING with title "Missing Tests: <function/file>"
+   - If the project has E2E tests elsewhere but none for new code: flag as WARNING with title "Missing E2E Tests: <feature/component>"
    - If the project has no test convention at all: flag as INFO with title "No Test Convention Detected"
-5. Do NOT flag: trivial getters/setters, simple delegation methods, or configuration constants
+6. Do NOT flag: trivial getters/setters, simple delegation methods, or configuration constants
 
 ### Documentation Completeness
 For every NEW public API, CLI flag, configuration option, or user-facing behavior change:

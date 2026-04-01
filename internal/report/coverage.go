@@ -14,6 +14,8 @@ type CoverageEntry struct {
 	TestFile       string   `json:"test_file,omitempty"`
 	TestFunc       string   `json:"test_func,omitempty"`
 	UncoveredPaths []string `json:"uncovered_paths,omitempty"`
+	E2ETest        string   `json:"e2e_test,omitempty"`
+	E2EGap         string   `json:"e2e_gap,omitempty"`
 }
 
 // CoverageResult holds the coverage map for all changed functions.
@@ -33,6 +35,7 @@ func RenderCoverageMap(w io.Writer, result CoverageResult) {
 	_, _ = fmt.Fprintln(w, "|----------|------|----------|------|------|")
 
 	tested := 0
+	var e2eGaps []CoverageEntry
 	for _, e := range result.Entries {
 		testRef := "—"
 		if e.TestFile != "" {
@@ -54,6 +57,9 @@ func RenderCoverageMap(w io.Writer, result CoverageResult) {
 		if e.Rating != "GAP" {
 			tested++
 		}
+		if e.E2EGap != "" {
+			e2eGaps = append(e2eGaps, e)
+		}
 	}
 
 	total := len(result.Entries)
@@ -62,4 +68,11 @@ func RenderCoverageMap(w io.Writer, result CoverageResult) {
 		pct = (tested * 100) / total
 	}
 	_, _ = fmt.Fprintf(w, "\nCoverage: %d/%d functions tested (%d%%)\n", tested, total, pct)
+
+	if len(e2eGaps) > 0 {
+		_, _ = fmt.Fprint(w, "\n### E2E Test Gaps\n\n")
+		for _, e := range e2eGaps {
+			_, _ = fmt.Fprintf(w, "- **%s** (%s): %s\n", e.Function, e.File, e.E2EGap)
+		}
+	}
 }

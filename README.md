@@ -87,9 +87,9 @@ To reduce false positives, the following are explicitly suppressed:
 #### Test & Documentation Verification
 
 After the checklist passes, the review explicitly verifies:
-- **Test Completeness**: Every new or significantly modified function should have corresponding tests matching the project's testing convention (e.g., `_test.go`, `test_*.py`, `*.spec.ts`). If the project uses unit, integration, and E2E tests, new code must include matching test types.
+- **Test Completeness**: Every new or significantly modified function should have corresponding tests matching the project's testing conventions. The tool actively searches for all test categories: unit tests (`_test.go`, `test_*.py`, `*.spec.ts`), integration tests (`tests/integration/`), and E2E tests (`e2e/`, `chainsaw/`, `.chainsaw/`, `chainsaw-test.yaml`, kuttl). If the project uses multiple test types, new code must include matching tests for each category. Missing E2E tests are flagged separately from missing unit tests.
 - **Documentation Completeness**: New public APIs, CLI flags, configuration options, and user-facing behavior changes must be reflected in documentation (README, CHANGELOG, doc comments).
-- **New File Detection**: Newly added source files are flagged as candidates for documentation if they are not test files or internal configuration.
+- **New File Detection**: Newly added source files are flagged as candidates for documentation if they are not test files or internal configuration. Test file detection covers language-based conventions as well as infrastructure test patterns (Chainsaw, E2E directories).
 
 #### Anti-Sycophancy Rules
 
@@ -509,9 +509,9 @@ planwerk-review/
 | 11 | **Scope drift detection** | PR title + body analyzed before code review | Catches scope creep and missing requirements — often the most valuable review feedback |
 | 12 | **PR comment posting** | `--post-review` updates existing comment | Idempotent: detects and replaces prior planwerk-review comment via HTML signature. Truncates to GitHub's 65 536-char limit. |
 | 13 | **Adversarial review** | `--thorough` runs a second pass | Independent security-focused review merged with primary results, deduplicating by file+line+title |
-| 14 | **Coverage map** | `--coverage-map` maps changed functions to tests | Produces a table rating each changed function's test coverage (★★★/★★/★/GAP) |
+| 14 | **Coverage map** | `--coverage-map` maps changed functions to tests | Produces a table rating each changed function's test coverage (★★★/★★/★/GAP) with separate E2E gap analysis for projects using Chainsaw or similar frameworks |
 | 15 | **External command timeouts** | All `claude`, `gh`, `git` calls have timeouts | Claude: 15 min, git clone: 5 min, gh: 2 min — prevents indefinite blocking |
-| 16 | **Test & doc verification** | Dedicated prompt section + checklist items for test/doc completeness | Missing tests and documentation are the most common review gaps; explicit checks at SEMANTIC severity ensure they are flagged consistently |
+| 16 | **Test & doc verification** | Dedicated prompt section + checklist items for test/doc completeness | Missing tests and documentation are the most common review gaps; explicit checks at SEMANTIC severity ensure they are flagged consistently. E2E test detection covers Chainsaw (`chainsaw-test.yaml`), kuttl, Helm chart tests, and generic `e2e/` directories |
 | 17 | **Enriched findings** | Code snippets, suggested fixes, confidence, fix class, line ranges, relationships | Enables downstream tooling (Claude Code, CI) to process, apply, and correlate findings programmatically |
 | 18 | **Inline review comments** | `--inline` posts via GitHub Review API with `suggestion` syntax | Puts findings exactly where the code is; auto-fix suggestions become one-click "Apply suggestion" buttons on GitHub |
 | 19 | **Machine-readable comment** | HTML comment with counts + verdict in Markdown output | CI scripts and Claude Code can parse review results without processing full Markdown |

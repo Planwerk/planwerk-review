@@ -160,6 +160,16 @@ func isTestFile(path string) bool {
 	if strings.Contains(path, "__tests__") {
 		return true
 	}
+	// E2E / Chainsaw / infrastructure test directories
+	for _, dir := range []string{"/chainsaw/", "/e2e/", "/tests/e2e/", "/test/e2e/", "/.chainsaw/"} {
+		if strings.Contains("/"+path, dir) {
+			return true
+		}
+	}
+	// Chainsaw test manifest files (chainsaw-test.yaml, chainsaw-test.yml)
+	if base == "chainsaw-test.yaml" || base == "chainsaw-test.yml" {
+		return true
+	}
 	return false
 }
 
