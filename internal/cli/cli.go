@@ -17,6 +17,7 @@ type Config struct {
 	ClearCache      bool
 	Format          string
 	PostReview      bool
+	InlineReview    bool
 	Thorough        bool
 	CoverageMap     bool
 }
@@ -32,6 +33,7 @@ func (c Config) ToReviewOptions(version string) review.Options {
 		Format:          c.Format,
 		Version:         version,
 		PostReview:      c.PostReview,
+		InlineReview:    c.InlineReview,
 		Thorough:        c.Thorough,
 		CoverageMap:     c.CoverageMap,
 	}

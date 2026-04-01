@@ -114,6 +114,91 @@ func TestMergeResults_DifferentTitlesSameLocation(t *testing.T) {
 	}
 }
 
+func TestMergeResults_PreservesEnrichment(t *testing.T) {
+	primary := &report.ReviewResult{
+		Findings: []report.Finding{
+			{
+				ID:          "W-001",
+				Severity:    report.SeverityWarning,
+				File:        "auth.go",
+				Line:        42,
+				Title:       "Weak check",
+				CodeSnippet: "if user != nil {",
+				SuggestedFix: "if user != nil && user.IsActive() {",
+			},
+		},
+	}
+	adv := &report.ReviewResult{
+		Findings: []report.Finding{
+			{
+				Severity: report.SeverityCritical,
+				File:     "auth.go",
+				Line:     42,
+				Title:    "Weak check",
+				// Adversarial has no code snippet or suggested fix
+			},
+		},
+	}
+
+	result := mergeResults(primary, adv)
+	if len(result.Findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(result.Findings))
+	}
+	f := result.Findings[0]
+	if f.Severity != report.SeverityCritical {
+		t.Errorf("expected upgraded severity CRITICAL, got %s", f.Severity)
+	}
+	if f.CodeSnippet != "if user != nil {" {
+		t.Errorf("expected preserved CodeSnippet from primary, got %q", f.CodeSnippet)
+	}
+	if f.SuggestedFix != "if user != nil && user.IsActive() {" {
+		t.Errorf("expected preserved SuggestedFix from primary, got %q", f.SuggestedFix)
+	}
+}
+
+func TestMergeResults_MergesRelatedTo(t *testing.T) {
+	primary := &report.ReviewResult{
+		Findings: []report.Finding{
+			{
+				ID:        "W-001",
+				Severity:  report.SeverityWarning,
+				File:      "auth.go",
+				Line:      42,
+				Title:     "Weak check",
+				RelatedTo: []string{"C-002"},
+			},
+		},
+	}
+	adv := &report.ReviewResult{
+		Findings: []report.Finding{
+			{
+				Severity:  report.SeverityCritical,
+				File:      "auth.go",
+				Line:      42,
+				Title:     "Weak check",
+				RelatedTo: []string{"C-003"},
+			},
+		},
+	}
+
+	result := mergeResults(primary, adv)
+	if len(result.Findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(result.Findings))
+	}
+	related := result.Findings[0].RelatedTo
+	if len(related) != 2 {
+		t.Fatalf("expected 2 related_to entries, got %d: %v", len(related), related)
+	}
+	// Should contain both C-003 (from adversarial) and C-002 (merged from primary)
+	has := map[string]bool{}
+	for _, r := range related {
+		has[r] = true
+	}
+	if !has["C-002"] || !has["C-003"] {
+		t.Errorf("expected C-002 and C-003, got %v", related)
+	}
+}
+
 func TestMergeResults_SummaryUpdated(t *testing.T) {
 	primary := &report.ReviewResult{
 		Summary: "Clean review",

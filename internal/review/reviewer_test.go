@@ -49,9 +49,12 @@ func TestRenderResult_PostReview(t *testing.T) {
 		t.Error("expected review to be posted as PR comment")
 	}
 
-	// Verify posted body matches stdout output
-	if postedBody != out.String() {
-		t.Error("posted body should match stdout output")
+	// Posted body should contain stdout output plus a data block
+	if !strings.Contains(postedBody, out.String()[:50]) {
+		t.Error("posted body should contain stdout content")
+	}
+	if !strings.Contains(postedBody, "planwerk-review-data") {
+		t.Error("posted body should contain machine-readable data block")
 	}
 }
 
@@ -108,6 +111,133 @@ func TestRenderResult_PostReviewError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "posting PR comment") {
 		t.Errorf("error should mention posting PR comment, got: %v", err)
+	}
+}
+
+func TestRenderResult_InlineReview(t *testing.T) {
+	var submittedBody string
+	var submittedComments []github.ReviewComment
+	origSubmit := submitReviewFunc
+	submitReviewFunc = func(owner, repo string, number int, commitSHA, body string, comments []github.ReviewComment) (string, error) {
+		submittedBody = body
+		submittedComments = comments
+		return "https://github.com/test/repo/pull/1#discussion_r123", nil
+	}
+	defer func() { submitReviewFunc = origSubmit }()
+
+	origFetch := fetchDiffFunc
+	fetchDiffFunc = func(owner, repo string, number int) (string, error) {
+		return `diff --git a/main.go b/main.go
+index abc..def 100644
+--- a/main.go
++++ b/main.go
+@@ -10,3 +10,4 @@ func main() {
+ 	fmt.Println("hello")
+ 	fmt.Println("world")
++	newFunc()
+ }
+`, nil
+	}
+	defer func() { fetchDiffFunc = origFetch }()
+
+	result := &report.ReviewResult{
+		Summary: "Test review",
+		Findings: []report.Finding{
+			{
+				ID:            "C-001",
+				Severity:      report.SeverityCritical,
+				Title:         "Issue in diff",
+				File:          "main.go",
+				Line:          12,
+				Actionability: report.ActionabilityAutoFix,
+				FixClass:      report.FixClassAutoFix,
+				Problem:       "Problem here",
+				Action:        "Fix it",
+				SuggestedFix:  "fixedCode()",
+			},
+			{
+				ID:       "W-001",
+				Severity: report.SeverityWarning,
+				Title:    "Issue outside diff",
+				File:     "other.go",
+				Line:     100,
+				Problem:  "Other problem",
+				Action:   "Fix that too",
+			},
+		},
+	}
+	pr := &github.PR{Owner: "test", Repo: "repo", Number: 1, Title: "Test PR", HeadSHA: "abc123"}
+	opts := Options{
+		Format:       "markdown",
+		MinSeverity:  report.SeverityInfo,
+		Version:      "test",
+		PostReview:   true,
+		InlineReview: true,
+	}
+
+	var out bytes.Buffer
+	err := renderResult(&out, result, pr, opts, nil)
+	if err != nil {
+		t.Fatalf("renderResult returned error: %v", err)
+	}
+
+	if submittedBody == "" {
+		t.Error("expected inline review to be submitted")
+	}
+
+	// Only the finding in the diff should become an inline comment
+	if len(submittedComments) != 1 {
+		t.Fatalf("expected 1 inline comment, got %d", len(submittedComments))
+	}
+	if submittedComments[0].Path != "main.go" {
+		t.Errorf("inline comment path = %q, want %q", submittedComments[0].Path, "main.go")
+	}
+
+	// Data block should be in the body
+	if !strings.Contains(submittedBody, "planwerk-review-data") {
+		t.Error("submitted body should contain data block")
+	}
+}
+
+func TestRenderResult_InlineReviewFallback(t *testing.T) {
+	var postedBody string
+	origPost := postCommentFunc
+	postCommentFunc = func(owner, repo string, number int, body string) (string, error) {
+		postedBody = body
+		return "https://github.com/test/repo/pull/1#issuecomment-456", nil
+	}
+	defer func() { postCommentFunc = origPost }()
+
+	origSubmit := submitReviewFunc
+	submitReviewFunc = func(owner, repo string, number int, commitSHA, body string, comments []github.ReviewComment) (string, error) {
+		return "", &mockError{"API error"}
+	}
+	defer func() { submitReviewFunc = origSubmit }()
+
+	origFetch := fetchDiffFunc
+	fetchDiffFunc = func(owner, repo string, number int) (string, error) {
+		return "", nil
+	}
+	defer func() { fetchDiffFunc = origFetch }()
+
+	result := &report.ReviewResult{Summary: "Test"}
+	pr := &github.PR{Owner: "test", Repo: "repo", Number: 1, Title: "Test PR", HeadSHA: "abc123"}
+	opts := Options{
+		Format:       "markdown",
+		MinSeverity:  report.SeverityInfo,
+		Version:      "test",
+		PostReview:   true,
+		InlineReview: true,
+	}
+
+	var out bytes.Buffer
+	err := renderResult(&out, result, pr, opts, nil)
+	if err != nil {
+		t.Fatalf("renderResult returned error: %v", err)
+	}
+
+	if postedBody == "" {
+		t.Error("expected fallback to PR comment after inline review failure")
 	}
 }
 

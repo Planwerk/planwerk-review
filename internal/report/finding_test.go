@@ -110,6 +110,91 @@ func TestFindingUnmarshalNormalizesSeverity(t *testing.T) {
 	}
 }
 
+func TestNormalizeConfidence(t *testing.T) {
+	tests := []struct {
+		input string
+		want  Confidence
+	}{
+		{"verified", ConfidenceVerified},
+		{"VERIFIED", ConfidenceVerified},
+		{"Verified", ConfidenceVerified},
+		{"likely", ConfidenceLikely},
+		{"LIKELY", ConfidenceLikely},
+		{"uncertain", ConfidenceUncertain},
+		{"UNCERTAIN", ConfidenceUncertain},
+		{"  likely  ", ConfidenceLikely},
+		{"unknown", ConfidenceUncertain},
+		{"", ConfidenceUncertain},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := NormalizeConfidence(tt.input)
+			if got != tt.want {
+				t.Errorf("NormalizeConfidence(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFindingUnmarshalWithNewFields(t *testing.T) {
+	input := `{
+		"severity": "critical",
+		"title": "SQL injection",
+		"file": "db.go",
+		"line": 42,
+		"line_end": 45,
+		"confidence": "verified",
+		"problem": "User input in query",
+		"action": "Use parameterized query",
+		"code_snippet": "db.Query(\"SELECT * FROM users WHERE id=\" + id)",
+		"suggested_fix": "db.Query(\"SELECT * FROM users WHERE id=?\", id)",
+		"related_to": ["Missing input validation"]
+	}`
+	var f Finding
+	if err := json.Unmarshal([]byte(input), &f); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if f.LineEnd != 45 {
+		t.Errorf("LineEnd = %d, want 45", f.LineEnd)
+	}
+	if f.Confidence != "verified" {
+		t.Errorf("Confidence = %q, want %q", f.Confidence, "verified")
+	}
+	if f.CodeSnippet == "" {
+		t.Error("CodeSnippet should not be empty")
+	}
+	if f.SuggestedFix == "" {
+		t.Error("SuggestedFix should not be empty")
+	}
+	if len(f.RelatedTo) != 1 || f.RelatedTo[0] != "Missing input validation" {
+		t.Errorf("RelatedTo = %v, want [Missing input validation]", f.RelatedTo)
+	}
+}
+
+func TestFindingUnmarshalBackwardCompat(t *testing.T) {
+	input := `{"severity": "warning", "title": "test", "problem": "p", "action": "a"}`
+	var f Finding
+	if err := json.Unmarshal([]byte(input), &f); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if f.LineEnd != 0 {
+		t.Errorf("LineEnd should be zero value, got %d", f.LineEnd)
+	}
+	if f.Confidence != "" {
+		t.Errorf("Confidence should be empty, got %q", f.Confidence)
+	}
+	if f.CodeSnippet != "" {
+		t.Errorf("CodeSnippet should be empty, got %q", f.CodeSnippet)
+	}
+	if f.SuggestedFix != "" {
+		t.Errorf("SuggestedFix should be empty, got %q", f.SuggestedFix)
+	}
+	if f.RelatedTo != nil {
+		t.Errorf("RelatedTo should be nil, got %v", f.RelatedTo)
+	}
+}
+
 func TestMeetsMinimum(t *testing.T) {
 	tests := []struct {
 		sev  Severity

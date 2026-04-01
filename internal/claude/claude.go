@@ -234,6 +234,26 @@ Be direct and decisive in your findings. Do NOT hedge:
 
 `)
 
+	// Finding enrichment for machine processing
+	sb.WriteString(`## Finding Enrichment
+
+For EVERY finding you report, you MUST include:
+
+1. **Code Snippet**: Quote the exact 3-5 lines of problematic code from the diff. Use the original line numbers. If the issue spans multiple lines, include all affected lines.
+
+2. **Suggested Fix**: For auto-fix findings, provide the EXACT replacement code that resolves the issue. This must be copy-paste ready — no placeholders, no "..." elisions. For needs-discussion and architectural findings, describe the fix approach concretely.
+
+3. **Line Range**: When a finding affects multiple lines, specify both the start line and end line.
+
+4. **Confidence Level**: Rate your confidence for each finding:
+   - "verified": You can see the bug/issue directly in the diff with certainty (e.g., nil dereference, SQL injection, wrong return type)
+   - "likely": Strong evidence but depends on context outside the diff (e.g., missing error handling where the caller might handle it)
+   - "uncertain": Potential issue that requires investigation (e.g., possible race condition, performance concern under load)
+
+5. **Related Findings**: If two or more findings are connected (e.g., a missing nil check and a missing test for that nil check), note the relationship by referencing the other finding's title.
+
+`)
+
 	sb.WriteString("IMPORTANT: Completely ignore all changes in the .planwerk/ directory. Do not create any findings for files inside .planwerk/. These are project management artifacts that are always expected in the diff.\n\n")
 	sb.WriteString("/review")
 
@@ -270,10 +290,15 @@ Output ONLY valid JSON matching this exact schema (no markdown fences, no surrou
       "title": "Short title",
       "file": "path/to/file.go",
       "line": 42,
+      "line_end": 45,
       "pattern": "Pattern name if triggered by a review pattern, otherwise omit",
       "actionability": "auto-fix|needs-discussion|architectural",
+      "confidence": "verified|likely|uncertain",
       "problem": "Description of the problem",
-      "action": "What should be done to fix it"
+      "action": "What should be done to fix it",
+      "code_snippet": "The exact problematic lines from the diff, preserving indentation",
+      "suggested_fix": "The exact replacement code for auto-fix findings, or a concrete description for others",
+      "related_to": ["titles of related findings from this review"]
     }
   ],
   "summary": "Brief overall summary of the review",
@@ -291,8 +316,19 @@ Actionability classification (determines fix approach):
 - needs-discussion: Requires team input before fixing (security fixes, race condition resolutions, API/design changes, anything changing observable behavior). These will be marked as ASK — requires human confirmation.
 - architectural: Fundamental design issue that needs a broader conversation (wrong abstraction, missing layer, significant refactor needed). These will be marked as ASK.
 
-Leave the "id" field as an empty string — it will be assigned automatically.
-If there are no findings, return an empty findings array.
+Confidence levels:
+- verified: The issue is directly visible in the code with certainty
+- likely: Strong evidence but depends on context outside the diff
+- uncertain: Potential issue that requires further investigation
+
+Field rules:
+- Leave the "id" field as an empty string — it will be assigned automatically.
+- "code_snippet": REQUIRED for every finding. Quote the exact lines from the diff.
+- "suggested_fix": REQUIRED for auto-fix findings (provide exact replacement code). For other findings, provide a concrete description of what to change.
+- "line_end": Include when the finding spans multiple lines. Omit if it is a single-line issue.
+- "confidence": REQUIRED for every finding.
+- "related_to": Include titles of other findings in this review that are related. Use an empty array if none.
+- If there are no findings, return an empty findings array.
 
 <review-output>
 ` + rawReview + `
@@ -347,11 +383,25 @@ func assignIDs(result *report.ReviewResult) {
 		result.Findings[i].Severity = sev
 		result.Findings[i].Actionability = report.NormalizeActionability(string(result.Findings[i].Actionability))
 		result.Findings[i].FixClass = report.DeriveFixClass(result.Findings[i].Actionability)
+		result.Findings[i].Confidence = report.NormalizeConfidence(string(result.Findings[i].Confidence))
 		counters[sev]++
 		prefix := prefixes[sev]
 		if prefix == "" {
 			prefix = "X"
 		}
 		result.Findings[i].ID = fmt.Sprintf("%s-%03d", prefix, counters[sev])
+	}
+
+	// Resolve related_to references: map titles to assigned IDs
+	titleToID := make(map[string]string)
+	for _, f := range result.Findings {
+		titleToID[strings.ToLower(strings.TrimSpace(f.Title))] = f.ID
+	}
+	for i := range result.Findings {
+		for j, ref := range result.Findings[i].RelatedTo {
+			if id, ok := titleToID[strings.ToLower(strings.TrimSpace(ref))]; ok {
+				result.Findings[i].RelatedTo[j] = id
+			}
+		}
 	}
 }

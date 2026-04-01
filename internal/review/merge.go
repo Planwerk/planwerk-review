@@ -41,8 +41,27 @@ func mergeResults(primary, adversarial *report.ReviewResult) *report.ReviewResul
 			existingRank, ok1 := severityRank[primary.Findings[idx].Severity]
 			newRank, ok2 := severityRank[af.Severity]
 			if ok1 && ok2 && newRank < existingRank {
-				// Adversarial finding is higher severity — replace
+				// Adversarial finding is higher severity — replace, but merge enrichment
 				af.ID = primary.Findings[idx].ID // preserve ID
+				// Preserve enrichment from primary if adversarial lacks it
+				if af.CodeSnippet == "" && primary.Findings[idx].CodeSnippet != "" {
+					af.CodeSnippet = primary.Findings[idx].CodeSnippet
+				}
+				if af.SuggestedFix == "" && primary.Findings[idx].SuggestedFix != "" {
+					af.SuggestedFix = primary.Findings[idx].SuggestedFix
+				}
+				// Merge related_to lists
+				if len(primary.Findings[idx].RelatedTo) > 0 {
+					seen := make(map[string]bool)
+					for _, r := range af.RelatedTo {
+						seen[r] = true
+					}
+					for _, r := range primary.Findings[idx].RelatedTo {
+						if !seen[r] {
+							af.RelatedTo = append(af.RelatedTo, r)
+						}
+					}
+				}
 				primary.Findings[idx] = af
 			}
 		} else {

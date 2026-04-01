@@ -69,6 +69,30 @@ const (
 	FixClassAsk     FixClass = "ASK"
 )
 
+// Confidence indicates how certain the reviewer is about a finding.
+type Confidence string
+
+const (
+	ConfidenceVerified  Confidence = "verified"
+	ConfidenceLikely    Confidence = "likely"
+	ConfidenceUncertain Confidence = "uncertain"
+)
+
+var validConfidence = map[string]Confidence{
+	"verified":  ConfidenceVerified,
+	"likely":    ConfidenceLikely,
+	"uncertain": ConfidenceUncertain,
+}
+
+// NormalizeConfidence maps common variants to the canonical value.
+// Unknown values default to uncertain.
+func NormalizeConfidence(s string) Confidence {
+	if c, ok := validConfidence[strings.ToLower(strings.TrimSpace(s))]; ok {
+		return c
+	}
+	return ConfidenceUncertain
+}
+
 // DeriveFixClass maps an Actionability value to a FixClass.
 // auto-fix → AUTO-FIX, everything else → ASK.
 func DeriveFixClass(a Actionability) FixClass {
@@ -103,11 +127,16 @@ type Finding struct {
 	Title         string        `json:"title"`
 	File          string        `json:"file"`
 	Line          int           `json:"line,omitempty"`
+	LineEnd       int           `json:"line_end,omitempty"`
 	Pattern       string        `json:"pattern,omitempty"`
 	Actionability Actionability `json:"actionability,omitempty"`
 	FixClass      FixClass      `json:"fix_class,omitempty"`
+	Confidence    Confidence    `json:"confidence,omitempty"`
 	Problem       string        `json:"problem"`
 	Action        string        `json:"action"`
+	CodeSnippet   string        `json:"code_snippet,omitempty"`
+	SuggestedFix  string        `json:"suggested_fix,omitempty"`
+	RelatedTo     []string      `json:"related_to,omitempty"`
 }
 
 type ReviewResult struct {

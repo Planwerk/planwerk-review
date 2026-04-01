@@ -68,6 +68,13 @@ DO NOT comment on:
 For every finding, describe the SPECIFIC attack vector or failure scenario. Be concrete.
 Use severity CRITICAL for exploitable vulnerabilities, WARNING for failure modes, INFO for hardening suggestions.
 
+For every finding you report:
+- Quote the exact 3-5 lines of vulnerable/problematic code from the diff
+- Provide a concrete proof-of-concept or exploit scenario (for security findings) or failure scenario (for reliability findings)
+- Provide the exact fix code for issues that can be auto-fixed
+- Rate your confidence: "verified" (exploit confirmed in code), "likely" (strong evidence), "uncertain" (theoretical concern)
+- If multiple findings are related (e.g., an injection vector and a missing input validation), note the connection by referencing the other finding's title
+
 IMPORTANT: Completely ignore all changes in the .planwerk/ directory.
 
 /review`, baseBranch, baseBranch)

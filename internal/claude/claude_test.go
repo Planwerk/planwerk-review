@@ -118,6 +118,40 @@ func TestBuildReviewPrompt_NoNewFeatureHints(t *testing.T) {
 	}
 }
 
+func TestBuildReviewPrompt_ContainsFindingEnrichment(t *testing.T) {
+	prompt := buildReviewPrompt(ReviewContext{})
+	checks := []string{
+		"Finding Enrichment",
+		"Code Snippet",
+		"Suggested Fix",
+		"Confidence Level",
+		"Related Findings",
+	}
+	for _, check := range checks {
+		if !strings.Contains(prompt, check) {
+			t.Errorf("prompt should contain %q", check)
+		}
+	}
+}
+
+func TestBuildStructurePrompt_ContainsNewFields(t *testing.T) {
+	prompt := buildStructurePrompt("test review output")
+	checks := []string{
+		`"code_snippet"`,
+		`"suggested_fix"`,
+		`"line_end"`,
+		`"confidence"`,
+		`"related_to"`,
+		"Confidence levels:",
+		"Field rules:",
+	}
+	for _, check := range checks {
+		if !strings.Contains(prompt, check) {
+			t.Errorf("structure prompt should contain %q", check)
+		}
+	}
+}
+
 func TestAssignIDs(t *testing.T) {
 	result := &report.ReviewResult{
 		Findings: []report.Finding{
@@ -150,5 +184,47 @@ func TestAssignIDs(t *testing.T) {
 		if f.Severity != exp.severity {
 			t.Errorf("finding[%d].Severity = %q, want %q", i, f.Severity, exp.severity)
 		}
+	}
+}
+
+func TestAssignIDs_NormalizesConfidence(t *testing.T) {
+	result := &report.ReviewResult{
+		Findings: []report.Finding{
+			{Severity: "critical", Confidence: "VERIFIED"},
+			{Severity: "warning", Confidence: "Likely"},
+			{Severity: "info", Confidence: "unknown"},
+		},
+	}
+
+	assignIDs(result)
+
+	if result.Findings[0].Confidence != report.ConfidenceVerified {
+		t.Errorf("finding[0].Confidence = %q, want %q", result.Findings[0].Confidence, report.ConfidenceVerified)
+	}
+	if result.Findings[1].Confidence != report.ConfidenceLikely {
+		t.Errorf("finding[1].Confidence = %q, want %q", result.Findings[1].Confidence, report.ConfidenceLikely)
+	}
+	if result.Findings[2].Confidence != report.ConfidenceUncertain {
+		t.Errorf("finding[2].Confidence = %q, want %q", result.Findings[2].Confidence, report.ConfidenceUncertain)
+	}
+}
+
+func TestAssignIDs_ResolvesRelatedTo(t *testing.T) {
+	result := &report.ReviewResult{
+		Findings: []report.Finding{
+			{Severity: "critical", Title: "SQL injection", RelatedTo: []string{"Missing input validation"}},
+			{Severity: "warning", Title: "Missing input validation", RelatedTo: []string{"SQL injection"}},
+		},
+	}
+
+	assignIDs(result)
+
+	// First finding should reference the ID of the second
+	if result.Findings[0].RelatedTo[0] != "W-001" {
+		t.Errorf("finding[0].RelatedTo[0] = %q, want %q", result.Findings[0].RelatedTo[0], "W-001")
+	}
+	// Second finding should reference the ID of the first
+	if result.Findings[1].RelatedTo[0] != "C-001" {
+		t.Errorf("finding[1].RelatedTo[0] = %q, want %q", result.Findings[1].RelatedTo[0], "C-001")
 	}
 }

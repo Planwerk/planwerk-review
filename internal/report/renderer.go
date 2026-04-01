@@ -74,10 +74,13 @@ func (r *Renderer) renderSection(label string, findings []Finding) {
 	for i, f := range findings {
 		_, _ = fmt.Fprintf(r.w, "### %s: %s\n", f.ID, f.Title)
 
-		// Compact single-line metadata: File — Fix — Pattern
+		// Compact single-line metadata: File — Fix — Confidence — Pattern
 		meta := fmt.Sprintf("**File**: `%s`", fileRef(f))
 		if f.FixClass != "" {
 			meta += fmt.Sprintf(" — **Fix**: %s", f.FixClass)
+		}
+		if f.Confidence != "" {
+			meta += fmt.Sprintf(" — **Confidence**: %s", f.Confidence)
 		}
 		if f.Pattern != "" {
 			meta += fmt.Sprintf(" — **Pattern**: %s", f.Pattern)
@@ -85,7 +88,16 @@ func (r *Renderer) renderSection(label string, findings []Finding) {
 		_, _ = fmt.Fprintln(r.w, meta)
 		_, _ = fmt.Fprintln(r.w)
 		_, _ = fmt.Fprintf(r.w, "**Problem**: %s\n\n", f.Problem)
+		if f.CodeSnippet != "" {
+			_, _ = fmt.Fprintf(r.w, "**Code**:\n```\n%s\n```\n\n", f.CodeSnippet)
+		}
 		_, _ = fmt.Fprintf(r.w, "**Action Required**: %s\n\n", f.Action)
+		if f.SuggestedFix != "" {
+			_, _ = fmt.Fprintf(r.w, "**Suggested Fix**:\n```\n%s\n```\n\n", f.SuggestedFix)
+		}
+		if len(f.RelatedTo) > 0 {
+			_, _ = fmt.Fprintf(r.w, "**Related**: %s\n\n", strings.Join(f.RelatedTo, ", "))
+		}
 
 		if i < len(findings)-1 {
 			_, _ = fmt.Fprint(r.w, "---\n\n")
@@ -96,6 +108,9 @@ func (r *Renderer) renderSection(label string, findings []Finding) {
 
 // fileRef returns "file:line" when a line number is known, otherwise just "file".
 func fileRef(f Finding) string {
+	if f.Line > 0 && f.LineEnd > 0 && f.LineEnd != f.Line {
+		return fmt.Sprintf("%s:%d-%d", f.File, f.Line, f.LineEnd)
+	}
 	if f.Line > 0 {
 		return fmt.Sprintf("%s:%d", f.File, f.Line)
 	}
@@ -139,4 +154,24 @@ type PRInfo struct {
 	Repo   string
 	Number int
 	Title  string
+}
+
+// dataBlockPayload is the JSON structure embedded in the HTML comment for machine consumption.
+type dataBlockPayload struct {
+	CommitSHA string    `json:"commit_sha"`
+	Findings  []Finding `json:"findings"`
+}
+
+// RenderDataBlock returns an HTML comment containing the JSON-encoded findings
+// and metadata for machine consumption by tools like Claude Code.
+func RenderDataBlock(result ReviewResult, commitSHA string) string {
+	payload := dataBlockPayload{
+		CommitSHA: commitSHA,
+		Findings:  result.Findings,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("\n<!-- planwerk-review-data\n%s\n-->\n", string(data))
 }

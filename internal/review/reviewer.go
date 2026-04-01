@@ -25,6 +25,14 @@ import (
 // It is a variable so tests can replace it.
 var postCommentFunc = github.PostPRComment
 
+// submitReviewFunc is the function used to submit PR reviews with inline comments.
+// It is a variable so tests can replace it.
+var submitReviewFunc = github.SubmitPRReview
+
+// fetchDiffFunc is the function used to fetch PR diffs.
+// It is a variable so tests can replace it.
+var fetchDiffFunc = github.FetchDiff
+
 type Options struct {
 	PRRef           string
 	PatternDirs     []string
@@ -35,6 +43,7 @@ type Options struct {
 	Format          string
 	Version         string
 	PostReview      bool
+	InlineReview    bool
 	Thorough        bool
 	CoverageMap     bool
 }
@@ -183,7 +192,7 @@ func renderResult(w io.Writer, result *report.ReviewResult, pr *github.PR, opts 
 	// If posting review, capture output in a buffer as well
 	var buf bytes.Buffer
 	output := io.Writer(w)
-	if opts.PostReview {
+	if opts.PostReview || opts.InlineReview {
 		output = io.MultiWriter(w, &buf)
 	}
 
@@ -203,15 +212,80 @@ func renderResult(w io.Writer, result *report.ReviewResult, pr *github.PR, opts 
 		report.RenderCoverageMap(output, *coverage)
 	}
 
-	if opts.PostReview {
+	if opts.InlineReview {
+		fmt.Fprintln(os.Stderr, "Posting inline review with GitHub Review API...")
+		err := postInlineReview(result, pr, &buf)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: inline review failed (%v), falling back to PR comment...\n", err)
+			_, err = postCommentFunc(pr.Owner, pr.Repo, pr.Number, buf.String())
+			if err != nil {
+				return fmt.Errorf("posting PR comment (fallback): %w", err)
+			}
+		}
+	} else if opts.PostReview {
 		fmt.Fprintln(os.Stderr, "Posting review as PR comment (will update existing if found)...")
-		result, err := postCommentFunc(pr.Owner, pr.Repo, pr.Number, buf.String())
+		// Append data block for machine consumption
+		dataBlock := report.RenderDataBlock(*result, pr.HeadSHA)
+		body := buf.String() + dataBlock
+		postResult, err := postCommentFunc(pr.Owner, pr.Repo, pr.Number, body)
 		if err != nil {
 			return fmt.Errorf("posting PR comment: %w", err)
 		}
-		fmt.Fprintf(os.Stderr, "Review posted: %s\n", result)
+		fmt.Fprintf(os.Stderr, "Review posted: %s\n", postResult)
 	}
 
+	return nil
+}
+
+// maxInlineComments is the conservative limit for inline comments per review.
+const maxInlineComments = 50
+
+func postInlineReview(result *report.ReviewResult, pr *github.PR, summaryBuf *bytes.Buffer) error {
+	// 1. Fetch the diff
+	rawDiff, err := fetchDiffFunc(pr.Owner, pr.Repo, pr.Number)
+	if err != nil {
+		return fmt.Errorf("fetching diff: %w", err)
+	}
+
+	// 2. Parse the diff into a map
+	diffMap := github.ParseDiff(rawDiff)
+
+	// 3. Partition findings into inline-eligible and body-only
+	var inlineComments []github.ReviewComment
+	for _, f := range result.Findings {
+		if f.File == "" || f.Line <= 0 || !diffMap.Contains(f.File, f.Line) {
+			continue
+		}
+		if len(inlineComments) >= maxInlineComments {
+			break
+		}
+
+		comment := github.ReviewComment{
+			Path: f.File,
+			Line: f.Line,
+			Side: "RIGHT",
+			Body: report.FormatInlineComment(f),
+		}
+		// Handle multi-line comments
+		if f.LineEnd > f.Line && diffMap.Contains(f.File, f.LineEnd) {
+			comment.StartLine = f.Line
+			comment.StartSide = "RIGHT"
+			comment.Line = f.LineEnd
+		}
+		inlineComments = append(inlineComments, comment)
+	}
+
+	// 4. Build the review summary body with data block
+	dataBlock := report.RenderDataBlock(*result, pr.HeadSHA)
+	summaryBody := summaryBuf.String() + dataBlock
+
+	// 5. Submit the review
+	url, err := submitReviewFunc(pr.Owner, pr.Repo, pr.Number, pr.HeadSHA, summaryBody, inlineComments)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(os.Stderr, "Inline review posted: %s\n", url)
 	return nil
 }
 
