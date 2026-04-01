@@ -54,6 +54,8 @@ Claude is instructed to review as a Staff Engineer, applying specific cognitive 
 - *"What's the blast radius?"* — If this code fails, what else breaks?
 - *"What happens at 3am?"* — Error paths, oncall clarity, log quality
 - *"Would a new team member understand this?"* — Code clarity and intent
+- *"Where are the tests?"* — Does every new behavior have a test?
+- *"Would I find this in the docs?"* — Is this feature discoverable from documentation?
 
 #### Scope Drift Detection
 
@@ -61,24 +63,32 @@ Before reviewing code quality, the tool checks for:
 - **Scope Creep**: Files changed that are unrelated to the PR title/description
 - **Missing Requirements**: Requirements from the PR description not addressed in the diff
 
-#### Two-Pass Review Checklist
+#### Three-Pass Review Checklist
 
-Claude works through a structured checklist in two passes:
+Claude works through a structured checklist in three passes:
 
 | Pass | Focus | Categories |
 |------|-------|------------|
-| **Pass 1 — Critical** | Always checked | SQL & Data Safety, Race Conditions, Error Handling, Security, Input Validation |
-| **Pass 2 — Informational** | Checked if time permits | Magic Numbers, Dead Code, Test Gaps, Performance, API Contract |
+| **Pass 1 — Critical** | Always checked | SQL & Data Safety, Race Conditions, Error Handling, Security, Input Validation, LLM Output Trust, Crypto |
+| **Pass 2 — Semantic** | Requires tracing beyond the diff | Enum Completeness, Conditional Side Effects, Type Coercion, Test Coverage for New Code, Documentation Completeness |
+| **Pass 3 — Informational** | Checked if time permits | Magic Numbers, Dead Code, Test Quality, Performance, API Contract, View/Frontend, Time Window |
 
 #### Suppressions
 
 To reduce false positives, the following are explicitly suppressed:
 - TODO/FIXME comments with issue tracker references
-- Missing tests for trivial getters/setters
+- Missing tests for trivial getters/setters (does not suppress missing tests for functions with logic)
 - Import ordering or formatting differences
 - Variable naming matching existing project conventions
-- Missing documentation on private functions
+- Missing documentation on private functions (does not suppress missing docs for public APIs)
 - Minor style preferences
+
+#### Test & Documentation Verification
+
+After the checklist passes, the review explicitly verifies:
+- **Test Completeness**: Every new or significantly modified function should have corresponding tests matching the project's testing convention (e.g., `_test.go`, `test_*.py`, `*.spec.ts`). If the project uses unit, integration, and E2E tests, new code must include matching test types.
+- **Documentation Completeness**: New public APIs, CLI flags, configuration options, and user-facing behavior changes must be reflected in documentation (README, CHANGELOG, doc comments).
+- **New File Detection**: Newly added source files are flagged as candidates for documentation if they are not test files or internal configuration.
 
 #### Anti-Sycophancy Rules
 
@@ -458,6 +468,7 @@ planwerk-review/
 | 13 | **Adversarial review** | `--thorough` runs a second pass | Independent security-focused review merged with primary results, deduplicating by file+line+title |
 | 14 | **Coverage map** | `--coverage-map` maps changed functions to tests | Produces a table rating each changed function's test coverage (★★★/★★/★/GAP) |
 | 15 | **External command timeouts** | All `claude`, `gh`, `git` calls have timeouts | Claude: 15 min, git clone: 5 min, gh: 2 min — prevents indefinite blocking |
+| 16 | **Test & doc verification** | Dedicated prompt section + checklist items for test/doc completeness | Missing tests and documentation are the most common review gaps; explicit checks at SEMANTIC severity ensure they are flagged consistently |
 
 ### Future Extensions
 

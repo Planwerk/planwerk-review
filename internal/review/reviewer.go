@@ -114,6 +114,9 @@ func Run(w io.Writer, opts Options) error {
 	// 6. Check for stale documentation
 	staleDocs := doccheck.Check(pr.Dir, pr.BaseBranch)
 
+	// 6b. Check for new features that may need documentation
+	newFeatures := doccheck.CheckNewFeatures(pr.Dir, pr.BaseBranch)
+
 	// 7. Load TODOS.md for cross-reference
 	todoContent := todocheck.Load(pr.Dir)
 
@@ -126,6 +129,7 @@ func Run(w io.Writer, opts Options) error {
 		Checklist:   checklistContent,
 		CommitLog:   commitLog,
 		StaleDocs:   staleDocs,
+		NewFeatures: newFeatures,
 		TodoContent: todoContent,
 	}
 	result, err := claude.Review(pr.Dir, ctx)

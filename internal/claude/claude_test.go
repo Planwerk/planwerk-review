@@ -1,8 +1,10 @@
 package claude
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/planwerk/planwerk-review/internal/doccheck"
 	"github.com/planwerk/planwerk-review/internal/report"
 )
 
@@ -41,6 +43,78 @@ func TestStripMarkdownFences(t *testing.T) {
 				t.Errorf("stripMarkdownFences() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBuildReviewPrompt_PersonaIncludesTestPattern(t *testing.T) {
+	prompt := buildReviewPrompt(ReviewContext{})
+	if !strings.Contains(prompt, "Where are the tests?") {
+		t.Error("Staff Engineer persona should include test-related thinking pattern")
+	}
+}
+
+func TestBuildReviewPrompt_PersonaIncludesDocPattern(t *testing.T) {
+	prompt := buildReviewPrompt(ReviewContext{})
+	if !strings.Contains(prompt, "Would I find this in the docs?") {
+		t.Error("Staff Engineer persona should include doc-related thinking pattern")
+	}
+}
+
+func TestBuildReviewPrompt_ContainsTestVerification(t *testing.T) {
+	prompt := buildReviewPrompt(ReviewContext{
+		Checklist: "## Review Checklist\n- item",
+	})
+	if !strings.Contains(prompt, "Test & Documentation Verification") {
+		t.Error("prompt should contain Test & Documentation Verification section")
+	}
+	if !strings.Contains(prompt, "Missing Tests:") {
+		t.Error("prompt should instruct Claude to flag missing tests")
+	}
+}
+
+func TestBuildReviewPrompt_ContainsDocVerification(t *testing.T) {
+	prompt := buildReviewPrompt(ReviewContext{
+		Checklist: "## Review Checklist\n- item",
+	})
+	if !strings.Contains(prompt, "Documentation Completeness") {
+		t.Error("prompt should contain documentation completeness check")
+	}
+	if !strings.Contains(prompt, "Missing Documentation:") {
+		t.Error("prompt should instruct Claude to flag missing documentation")
+	}
+}
+
+func TestBuildReviewPrompt_SuppressionsClarified(t *testing.T) {
+	prompt := buildReviewPrompt(ReviewContext{})
+	if !strings.Contains(prompt, "trivial getters/setters") {
+		t.Error("suppressions should still mention trivial getters/setters")
+	}
+	if !strings.Contains(prompt, "does NOT suppress missing tests") {
+		t.Error("suppressions should clarify they do not suppress missing tests for functions with logic")
+	}
+	if !strings.Contains(prompt, "does NOT suppress missing documentation") {
+		t.Error("suppressions should clarify they do not suppress missing docs for public APIs")
+	}
+}
+
+func TestBuildReviewPrompt_NewFeatureHints(t *testing.T) {
+	prompt := buildReviewPrompt(ReviewContext{
+		NewFeatures: []doccheck.NewFeatureHint{
+			{File: "cmd/newtool/main.go", Description: "new file added"},
+		},
+	})
+	if !strings.Contains(prompt, "New Feature Documentation Hints") {
+		t.Error("prompt should contain new feature documentation hints when present")
+	}
+	if !strings.Contains(prompt, "cmd/newtool/main.go") {
+		t.Error("prompt should include the new file path")
+	}
+}
+
+func TestBuildReviewPrompt_NoNewFeatureHints(t *testing.T) {
+	prompt := buildReviewPrompt(ReviewContext{})
+	if strings.Contains(prompt, "New Feature Documentation Hints") {
+		t.Error("prompt should NOT contain new feature hints section when no new features")
 	}
 }
 

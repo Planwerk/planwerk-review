@@ -45,10 +45,11 @@ type ReviewContext struct {
 	Patterns    []patterns.Pattern
 	PRTitle     string
 	PRBody      string
-	Checklist   string                // external checklist content (empty = use built-in)
-	CommitLog   string                // git log output for scope drift detection
-	StaleDocs   []doccheck.StaleDocHint // documentation files that may need updating
-	TodoContent string                // content of TODOS.md if present
+	Checklist   string                    // external checklist content (empty = use built-in)
+	CommitLog   string                    // git log output for scope drift detection
+	StaleDocs   []doccheck.StaleDocHint   // documentation files that may need updating
+	NewFeatures []doccheck.NewFeatureHint // new files that may need documentation
+	TodoContent string                    // content of TODOS.md if present
 }
 
 // Review invokes `claude /review` in the given directory and returns structured findings.
@@ -87,6 +88,8 @@ func buildReviewPrompt(ctx ReviewContext) string {
 - "What's the blast radius?" — If this code fails, what else breaks?
 - "What happens at 3am?" — Is the error path clear? Will oncall understand the logs?
 - "Would a new team member understand this?" — Is the intent clear from the code?
+- "Where are the tests?" — Does every new behavior have a test? Can I see the test fail if the code is wrong?
+- "Would I find this in the docs?" — If I were a new user/developer, could I discover this feature or API from the documentation?
 
 `)
 
@@ -129,6 +132,41 @@ Before reviewing code quality, check:
 		sb.WriteString("\n\n")
 	}
 
+	// Test & Documentation Verification
+	sb.WriteString(`## Test & Documentation Verification
+
+After completing the checklist, perform these additional checks:
+
+### Test Completeness
+For every NEW or SIGNIFICANTLY MODIFIED function/method/class in the diff:
+1. Identify the testing convention used in this project (e.g., _test.go files, __tests__ directories, *.spec.ts files)
+2. Check whether the PR includes corresponding test additions or modifications
+3. If the project already has unit tests, integration tests, or E2E tests, new code must include matching test types — as comprehensively as the project already does
+4. If no test exists for new code:
+   - If the project has tests elsewhere: flag as WARNING with title "Missing Tests: <function/file>"
+   - If the project has no test convention at all: flag as INFO with title "No Test Convention Detected"
+5. Do NOT flag: trivial getters/setters, simple delegation methods, or configuration constants
+
+### Documentation Completeness
+For every NEW public API, CLI flag, configuration option, or user-facing behavior change:
+1. Check whether the PR modifies documentation files (README, CHANGELOG, doc comments)
+2. If new public API is exported but not documented: flag as WARNING with title "Missing Documentation: <item>"
+3. If a CLI flag or config option is added without being documented: flag as WARNING with title "Undocumented Flag/Config: <name>"
+4. If existing documentation references changed behavior but was not updated: flag as WARNING with title "Stale Documentation: <file>"
+5. Do NOT flag: internal/private API changes, refactoring that preserves existing behavior
+
+`)
+
+	// New feature documentation hints
+	if len(ctx.NewFeatures) > 0 {
+		sb.WriteString("## New Feature Documentation Hints\n\n")
+		sb.WriteString("The following new files were added in this PR and may need documentation:\n\n")
+		for _, nf := range ctx.NewFeatures {
+			fmt.Fprintf(&sb, "- %s (%s)\n", nf.File, nf.Description)
+		}
+		sb.WriteString("\nCheck whether these additions are reflected in README or other documentation. Flag as WARNING with title \"Missing Documentation: <file>\" if documentation is missing for user-facing additions.\n\n")
+	}
+
 	// TODO cross-reference
 	if ctx.TodoContent != "" {
 		sb.WriteString("## TODO Cross-Reference\n\n")
@@ -155,10 +193,10 @@ Before reviewing code quality, check:
 	sb.WriteString(`## Suppressions — DO NOT flag these
 
 - TODO/FIXME comments that reference an issue tracker (e.g. TODO(#123))
-- Missing tests for trivial getters/setters or simple delegation methods
+- Missing tests for trivial getters/setters, simple delegation methods, or configuration constants — this does NOT suppress missing tests for functions with logic or branching
 - Import ordering or formatting differences (these are handled by formatters)
 - Variable naming that follows the project's existing conventions, even if you'd prefer different names
-- Missing documentation on unexported/private functions
+- Missing documentation on unexported/private functions or internal implementation details — this does NOT suppress missing documentation for new public APIs, CLI flags, or user-facing behavior changes
 - Minor style preferences that don't affect correctness or readability
 - "X is redundant with Y" when the redundancy is harmless and aids readability (defense in depth)
 - Threshold or constant comments that would rot faster than the code they describe

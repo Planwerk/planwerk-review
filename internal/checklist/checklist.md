@@ -15,12 +15,14 @@
 - [ ] Enum & Value Completeness: when the diff introduces a new enum value, status string, tier name, or type constant — trace it through EVERY consumer. Read each file that switches on, filters by, or displays that value. Check allowlists/filter arrays containing sibling values. Check case/if-elsif chains for fallthrough to wrong default.
 - [ ] Conditional Side Effects: code paths that branch on a condition but forget to apply a side effect on one branch (e.g. item promoted but URL only attached conditionally). Log messages that claim an action happened but the action was conditionally skipped.
 - [ ] Type Coercion at Boundaries: values crossing language/serialization boundaries where type could change (numeric vs string), hash/digest inputs that don't normalize types, timezone-naive timestamps at API boundaries, JSON parse of user input without schema validation
+- [ ] Test Coverage for New Code: when the diff adds or significantly modifies a function, method, or module — verify that the PR also adds or updates tests. Identify the project's testing convention (e.g. `_test.go`, `test_*.py`, `*.test.ts`, `*.spec.ts`, `__tests__/`) and check for corresponding test files. If the project already has unit tests, integration tests, or E2E tests, new code must include matching test types. Flag missing tests as WARNING with title "Missing Tests: <function/file>". If the project has no tests at all, flag as INFO only.
+- [ ] Documentation Completeness: when the diff introduces a new public API, CLI flag, configuration option, exported function/type, or user-facing behavior change — verify that documentation was updated. Check for changes to README, CHANGELOG, doc comments, API docs, or inline documentation. Flag undocumented additions as WARNING with title "Missing Documentation: <item>". If a CLI flag or config option is added without documentation, flag as WARNING with title "Undocumented Flag/Config: <name>".
 
 ### Pass 3 — INFORMATIONAL
 
 - [ ] Magic Numbers: unexplained numeric literals used in multiple files, config that should be externalized as named constants
 - [ ] Dead Code: unused functions, unreachable branches, commented-out code, variables assigned but never read
-- [ ] Test Gaps: untested error paths, missing edge cases, negative-path tests that assert type/status but not side effects
+- [ ] Test Quality: untested error paths, missing edge cases, negative-path tests that assert type/status but not side effects
 - [ ] Performance & Bundle Impact: N+1 queries (missing eager loading), unbounded allocations, missing pagination, known-heavy dependencies (moment.js, lodash full), large static assets committed (>500KB), synchronous script tags without async/defer
 - [ ] API Contract: breaking changes to public interfaces without versioning, missing backward compatibility
 - [ ] View/Frontend: unescaped user content in templates, missing loading/error states, accessibility regressions, inline style blocks in partials (re-parsed every render)
