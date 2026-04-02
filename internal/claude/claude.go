@@ -283,6 +283,8 @@ Keep it balanced and constructive — acknowledge good work, but be direct about
 }
 
 // structureReview calls Claude to convert unstructured review text into JSON.
+// If the first attempt produces invalid JSON, it retries once with the parse
+// error included so Claude can correct the output.
 func structureReview(rawReview string) (*report.ReviewResult, error) {
 	text, err := runClaude("", buildStructurePrompt(rawReview))
 	if err != nil {
@@ -293,10 +295,31 @@ func structureReview(rawReview string) (*report.ReviewResult, error) {
 
 	var result report.ReviewResult
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
-		return nil, fmt.Errorf("parsing structured review as JSON: %w\nraw output:\n%s", err, text)
+		// Retry once with the error fed back to Claude for correction.
+		text, retryErr := runClaude("", buildRepairPrompt(text, err))
+		if retryErr != nil {
+			return nil, fmt.Errorf("parsing structured review as JSON: %w\nraw output:\n%s", err, text)
+		}
+		text = stripMarkdownFences(text)
+		if retryErr := json.Unmarshal([]byte(text), &result); retryErr != nil {
+			return nil, fmt.Errorf("parsing structured review as JSON (after retry): %w\nraw output:\n%s", retryErr, text)
+		}
 	}
 
 	return &result, nil
+}
+
+// buildRepairPrompt asks Claude to fix malformed JSON using the parse error.
+func buildRepairPrompt(malformedJSON string, parseErr error) string {
+	return `The following JSON is malformed. The Go JSON parser reported this error:
+
+` + parseErr.Error() + `
+
+Fix the JSON so it is valid. Output ONLY the corrected JSON, nothing else.
+
+<malformed-json>
+` + malformedJSON + `
+</malformed-json>`
 }
 
 func buildStructurePrompt(rawReview string) string {

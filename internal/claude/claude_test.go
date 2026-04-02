@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -253,5 +254,21 @@ func TestAssignIDs_ResolvesRelatedTo(t *testing.T) {
 	// Second finding should reference the ID of the first
 	if result.Findings[1].RelatedTo[0] != "C-001" {
 		t.Errorf("finding[1].RelatedTo[0] = %q, want %q", result.Findings[1].RelatedTo[0], "C-001")
+	}
+}
+
+func TestBuildRepairPrompt_ContainsErrorAndJSON(t *testing.T) {
+	malformed := `{"findings":[{"id":""},"id":""]}`
+	err := fmt.Errorf("invalid character ':' after array element")
+	prompt := buildRepairPrompt(malformed, err)
+
+	if !strings.Contains(prompt, "invalid character") {
+		t.Error("repair prompt should include the parse error")
+	}
+	if !strings.Contains(prompt, malformed) {
+		t.Error("repair prompt should include the malformed JSON")
+	}
+	if !strings.Contains(prompt, "Fix the JSON") {
+		t.Error("repair prompt should ask Claude to fix the JSON")
 	}
 }
