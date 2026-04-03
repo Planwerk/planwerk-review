@@ -3,15 +3,24 @@ package patterns
 import (
 	"bufio"
 	"fmt"
+	"regexp"
 	"strings"
 )
+
+// Source references an external best-practice guide or document.
+type Source struct {
+	Title string
+	URL   string // optional
+}
 
 type Pattern struct {
 	Name          string
 	ReviewArea    string
 	DetectionHint string
 	Severity      string
-	Occurrences   int
+	Category      string   // "technology", "design-principle", or "" (general/legacy)
+	AppliesWhen   []string // technology tags; empty = always applies
+	Sources       []Source
 	Body          string
 }
 
@@ -43,9 +52,22 @@ func Parse(content string) (Pattern, error) {
 				p.Severity = extractValue(line, "**Severity**:")
 				continue
 			}
-			if strings.HasPrefix(line, "**Occurrences**:") {
-				val := extractValue(line, "**Occurrences**:")
-				_, _ = fmt.Sscanf(val, "%d", &p.Occurrences)
+			if strings.HasPrefix(line, "**Category**:") {
+				p.Category = extractValue(line, "**Category**:")
+				continue
+			}
+			if strings.HasPrefix(line, "**Applies-When**:") {
+				raw := extractValue(line, "**Applies-When**:")
+				for _, tag := range strings.Split(raw, ",") {
+					tag = strings.TrimSpace(tag)
+					if tag != "" {
+						p.AppliesWhen = append(p.AppliesWhen, tag)
+					}
+				}
+				continue
+			}
+			if strings.HasPrefix(line, "**Sources**:") {
+				p.Sources = parseSources(extractValue(line, "**Sources**:"))
 				continue
 			}
 			if strings.HasPrefix(line, "## ") {
@@ -71,14 +93,67 @@ func extractValue(line, prefix string) string {
 	return strings.TrimSpace(strings.TrimPrefix(line, prefix))
 }
 
+// sourceRe matches "Title (URL)" entries.
+var sourceRe = regexp.MustCompile(`^(.+?)\s*\((\S+?)\)\s*$`)
+
+// parseSources parses a comma-separated list of "Title (URL)" or plain "Title" entries.
+func parseSources(raw string) []Source {
+	var sources []Source
+	for _, entry := range strings.Split(raw, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		if m := sourceRe.FindStringSubmatch(entry); m != nil {
+			sources = append(sources, Source{Title: strings.TrimSpace(m[1]), URL: m[2]})
+		} else {
+			sources = append(sources, Source{Title: entry})
+		}
+	}
+	return sources
+}
+
+// AppliesTo returns true if the pattern should be included given the detected technology tags.
+// Patterns with no AppliesWhen restriction always apply (backward compatible).
+func (p Pattern) AppliesTo(tags []string) bool {
+	if len(p.AppliesWhen) == 0 {
+		return true
+	}
+	tagSet := make(map[string]bool, len(tags))
+	for _, t := range tags {
+		tagSet[t] = true
+	}
+	for _, required := range p.AppliesWhen {
+		if tagSet[required] {
+			return true
+		}
+	}
+	return false
+}
+
 // FormatForPrompt returns a concise representation of the pattern suitable for inclusion in a prompt.
 func (p Pattern) FormatForPrompt() string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "### Pattern: %s\n", p.Name)
+	if p.Category != "" {
+		fmt.Fprintf(&sb, "- Category: %s\n", p.Category)
+	}
 	fmt.Fprintf(&sb, "- Area: %s\n", p.ReviewArea)
 	fmt.Fprintf(&sb, "- Detection: %s\n", p.DetectionHint)
 	fmt.Fprintf(&sb, "- Severity: %s\n", p.Severity)
+	if len(p.Sources) > 0 {
+		fmt.Fprintf(&sb, "- Sources: %s\n", formatSourceTitles(p.Sources))
+	}
 	sb.WriteString(p.Body)
 	sb.WriteString("\n")
 	return sb.String()
+}
+
+// formatSourceTitles returns a comma-separated list of source titles (URLs omitted for prompt brevity).
+func formatSourceTitles(sources []Source) string {
+	titles := make([]string, len(sources))
+	for i, s := range sources {
+		titles[i] = s.Title
+	}
+	return strings.Join(titles, ", ")
 }

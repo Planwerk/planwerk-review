@@ -93,11 +93,11 @@ func buildReviewPrompt(ctx ReviewContext) string {
 
 `)
 
-	// Review patterns
+	// Review patterns (grouped by category: technology, design-principle, project)
 	if len(ctx.Patterns) > 0 {
-		sb.WriteString("Before running the review, consider these additional review patterns. Flag violations of these patterns in your review:\n\n")
+		sb.WriteString("Before running the review, consider these review patterns grouped by category. Flag violations in your review, noting the pattern source when referencing best practice patterns:\n\n")
 		sb.WriteString("<review-patterns>\n")
-		sb.WriteString(patterns.FormatAllForPrompt(ctx.Patterns))
+		sb.WriteString(patterns.FormatGroupedForPrompt(ctx.Patterns))
 		sb.WriteString("</review-patterns>\n\n")
 	}
 

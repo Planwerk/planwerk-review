@@ -14,6 +14,7 @@ import (
 	"github.com/planwerk/planwerk-review/internal/cache"
 	"github.com/planwerk/planwerk-review/internal/checklist"
 	"github.com/planwerk/planwerk-review/internal/claude"
+	"github.com/planwerk/planwerk-review/internal/detect"
 	"github.com/planwerk/planwerk-review/internal/doccheck"
 	"github.com/planwerk/planwerk-review/internal/github"
 	"github.com/planwerk/planwerk-review/internal/patterns"
@@ -77,7 +78,13 @@ func Run(w io.Writer, opts Options) error {
 		}
 	}
 
-	// 3. Load patterns
+	// 3. Detect technologies in the reviewed repo
+	techTags := detect.Technologies(pr.Dir)
+	if len(techTags) > 0 {
+		fmt.Fprintf(os.Stderr, "Detected technologies: %s\n", strings.Join(techTags, ", "))
+	}
+
+	// 4. Load patterns (filtered by detected technologies)
 	var patternDirs []string
 
 	if !opts.NoLocalPatterns {
@@ -105,7 +112,7 @@ func Run(w io.Writer, opts Options) error {
 
 	patternDirs = append(patternDirs, opts.PatternDirs...)
 
-	pats, err := patterns.Load(patternDirs...)
+	pats, err := patterns.LoadFiltered(techTags, patternDirs...)
 	if err != nil {
 		return fmt.Errorf("loading patterns: %w", err)
 	}
@@ -114,22 +121,22 @@ func Run(w io.Writer, opts Options) error {
 		fmt.Fprintf(os.Stderr, "Loaded %d review pattern(s).\n", len(pats))
 	}
 
-	// 4. Load checklist
+	// 5. Load checklist
 	checklistContent := checklist.Load(pr.Dir)
 
-	// 5. Fetch commit log for scope drift detection
+	// 6. Fetch commit log for scope drift detection
 	commitLog := getCommitLog(pr.Dir, pr.BaseBranch)
 
-	// 6. Check for stale documentation
+	// 7. Check for stale documentation
 	staleDocs := doccheck.Check(pr.Dir, pr.BaseBranch)
 
-	// 6b. Check for new features that may need documentation
+	// 7b. Check for new features that may need documentation
 	newFeatures := doccheck.CheckNewFeatures(pr.Dir, pr.BaseBranch)
 
-	// 7. Load TODOS.md for cross-reference
+	// 8. Load TODOS.md for cross-reference
 	todoContent := todocheck.Load(pr.Dir)
 
-	// 8. Run Claude /review + structuring
+	// 9. Run Claude /review + structuring
 	fmt.Fprintln(os.Stderr, "Running Claude /review...")
 	ctx := claude.ReviewContext{
 		Patterns:    pats,
@@ -146,7 +153,7 @@ func Run(w io.Writer, opts Options) error {
 		return fmt.Errorf("claude review: %w", err)
 	}
 
-	// 9. Adversarial review pass (if --thorough)
+	// 10. Adversarial review pass (if --thorough)
 	if opts.Thorough {
 		fmt.Fprintln(os.Stderr, "Running adversarial review pass...")
 		advResult, err := claude.AdversarialReview(pr.Dir, pr.BaseBranch)
@@ -157,7 +164,7 @@ func Run(w io.Writer, opts Options) error {
 		}
 	}
 
-	// 10. Coverage map (if --coverage-map)
+	// 11. Coverage map (if --coverage-map)
 	var coverageResult *report.CoverageResult
 	if opts.CoverageMap {
 		fmt.Fprintln(os.Stderr, "Generating test coverage map...")
@@ -169,14 +176,14 @@ func Run(w io.Writer, opts Options) error {
 		}
 	}
 
-	// 11. Cache result
+	// 12. Cache result
 	if !opts.NoCache {
 		if err := cache.Put(cacheKey, result); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: could not cache result: %v\n", err)
 		}
 	}
 
-	// 12. Render
+	// 13. Render
 	fmt.Fprintln(os.Stderr, "Review complete.")
 	return renderResult(w, result, pr, opts, coverageResult)
 }
