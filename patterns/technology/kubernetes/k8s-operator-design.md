@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: kubernetes
-**Sources**: Operator SDK Best Practices (https://sdk.operatorframework.io/docs/best-practices/best-practices/), Operator SDK Common Recommendations (https://sdk.operatorframework.io/docs/best-practices/common-recommendation/)
+**Sources**: CNCF Operator White Paper (https://tag-app-delivery.cncf.io/whitepapers/operator/), Operator SDK Best Practices (https://sdk.operatorframework.io/docs/best-practices/best-practices/), Operator SDK Common Recommendations (https://sdk.operatorframework.io/docs/best-practices/common-recommendation/), Kubernetes Operators Deep Dive: Internals (https://dev.to/piyushjajoo/kubernetes-operators-a-deep-dive-into-the-internals-221m)
 
 ## What to check
 
@@ -29,6 +29,27 @@
 11. Operators must not hardcode names of resources they expect to already exist
 12. No user input should be required to start the operator — it should deploy by deploying its controllers
 13. If operator configuration is needed, use a dedicated Configuration CRD (not environment variables or ConfigMaps)
+
+### Ownership and Garbage Collection
+14. Always set owner references on child resources via `ctrl.SetControllerReference()` — ensures Kubernetes automatically deletes orphaned children
+15. Set `controller: true` and `blockOwnerDeletion: true` on owner references for proper cascade deletion
+
+### Operational Independence
+14. The managed application MUST continue functioning if the operator is stopped, upgraded, or crashes — the operator is a control plane concern, not a data plane dependency
+15. Operators should leverage Kubernetes primitives (ReplicaSets, Services) rather than reimplementing scheduling or networking
+
+### Uninstall and Disconnect
+16. Support both uninstall (remove all managed resources) and disconnect (stop management but preserve resources) modes
+17. Report failures during cleanup declaratively via status, not just logs
+
+### CRD Relationships
+18. Address conflicts when multiple operators manage related CRDs (e.g. multiple ingress controllers) — use policy engines or clear scope documentation
+19. Operators depending on other operators (e.g. cert-manager, prometheus-operator) should declare dependencies for lifecycle managers (OLM), not embed startup logic
+
+### Concurrency and Leader Election
+20. Controllers with `MaxConcurrentReconciles > 1` must ensure all shared state (metrics, caches, connections) is goroutine-safe
+21. Respect context cancellation by checking `ctx.Done()` at expensive checkpoints during reconciliation for graceful shutdown
+22. Use RBAC markers (Kubebuilder) to generate least-privilege permissions — never grant `cluster-admin` for convenience
 
 ## Why it matters
 

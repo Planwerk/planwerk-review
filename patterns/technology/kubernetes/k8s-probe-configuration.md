@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: kubernetes, helm
-**Sources**: Configure Liveness, Readiness and Startup Probes (https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/), Production Best Practices (https://learnk8s.io/production-best-practices)
+**Sources**: Configure Liveness, Readiness and Startup Probes (https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/), Production Best Practices (https://learnk8s.io/production-best-practices), 7 Common Kubernetes Pitfalls (https://kubernetes.io/blog/2025/10/20/seven-kubernetes-pitfalls-and-how-to-avoid/), Start Sidecar First (https://kubernetes.io/blog/2025/06/03/start-sidecar-first/), 7 K8s Anti-Patterns That Hurt in Production (https://medium.com/devops-ai-decoded/7-kubernetes-anti-patterns-that-hurt-in-production-91682dbccc5b)
 
 ## What to check
 
@@ -15,6 +15,8 @@
 4. Probe `timeoutSeconds` and `periodSeconds` should be reasonable (not 1s for a database health check)
 5. Liveness probes must NOT check downstream dependencies — a database outage should not restart your pods
 6. `failureThreshold * periodSeconds` determines how long before action — ensure it matches your SLO
+7. When using native sidecar containers, use a `startupProbe` on the main container to wait for sidecar readiness — readiness probes on sidecars alone do not prevent the main app from starting
+8. Keep probes simple to avoid false alarms and unnecessary restarts
 
 ## Why it matters
 

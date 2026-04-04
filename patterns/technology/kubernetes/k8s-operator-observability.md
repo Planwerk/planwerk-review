@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: kubernetes
-**Sources**: Operator SDK Observability Best Practices (https://sdk.operatorframework.io/docs/best-practices/observability-best-practices/)
+**Sources**: CNCF Operator White Paper (https://tag-app-delivery.cncf.io/whitepapers/operator/), Operator SDK Observability Best Practices (https://sdk.operatorframework.io/docs/best-practices/observability-best-practices/), Kubernetes Operators Deep Dive: Internals (https://dev.to/piyushjajoo/kubernetes-operators-a-deep-dive-into-the-internals-221m)
 
 ## What to check
 
@@ -27,10 +27,16 @@
 ### Events and Status
 12. Custom Resources should emit events documenting significant operations (audit trail)
 13. Keep monitoring code in a dedicated directory, separate from core operator logic
+14. Expose telemetry about remediation actions taken — what was detected, what was corrected, and duration
+
+### Work Queue Metrics
+15. Export work queue depth, reconciliation duration (especially p99 latency), and error counts as standard controller metrics
+16. Include reconciliation context (namespace, name, generation, phase) in structured log entries for correlation
 
 ### Testing
-14. Validate that alerts include all mandatory fields and that runbook URLs are accessible
-15. E2E tests should verify alerts don't fire incorrectly (no noise) and do fire under defined conditions
+17. Validate that alerts include all mandatory fields and that runbook URLs are accessible
+18. E2E tests should verify alerts don't fire incorrectly (no noise) and do fire under defined conditions
+19. Simulate pod, configuration, storage, and network failures as part of operator testing
 
 ## Why it matters
 

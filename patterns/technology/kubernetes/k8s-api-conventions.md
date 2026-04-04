@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: kubernetes
-**Sources**: Kubernetes API Conventions (https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md), API Changes Guidelines (https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api_changes.md)
+**Sources**: Kubernetes API Conventions (https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md), API Changes Guidelines (https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api_changes.md), Using Finalizers to Control Deletion (https://kubernetes.io/blog/2021/05/14/using-finalizers-to-control-deletion/), Enforce CRD Immutability with CEL (https://kubernetes.io/blog/2022/09/29/enforce-immutability-using-cel/)
 
 ## What to check
 
@@ -14,7 +14,10 @@
 3. Conditions follow standard patterns: `type`, `status` (True/False/Unknown), `reason`, `message`, `lastTransitionTime`
 4. Labels follow the recommended format: `app.kubernetes.io/name`, `app.kubernetes.io/version`, etc.
 5. Finalizers are used correctly: added before the resource needs protection, removed after cleanup
-6. API versions follow stability levels: `v1alpha1` → `v1beta1` → `v1`
+6. Finalizer names must use domain-qualified format (e.g. `myapp.example.com/cleanup`) — orphaned finalizers with no managing controller block deletion indefinitely
+7. Every finalizer must have an active controller that removes it after cleanup — "dead" finalizers are a common source of stuck resources
+8. API versions follow stability levels: `v1alpha1` → `v1beta1` → `v1`
+9. Immutable fields in CRDs should use CEL transition rules (`x-kubernetes-validations` with `oldSelf`) to prevent mutation after creation
 
 ## Why it matters
 
