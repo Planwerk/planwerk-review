@@ -163,6 +163,31 @@ For every NEW public API, CLI flag, configuration option, or user-facing behavio
 
 `)
 
+	// Dependency Freshness & Maintenance Verification
+	sb.WriteString(`## Dependency Freshness & Maintenance Verification
+
+When the diff introduces ANY new dependency, you MUST verify its freshness and maintenance status.
+
+### What counts as a new dependency
+- A new entry in go.mod, requirements.txt, pyproject.toml, package.json, Cargo.toml, pom.xml, build.gradle, Gemfile
+- A new GitHub Action (uses: owner/action@version) in workflow YAML files
+- A new container image (FROM image:tag or image references in Kubernetes manifests, docker-compose, Helm values)
+- A new Helm chart dependency in Chart.yaml
+- Any other external dependency introduced for the first time
+
+### What to check for each new dependency
+1. **Version Currency**: Is the pinned version the latest stable release? If the diff pins an old version (e.g. v1.2 when v3.1 is current), flag it. Minor version lag (one or two patch versions behind) is acceptable; major version lag is not.
+2. **Active Maintenance**: Does the project show signs of active maintenance (recent commits, releases within the last 12 months, responsive issue tracker)? If the repository is archived, abandoned, or has had no activity for over a year, flag it.
+3. **Deprecation Status**: Has the project been officially deprecated or superseded by a replacement? Check for deprecation notices in the repository README, GitHub archive status, or well-known replacements (e.g. actions/create-release is deprecated in favor of softprops/action-gh-release).
+
+### Severity guidance
+- Using a deprecated dependency: flag as CRITICAL with title "Deprecated Dependency: <name>"
+- Using an unmaintained dependency (archived/abandoned): flag as CRITICAL with title "Unmaintained Dependency: <name>"
+- Using a significantly outdated version when a current version exists: flag as WARNING with title "Outdated Dependency: <name> uses <version>, latest is <latest>"
+- Include the recommended replacement or current version in the suggested fix.
+
+`)
+
 	// New feature documentation hints
 	if len(ctx.NewFeatures) > 0 {
 		sb.WriteString("## New Feature Documentation Hints\n\n")
@@ -210,7 +235,7 @@ For every NEW public API, CLI flag, configuration option, or user-facing behavio
 - Consistency-only suggestions ("use X style everywhere") with no correctness impact
 - Issues that are already addressed elsewhere in the same diff — read the FULL diff before commenting
 - Suggestions to "add logging" when the error path already returns a descriptive error
-- "Consider using X library" when the current approach works correctly
+- "Consider using X library" when the current approach works correctly — this does NOT suppress flagging deprecated, unmaintained, or severely outdated versions of NEWLY INTRODUCED dependencies
 - Code that was not changed in this diff — only review and comment on added or modified lines, never on unchanged surrounding context
 
 `)
