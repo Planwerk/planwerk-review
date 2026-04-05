@@ -24,18 +24,6 @@ import (
 	"github.com/planwerk/planwerk-review/internal/todocheck"
 )
 
-// postCommentFunc is the function used to post PR comments.
-// It is a variable so tests can replace it.
-var postCommentFunc = github.PostPRComment
-
-// submitReviewFunc is the function used to submit PR reviews with inline comments.
-// It is a variable so tests can replace it.
-var submitReviewFunc = github.SubmitPRReview
-
-// fetchDiffFunc is the function used to fetch PR diffs.
-// It is a variable so tests can replace it.
-var fetchDiffFunc = github.FetchDiff
-
 type Options struct {
 	PRRef           string
 	PatternDirs     []string
@@ -52,12 +40,36 @@ type Options struct {
 	MaxPatterns     int // max patterns to inject into prompt; <= 0 disables truncation
 }
 
+// Runner executes the review pipeline using injected Claude and GitHub
+// clients. Constructing a Runner per invocation keeps dependencies explicit
+// and allows tests to run in parallel without mutating package-level state.
+type Runner struct {
+	Claude ClaudeRunner
+	GitHub GitHubClient
+}
+
+// NewRunner returns a Runner wired with the production Claude CLI and
+// GitHub (gh CLI) backends.
+func NewRunner() *Runner {
+	return &Runner{
+		Claude: defaultClaudeRunner{},
+		GitHub: defaultGitHubClient{},
+	}
+}
+
+// Run is a package-level convenience that delegates to NewRunner().Run.
+// Callers that need to inject alternative Claude or GitHub backends should
+// construct a Runner directly.
+func Run(w io.Writer, opts Options) error {
+	return NewRunner().Run(w, opts)
+}
+
 // Run executes the full review pipeline:
 // fetch & checkout PR → load patterns → claude /review → structure → render report.
-func Run(w io.Writer, opts Options) error {
+func (r *Runner) Run(w io.Writer, opts Options) error {
 	// 1. Fetch and checkout PR
 	fmt.Fprintf(os.Stderr, "Fetching and checking out PR %s...\n", opts.PRRef)
-	pr, err := github.FetchAndCheckout(opts.PRRef)
+	pr, err := r.GitHub.FetchAndCheckout(opts.PRRef)
 	if err != nil {
 		return fmt.Errorf("fetching PR: %w", err)
 	}
@@ -77,7 +89,7 @@ func Run(w io.Writer, opts Options) error {
 	if !opts.NoCache {
 		if result, ok := cache.Get(cacheKey); ok {
 			fmt.Fprintln(os.Stderr, "Using cached review result.")
-			return renderResult(w, result, pr, opts, nil)
+			return r.renderResult(w, result, pr, opts, nil)
 		}
 	}
 
@@ -172,22 +184,22 @@ func Run(w io.Writer, opts Options) error {
 
 	var g errgroup.Group
 	g.Go(func() error {
-		r, err := claude.Review(pr.Dir, reviewCtx)
+		res, err := r.Claude.Review(pr.Dir, reviewCtx)
 		if err != nil {
 			return fmt.Errorf("claude review: %w", err)
 		}
-		result = r
+		result = res
 		return nil
 	})
 	if opts.Thorough {
 		g.Go(func() error {
-			advResult, advErr = claude.AdversarialReview(pr.Dir, pr.BaseBranch)
+			advResult, advErr = r.Claude.AdversarialReview(pr.Dir, pr.BaseBranch)
 			return nil
 		})
 	}
 	if opts.CoverageMap {
 		g.Go(func() error {
-			coverageResult, covErr = claude.CoverageMap(pr.Dir, pr.BaseBranch)
+			coverageResult, covErr = r.Claude.CoverageMap(pr.Dir, pr.BaseBranch)
 			return nil
 		})
 	}
@@ -213,10 +225,10 @@ func Run(w io.Writer, opts Options) error {
 
 	// 13. Render
 	fmt.Fprintln(os.Stderr, "Review complete.")
-	return renderResult(w, result, pr, opts, coverageResult)
+	return r.renderResult(w, result, pr, opts, coverageResult)
 }
 
-func renderResult(w io.Writer, result *report.ReviewResult, pr *github.PR, opts Options, coverage *report.CoverageResult) error {
+func (r *Runner) renderResult(w io.Writer, result *report.ReviewResult, pr *github.PR, opts Options, coverage *report.CoverageResult) error {
 	prInfo := report.PRInfo{
 		Owner:  pr.Owner,
 		Repo:   pr.Repo,
@@ -249,10 +261,10 @@ func renderResult(w io.Writer, result *report.ReviewResult, pr *github.PR, opts 
 
 	if opts.InlineReview {
 		fmt.Fprintln(os.Stderr, "Posting inline review with GitHub Review API...")
-		err := postInlineReview(result, pr, &buf)
+		err := r.postInlineReview(result, pr, &buf)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: inline review failed (%v), falling back to PR comment...\n", err)
-			_, err = postCommentFunc(pr.Owner, pr.Repo, pr.Number, buf.String())
+			_, err = r.GitHub.PostPRComment(pr.Owner, pr.Repo, pr.Number, buf.String())
 			if err != nil {
 				return fmt.Errorf("posting PR comment (fallback): %w", err)
 			}
@@ -262,7 +274,7 @@ func renderResult(w io.Writer, result *report.ReviewResult, pr *github.PR, opts 
 		// Append data block for machine consumption
 		dataBlock := report.RenderDataBlock(*result, pr.HeadSHA)
 		body := buf.String() + dataBlock
-		postResult, err := postCommentFunc(pr.Owner, pr.Repo, pr.Number, body)
+		postResult, err := r.GitHub.PostPRComment(pr.Owner, pr.Repo, pr.Number, body)
 		if err != nil {
 			return fmt.Errorf("posting PR comment: %w", err)
 		}
@@ -275,9 +287,9 @@ func renderResult(w io.Writer, result *report.ReviewResult, pr *github.PR, opts 
 // maxInlineComments is the conservative limit for inline comments per review.
 const maxInlineComments = 50
 
-func postInlineReview(result *report.ReviewResult, pr *github.PR, summaryBuf *bytes.Buffer) error {
+func (r *Runner) postInlineReview(result *report.ReviewResult, pr *github.PR, summaryBuf *bytes.Buffer) error {
 	// 1. Fetch the diff
-	rawDiff, err := fetchDiffFunc(pr.Owner, pr.Repo, pr.Number)
+	rawDiff, err := r.GitHub.FetchDiff(pr.Owner, pr.Repo, pr.Number)
 	if err != nil {
 		return fmt.Errorf("fetching diff: %w", err)
 	}
@@ -315,7 +327,7 @@ func postInlineReview(result *report.ReviewResult, pr *github.PR, summaryBuf *by
 	summaryBody := summaryBuf.String() + dataBlock
 
 	// 5. Submit the review
-	url, err := submitReviewFunc(pr.Owner, pr.Repo, pr.Number, pr.HeadSHA, summaryBody, inlineComments)
+	url, err := r.GitHub.SubmitPRReview(pr.Owner, pr.Repo, pr.Number, pr.HeadSHA, summaryBody, inlineComments)
 	if err != nil {
 		return err
 	}

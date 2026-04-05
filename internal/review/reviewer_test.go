@@ -5,18 +5,72 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/planwerk/planwerk-review/internal/claude"
 	"github.com/planwerk/planwerk-review/internal/github"
 	"github.com/planwerk/planwerk-review/internal/report"
 )
 
-func TestRenderResult_PostReview(t *testing.T) {
-	var postedBody string
-	origFunc := postCommentFunc
-	postCommentFunc = func(owner, repo string, number int, body string) (string, error) {
-		postedBody = body
-		return "https://github.com/test/repo/pull/1#issuecomment-123", nil
+// mockGitHub is a configurable in-memory GitHubClient used by renderResult tests.
+// Each function is a closure the test can set. Nil closures panic on call so a
+// test that uses an unexpected code path fails loudly rather than hitting the
+// real gh CLI.
+type mockGitHub struct {
+	postPRComment   func(owner, repo string, number int, body string) (string, error)
+	submitPRReview  func(owner, repo string, number int, commitSHA, body string, comments []github.ReviewComment) (string, error)
+	fetchDiff       func(owner, repo string, number int) (string, error)
+	fetchAndCheckout func(ref string) (*github.PR, error)
+}
+
+func (m *mockGitHub) PostPRComment(owner, repo string, number int, body string) (string, error) {
+	return m.postPRComment(owner, repo, number, body)
+}
+
+func (m *mockGitHub) SubmitPRReview(owner, repo string, number int, commitSHA, body string, comments []github.ReviewComment) (string, error) {
+	return m.submitPRReview(owner, repo, number, commitSHA, body, comments)
+}
+
+func (m *mockGitHub) FetchDiff(owner, repo string, number int) (string, error) {
+	return m.fetchDiff(owner, repo, number)
+}
+
+func (m *mockGitHub) FetchAndCheckout(ref string) (*github.PR, error) {
+	return m.fetchAndCheckout(ref)
+}
+
+// mockClaude is a placeholder ClaudeRunner for tests that only exercise
+// renderResult paths (which do not touch Claude). All methods panic if
+// invoked so unintended calls are caught immediately.
+type mockClaude struct{}
+
+func (mockClaude) Review(dir string, ctx claude.ReviewContext) (*report.ReviewResult, error) {
+	panic("mockClaude.Review called unexpectedly")
+}
+
+func (mockClaude) AdversarialReview(dir, baseBranch string) (*report.ReviewResult, error) {
+	panic("mockClaude.AdversarialReview called unexpectedly")
+}
+
+func (mockClaude) CoverageMap(dir, baseBranch string) (*report.CoverageResult, error) {
+	panic("mockClaude.CoverageMap called unexpectedly")
+}
+
+func newTestRunner(gh *mockGitHub) *Runner {
+	return &Runner{
+		Claude: mockClaude{},
+		GitHub: gh,
 	}
-	defer func() { postCommentFunc = origFunc }()
+}
+
+func TestRenderResult_PostReview(t *testing.T) {
+	t.Parallel()
+
+	var postedBody string
+	gh := &mockGitHub{
+		postPRComment: func(owner, repo string, number int, body string) (string, error) {
+			postedBody = body
+			return "https://github.com/test/repo/pull/1#issuecomment-123", nil
+		},
+	}
 
 	result := &report.ReviewResult{
 		Summary:        "Looks good",
@@ -34,8 +88,7 @@ func TestRenderResult_PostReview(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	err := renderResult(&out, result, pr, opts, nil)
-	if err != nil {
+	if err := newTestRunner(gh).renderResult(&out, result, pr, opts, nil); err != nil {
 		t.Fatalf("renderResult returned error: %v", err)
 	}
 
@@ -59,12 +112,14 @@ func TestRenderResult_PostReview(t *testing.T) {
 }
 
 func TestRenderResult_NoPost(t *testing.T) {
-	origFunc := postCommentFunc
-	postCommentFunc = func(owner, repo string, number int, body string) (string, error) {
-		t.Fatal("PostPRComment should not be called when PostReview is false")
-		return "", nil
+	t.Parallel()
+
+	gh := &mockGitHub{
+		postPRComment: func(owner, repo string, number int, body string) (string, error) {
+			t.Fatal("PostPRComment should not be called when PostReview is false")
+			return "", nil
+		},
 	}
-	defer func() { postCommentFunc = origFunc }()
 
 	result := &report.ReviewResult{
 		Summary: "Looks good",
@@ -78,8 +133,7 @@ func TestRenderResult_NoPost(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	err := renderResult(&out, result, pr, opts, nil)
-	if err != nil {
+	if err := newTestRunner(gh).renderResult(&out, result, pr, opts, nil); err != nil {
 		t.Fatalf("renderResult returned error: %v", err)
 	}
 
@@ -89,11 +143,13 @@ func TestRenderResult_NoPost(t *testing.T) {
 }
 
 func TestRenderResult_PostReviewError(t *testing.T) {
-	origFunc := postCommentFunc
-	postCommentFunc = func(owner, repo string, number int, body string) (string, error) {
-		return "", &mockError{"post failed"}
+	t.Parallel()
+
+	gh := &mockGitHub{
+		postPRComment: func(owner, repo string, number int, body string) (string, error) {
+			return "", &mockError{"post failed"}
+		},
 	}
-	defer func() { postCommentFunc = origFunc }()
 
 	result := &report.ReviewResult{Summary: "Test"}
 	pr := &github.PR{Owner: "test", Repo: "repo", Number: 1, Title: "Test PR"}
@@ -105,7 +161,7 @@ func TestRenderResult_PostReviewError(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	err := renderResult(&out, result, pr, opts, nil)
+	err := newTestRunner(gh).renderResult(&out, result, pr, opts, nil)
 	if err == nil {
 		t.Fatal("expected error when PostPRComment fails")
 	}
@@ -115,19 +171,18 @@ func TestRenderResult_PostReviewError(t *testing.T) {
 }
 
 func TestRenderResult_InlineReview(t *testing.T) {
+	t.Parallel()
+
 	var submittedBody string
 	var submittedComments []github.ReviewComment
-	origSubmit := submitReviewFunc
-	submitReviewFunc = func(owner, repo string, number int, commitSHA, body string, comments []github.ReviewComment) (string, error) {
-		submittedBody = body
-		submittedComments = comments
-		return "https://github.com/test/repo/pull/1#discussion_r123", nil
-	}
-	defer func() { submitReviewFunc = origSubmit }()
-
-	origFetch := fetchDiffFunc
-	fetchDiffFunc = func(owner, repo string, number int) (string, error) {
-		return `diff --git a/main.go b/main.go
+	gh := &mockGitHub{
+		submitPRReview: func(owner, repo string, number int, commitSHA, body string, comments []github.ReviewComment) (string, error) {
+			submittedBody = body
+			submittedComments = comments
+			return "https://github.com/test/repo/pull/1#discussion_r123", nil
+		},
+		fetchDiff: func(owner, repo string, number int) (string, error) {
+			return `diff --git a/main.go b/main.go
 index abc..def 100644
 --- a/main.go
 +++ b/main.go
@@ -137,8 +192,8 @@ index abc..def 100644
 +	newFunc()
  }
 `, nil
+		},
 	}
-	defer func() { fetchDiffFunc = origFetch }()
 
 	result := &report.ReviewResult{
 		Summary: "Test review",
@@ -176,8 +231,7 @@ index abc..def 100644
 	}
 
 	var out bytes.Buffer
-	err := renderResult(&out, result, pr, opts, nil)
-	if err != nil {
+	if err := newTestRunner(gh).renderResult(&out, result, pr, opts, nil); err != nil {
 		t.Fatalf("renderResult returned error: %v", err)
 	}
 
@@ -200,25 +254,21 @@ index abc..def 100644
 }
 
 func TestRenderResult_InlineReviewFallback(t *testing.T) {
+	t.Parallel()
+
 	var postedBody string
-	origPost := postCommentFunc
-	postCommentFunc = func(owner, repo string, number int, body string) (string, error) {
-		postedBody = body
-		return "https://github.com/test/repo/pull/1#issuecomment-456", nil
+	gh := &mockGitHub{
+		postPRComment: func(owner, repo string, number int, body string) (string, error) {
+			postedBody = body
+			return "https://github.com/test/repo/pull/1#issuecomment-456", nil
+		},
+		submitPRReview: func(owner, repo string, number int, commitSHA, body string, comments []github.ReviewComment) (string, error) {
+			return "", &mockError{"API error"}
+		},
+		fetchDiff: func(owner, repo string, number int) (string, error) {
+			return "", nil
+		},
 	}
-	defer func() { postCommentFunc = origPost }()
-
-	origSubmit := submitReviewFunc
-	submitReviewFunc = func(owner, repo string, number int, commitSHA, body string, comments []github.ReviewComment) (string, error) {
-		return "", &mockError{"API error"}
-	}
-	defer func() { submitReviewFunc = origSubmit }()
-
-	origFetch := fetchDiffFunc
-	fetchDiffFunc = func(owner, repo string, number int) (string, error) {
-		return "", nil
-	}
-	defer func() { fetchDiffFunc = origFetch }()
 
 	result := &report.ReviewResult{Summary: "Test"}
 	pr := &github.PR{Owner: "test", Repo: "repo", Number: 1, Title: "Test PR", HeadSHA: "abc123"}
@@ -231,8 +281,7 @@ func TestRenderResult_InlineReviewFallback(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	err := renderResult(&out, result, pr, opts, nil)
-	if err != nil {
+	if err := newTestRunner(gh).renderResult(&out, result, pr, opts, nil); err != nil {
 		t.Fatalf("renderResult returned error: %v", err)
 	}
 
