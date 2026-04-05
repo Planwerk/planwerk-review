@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: go
-**Sources**: Effective Go (https://go.dev/doc/effective_go#sharing), Effective Go (https://go.dev/doc/effective_go#channels), Effective Go (https://go.dev/doc/effective_go#parallel)
+**Sources**: Effective Go (https://go.dev/doc/effective_go#sharing), Effective Go (https://go.dev/doc/effective_go#channels), Effective Go (https://go.dev/doc/effective_go#parallel), Google Go Style Guide — Decisions (https://google.github.io/styleguide/go/decisions#goroutine-lifetimes), Rob Pike — Go Concurrency Patterns (https://go.dev/talks/2012/concurrency.slide), The Go Memory Model (https://go.dev/ref/mem)
 
 ## What to check
 

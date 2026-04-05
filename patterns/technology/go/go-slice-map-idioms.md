@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: go
-**Sources**: Effective Go (https://go.dev/doc/effective_go#slices), Effective Go (https://go.dev/doc/effective_go#maps), Effective Go (https://go.dev/doc/effective_go#append)
+**Sources**: Effective Go (https://go.dev/doc/effective_go#slices), Effective Go (https://go.dev/doc/effective_go#maps), Effective Go (https://go.dev/doc/effective_go#append), Google Go Style Guide — Decisions (https://google.github.io/styleguide/go/decisions#nil-slices), Uber Go Style Guide (https://github.com/uber-go/guide/blob/master/style.md)
 
 ## What to check
 

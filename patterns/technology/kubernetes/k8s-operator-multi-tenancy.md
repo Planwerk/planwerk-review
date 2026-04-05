@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: kubernetes
-**Sources**: CNCF Operator White Paper (https://tag-app-delivery.cncf.io/whitepapers/operator/), Operator SDK Multi-Tenancy Best Practices (https://sdk.operatorframework.io/docs/best-practices/multi-tenancy/)
+**Sources**: Multi-Tenancy (https://kubernetes.io/docs/concepts/security/multi-tenancy/), RBAC Good Practices (https://kubernetes.io/docs/concepts/security/rbac-good-practices/), CNCF Operator White Paper (https://tag-app-delivery.cncf.io/whitepapers/operator/), Operator SDK Multi-Tenancy Best Practices (https://sdk.operatorframework.io/docs/best-practices/multi-tenancy/)
 
 ## What to check
 

@@ -5,7 +5,7 @@
 **Severity**: INFO
 **Category**: technology
 **Applies-When**: go
-**Sources**: Effective Go (https://go.dev/doc/effective_go#embedding)
+**Sources**: Effective Go (https://go.dev/doc/effective_go#embedding), Google Go Style Guide — Decisions (https://google.github.io/styleguide/go/decisions#struct-embedding), The Go Programming Language (https://www.gopl.io/)
 
 ## What to check
 

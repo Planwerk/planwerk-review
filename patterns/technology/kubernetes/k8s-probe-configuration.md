@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: kubernetes, helm
-**Sources**: Configure Liveness, Readiness and Startup Probes (https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/), Production Best Practices (https://learnk8s.io/production-best-practices), 7 Common Kubernetes Pitfalls (https://kubernetes.io/blog/2025/10/20/seven-kubernetes-pitfalls-and-how-to-avoid/), Start Sidecar First (https://kubernetes.io/blog/2025/06/03/start-sidecar-first/), 7 K8s Anti-Patterns That Hurt in Production (https://medium.com/devops-ai-decoded/7-kubernetes-anti-patterns-that-hurt-in-production-91682dbccc5b)
+**Sources**: Configure Liveness, Readiness and Startup Probes (https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/), 7 Common Kubernetes Pitfalls (https://kubernetes.io/blog/2025/10/20/seven-kubernetes-pitfalls-and-how-to-avoid/), Start Sidecar First (https://kubernetes.io/blog/2025/06/03/start-sidecar-first/), Production Best Practices (https://learnkube.com/production-best-practices)
 
 ## What to check
 

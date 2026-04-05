@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: go
-**Sources**: Effective Go (https://go.dev/doc/effective_go#allocation_new), Effective Go (https://go.dev/doc/effective_go#allocation_make), Effective Go (https://go.dev/doc/effective_go#composite_literals)
+**Sources**: Effective Go (https://go.dev/doc/effective_go#allocation_new), Effective Go (https://go.dev/doc/effective_go#allocation_make), Effective Go (https://go.dev/doc/effective_go#composite_literals), Go Proverbs (https://go-proverbs.github.io/), Google Go Style Guide — Best Practices (https://google.github.io/styleguide/go/best-practices), Uber Go Style Guide (https://github.com/uber-go/guide/blob/master/style.md)
 
 ## What to check
 

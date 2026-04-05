@@ -5,7 +5,7 @@
 **Severity**: CRITICAL
 **Category**: technology
 **Applies-When**: kubernetes, helm
-**Sources**: Certificate Anti-Patterns in Multi-Cluster K8s (https://axelspire.com/blog/localhost-is-not-an-identity-certificate-anti-patterns-in-multi-cluster-kubernetes/), 11 Ways Not to Get Hacked (https://kubernetes.io/blog/2018/07/18/11-ways-not-to-get-hacked/), Nutanix K8s Anti-Patterns (https://www.nutanix.dev/2026/04/01/avoid-these-kubernetes-anti-patterns-a-guide-for-virtualization-professionals/)
+**Sources**: Manage TLS in a Cluster (https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster/), cert-manager Docs (https://cert-manager.io/docs/), 11 Ways Not to Get Hacked (https://kubernetes.io/blog/2018/07/18/11-ways-not-to-get-hacked/), Certificate Anti-Patterns in Multi-Cluster K8s (https://axelspire.com/blog/localhost-is-not-an-identity-certificate-anti-patterns-in-multi-cluster-kubernetes/), Nutanix K8s Anti-Patterns (https://www.nutanix.dev/2026/04/01/avoid-these-kubernetes-anti-patterns-a-guide-for-virtualization-professionals/)
 
 ## What to check
 

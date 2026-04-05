@@ -5,7 +5,7 @@
 **Severity**: INFO
 **Category**: technology
 **Applies-When**: go
-**Sources**: Effective Go (https://go.dev/doc/effective_go#interfaces), Go Code Review Comments (https://github.com/golang/go/wiki/CodeReviewComments#interfaces)
+**Sources**: Effective Go (https://go.dev/doc/effective_go#interfaces), Go Code Review Comments (https://go.dev/wiki/CodeReviewComments#interfaces), Go Proverbs (https://go-proverbs.github.io/), When To Use Generics (https://go.dev/blog/when-generics), Google Go Style Guide — Decisions (https://google.github.io/styleguide/go/decisions#interfaces), Uber Go Style Guide (https://github.com/uber-go/guide/blob/master/style.md)
 
 ## What to check
 

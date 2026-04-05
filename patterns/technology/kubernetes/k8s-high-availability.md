@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: kubernetes, helm
-**Sources**: K8s Anti-Patterns Field Guide (https://blog.devops.dev/kubernetes-anti-patterns-a-field-guide-to-cluster-sabotage-a0c8e8969824), Protect Pods with PriorityClass (https://kubernetes.io/blog/2023/01/12/protect-mission-critical-pods-priorityclass/), Production Best Practices (https://learnk8s.io/production-best-practices)
+**Sources**: Deployments (https://kubernetes.io/docs/concepts/workloads/controllers/deployment/), Pod Disruptions (https://kubernetes.io/docs/concepts/workloads/pods/disruptions/), Protect Pods with PriorityClass (https://kubernetes.io/blog/2023/01/12/protect-mission-critical-pods-priorityclass/), Production Best Practices (https://learnkube.com/production-best-practices), K8s Anti-Patterns Field Guide (https://blog.devops.dev/kubernetes-anti-patterns-a-field-guide-to-cluster-sabotage-a0c8e8969824)
 
 ## What to check
 

@@ -5,7 +5,7 @@
 **Severity**: CRITICAL
 **Category**: technology
 **Applies-When**: kubernetes
-**Sources**: CNCF Operator White Paper (https://tag-app-delivery.cncf.io/whitepapers/operator/), 11 Ways Not to Get Hacked (https://kubernetes.io/blog/2018/07/18/11-ways-not-to-get-hacked/), Nutanix K8s Anti-Patterns (https://www.nutanix.dev/2026/04/01/avoid-these-kubernetes-anti-patterns-a-guide-for-virtualization-professionals/)
+**Sources**: RBAC Good Practices (https://kubernetes.io/docs/concepts/security/rbac-good-practices/), CIS Kubernetes Benchmark (https://www.cisecurity.org/benchmark/kubernetes), OWASP Kubernetes Top 10 (https://owasp.org/www-project-kubernetes-top-ten/), CNCF Operator White Paper (https://tag-app-delivery.cncf.io/whitepapers/operator/), 11 Ways Not to Get Hacked (https://kubernetes.io/blog/2018/07/18/11-ways-not-to-get-hacked/), Nutanix K8s Anti-Patterns (https://www.nutanix.dev/2026/04/01/avoid-these-kubernetes-anti-patterns-a-guide-for-virtualization-professionals/)
 
 ## What to check
 

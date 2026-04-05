@@ -5,7 +5,7 @@
 **Severity**: CRITICAL
 **Category**: technology
 **Applies-When**: go
-**Sources**: Effective Go (https://go.dev/doc/effective_go#panic), Effective Go (https://go.dev/doc/effective_go#recover)
+**Sources**: Effective Go (https://go.dev/doc/effective_go#panic), Effective Go (https://go.dev/doc/effective_go#recover), Google Go Style Guide — Decisions (https://google.github.io/styleguide/go/decisions#panic), Go Proverbs (https://go-proverbs.github.io/), Go Code Review Comments (https://go.dev/wiki/CodeReviewComments#dont-panic)
 
 ## What to check
 

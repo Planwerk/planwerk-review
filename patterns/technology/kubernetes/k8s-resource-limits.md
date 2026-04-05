@@ -5,7 +5,7 @@
 **Severity**: CRITICAL
 **Category**: technology
 **Applies-When**: kubernetes, helm
-**Sources**: Kubernetes Best Practices: Resource Requests and Limits (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/), Production Best Practices (https://learnk8s.io/production-best-practices), The Case for Resource Limits (https://kubernetes.io/blog/2023/11/16/the-case-for-kubernetes-resource-limits/), 7 Common Kubernetes Pitfalls (https://kubernetes.io/blog/2025/10/20/seven-kubernetes-pitfalls-and-how-to-avoid/), K8s Anti-Patterns Field Guide (https://blog.devops.dev/kubernetes-anti-patterns-a-field-guide-to-cluster-sabotage-a0c8e8969824)
+**Sources**: Resource Management for Containers (https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/), Resource Quotas (https://kubernetes.io/docs/concepts/policy/resource-quotas/), The Case for Resource Limits (https://kubernetes.io/blog/2023/11/16/the-case-for-kubernetes-resource-limits/), 7 Common Kubernetes Pitfalls (https://kubernetes.io/blog/2025/10/20/seven-kubernetes-pitfalls-and-how-to-avoid/), Production Best Practices (https://learnkube.com/production-best-practices), K8s Anti-Patterns Field Guide (https://blog.devops.dev/kubernetes-anti-patterns-a-field-guide-to-cluster-sabotage-a0c8e8969824)
 
 ## What to check
 

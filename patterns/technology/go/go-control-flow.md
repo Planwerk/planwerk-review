@@ -5,7 +5,7 @@
 **Severity**: INFO
 **Category**: technology
 **Applies-When**: go
-**Sources**: Effective Go (https://go.dev/doc/effective_go#if), Effective Go (https://go.dev/doc/effective_go#switch)
+**Sources**: Effective Go (https://go.dev/doc/effective_go#if), Effective Go (https://go.dev/doc/effective_go#switch), Go Code Review Comments (https://go.dev/wiki/CodeReviewComments#indent-error-flow), Google Go Style Guide — Decisions (https://google.github.io/styleguide/go/decisions#indent-error-flow)
 
 ## What to check
 

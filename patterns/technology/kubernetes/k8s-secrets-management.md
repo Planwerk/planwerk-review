@@ -5,7 +5,7 @@
 **Severity**: CRITICAL
 **Category**: technology
 **Applies-When**: kubernetes, helm
-**Sources**: K8s Anti-Patterns Field Guide (https://blog.devops.dev/kubernetes-anti-patterns-a-field-guide-to-cluster-sabotage-a0c8e8969824), GitOps Anti-Patterns (https://oneuptime.com/blog/post/2026-02-26-gitops-anti-patterns/view), 11 Ways Not to Get Hacked (https://kubernetes.io/blog/2018/07/18/11-ways-not-to-get-hacked/)
+**Sources**: Secrets (https://kubernetes.io/docs/concepts/configuration/secret/), External Secrets Operator (https://external-secrets.io/latest/), 11 Ways Not to Get Hacked (https://kubernetes.io/blog/2018/07/18/11-ways-not-to-get-hacked/), K8s Anti-Patterns Field Guide (https://blog.devops.dev/kubernetes-anti-patterns-a-field-guide-to-cluster-sabotage-a0c8e8969824), GitOps Anti-Patterns (https://oneuptime.com/blog/post/2026-02-26-gitops-anti-patterns/view)
 
 ## What to check
 

@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: helm
-**Sources**: Helm Best Practices (https://helm.sh/docs/chart_best_practices/), Helm Template Functions (https://helm.sh/docs/chart_template_guide/function_list/)
+**Sources**: Values Best Practices (https://helm.sh/docs/chart_best_practices/values/), Values Files (Template Guide) (https://helm.sh/docs/chart_template_guide/values_files/), Charts — Schema Files (https://helm.sh/docs/topics/charts/#schema-files), Helm Best Practices (https://helm.sh/docs/chart_best_practices/), Helm Template Functions (https://helm.sh/docs/chart_template_guide/function_list/), helm lint Command (https://helm.sh/docs/helm/helm_lint/)
 
 ## What to check
 

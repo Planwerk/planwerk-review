@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: kubernetes, helm
-**Sources**: Start Sidecar First (https://kubernetes.io/blog/2025/06/03/start-sidecar-first/), Multi-Container Pods Overview (https://kubernetes.io/blog/2025/04/22/multi-container-pods-overview/), Protect Pods with PriorityClass (https://kubernetes.io/blog/2023/01/12/protect-mission-critical-pods-priorityclass/), Container Design Patterns (https://kubernetes.io/blog/2016/06/container-design-patterns/), Principles of Container App Design (https://kubernetes.io/blog/2018/03/principles-of-container-app-design/)
+**Sources**: Pods (https://kubernetes.io/docs/concepts/workloads/pods/), Deployments (https://kubernetes.io/docs/concepts/workloads/controllers/deployment/), KEP-753 Sidecar Containers (https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/753-sidecar-containers/README.md), Start Sidecar First (https://kubernetes.io/blog/2025/06/03/start-sidecar-first/), Multi-Container Pods Overview (https://kubernetes.io/blog/2025/04/22/multi-container-pods-overview/), Protect Pods with PriorityClass (https://kubernetes.io/blog/2023/01/12/protect-mission-critical-pods-priorityclass/), Container Design Patterns (https://kubernetes.io/blog/2016/06/container-design-patterns/), Principles of Container App Design (https://kubernetes.io/blog/2018/03/principles-of-container-app-design/)
 
 ## What to check
 

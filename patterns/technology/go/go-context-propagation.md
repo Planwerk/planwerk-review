@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: go
-**Sources**: Go Blog: Contexts and structs (https://go.dev/blog/context-and-structs), Go Code Review Comments (https://github.com/golang/go/wiki/CodeReviewComments#contexts)
+**Sources**: Go Blog: Contexts and structs (https://go.dev/blog/context-and-structs), Go Code Review Comments (https://go.dev/wiki/CodeReviewComments#contexts), Google Go Style Guide — Decisions (https://google.github.io/styleguide/go/decisions#contexts)
 
 ## What to check
 

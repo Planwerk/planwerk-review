@@ -5,7 +5,7 @@
 **Severity**: INFO
 **Category**: technology
 **Applies-When**: go
-**Sources**: Go Code Review Comments (https://github.com/golang/go/wiki/CodeReviewComments#receiver-names), Effective Go (https://go.dev/doc/effective_go#names)
+**Sources**: Go Code Review Comments (https://go.dev/wiki/CodeReviewComments#receiver-names), Effective Go (https://go.dev/doc/effective_go#names), Google Go Style Guide — Decisions (https://google.github.io/styleguide/go/decisions#receiver-names)
 
 ## What to check
 

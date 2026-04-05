@@ -5,7 +5,7 @@
 **Severity**: CRITICAL
 **Category**: technology
 **Applies-When**: go
-**Sources**: Go Concurrency Patterns (https://go.dev/blog/pipelines), Effective Go (https://go.dev/doc/effective_go#goroutines)
+**Sources**: Go Concurrency Patterns (https://go.dev/blog/pipelines), Effective Go (https://go.dev/doc/effective_go#goroutines), Google Go Style Guide — Decisions (https://google.github.io/styleguide/go/decisions#goroutine-lifetimes), Rob Pike — Go Concurrency Patterns (https://go.dev/talks/2012/concurrency.slide), Uber Go Style Guide (https://github.com/uber-go/guide/blob/master/style.md)
 
 ## What to check
 

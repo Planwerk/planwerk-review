@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: go
-**Sources**: Effective Go (https://go.dev/doc/effective_go#errors), Go Code Review Comments (https://github.com/golang/go/wiki/CodeReviewComments#error-strings)
+**Sources**: Effective Go (https://go.dev/doc/effective_go#errors), Go Code Review Comments (https://go.dev/wiki/CodeReviewComments#error-strings), Working with Errors in Go 1.13 (https://go.dev/blog/go1.13-errors), errors package (https://pkg.go.dev/errors), Google Go Style Guide — Best Practices (https://google.github.io/styleguide/go/best-practices#error-handling)
 
 ## What to check
 

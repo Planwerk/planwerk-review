@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: go
-**Sources**: Effective Go (https://go.dev/doc/effective_go#defer)
+**Sources**: Effective Go (https://go.dev/doc/effective_go#defer), Google Go Style Guide — Best Practices (https://google.github.io/styleguide/go/best-practices), Dave Cheney — Practical Go (https://dave.cheney.net/practical-go/presentations/gophercon-singapore-2019.html)
 
 ## What to check
 

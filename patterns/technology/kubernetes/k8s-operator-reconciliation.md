@@ -5,7 +5,7 @@
 **Severity**: CRITICAL
 **Category**: technology
 **Applies-When**: kubernetes
-**Sources**: CNCF Operator White Paper (https://tag-app-delivery.cncf.io/whitepapers/operator/), Operator SDK Common Recommendations (https://sdk.operatorframework.io/docs/best-practices/common-recommendation/), Operator SDK Best Practices (https://sdk.operatorframework.io/docs/best-practices/best-practices/), Kubernetes Operators Deep Dive: Internals (https://dev.to/piyushjajoo/kubernetes-operators-a-deep-dive-into-the-internals-221m)
+**Sources**: Kubebuilder Book (https://book.kubebuilder.io/), Kubebuilder Good Practices (https://book.kubebuilder.io/reference/good-practices), controller-runtime (https://github.com/kubernetes-sigs/controller-runtime), CNCF Operator White Paper (https://tag-app-delivery.cncf.io/whitepapers/operator/), Operator SDK Common Recommendations (https://sdk.operatorframework.io/docs/best-practices/common-recommendation/), Operator SDK Best Practices (https://sdk.operatorframework.io/docs/best-practices/best-practices/)
 
 ## What to check
 

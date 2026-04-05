@@ -5,7 +5,7 @@
 **Severity**: INFO
 **Category**: technology
 **Applies-When**: go
-**Sources**: Effective Go (https://go.dev/doc/effective_go#names), Effective Go (https://go.dev/doc/effective_go#package-names)
+**Sources**: Effective Go (https://go.dev/doc/effective_go#names), Effective Go (https://go.dev/doc/effective_go#package-names), Google Go Style Guide — Decisions (https://google.github.io/styleguide/go/decisions#package-names), Dave Cheney — Practical Go (https://dave.cheney.net/practical-go/presentations/qcon-china.html), Go Code Review Comments (https://go.dev/wiki/CodeReviewComments#package-names)
 
 ## What to check
 

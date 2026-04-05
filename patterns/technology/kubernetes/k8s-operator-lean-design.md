@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: kubernetes
-**Sources**: Operator SDK Designing Lean Operators (https://sdk.operatorframework.io/docs/best-practices/designing-lean-operators/), Operator SDK Managing Resources (https://sdk.operatorframework.io/docs/best-practices/managing-resources/), Kubernetes Operators Deep Dive: Internals (https://dev.to/piyushjajoo/kubernetes-operators-a-deep-dive-into-the-internals-221m)
+**Sources**: Operator SDK Designing Lean Operators (https://sdk.operatorframework.io/docs/best-practices/designing-lean-operators/), Operator SDK Managing Resources (https://sdk.operatorframework.io/docs/best-practices/managing-resources/), Kubebuilder Good Practices (https://book.kubebuilder.io/reference/good-practices), controller-runtime (https://github.com/kubernetes-sigs/controller-runtime)
 
 ## What to check
 

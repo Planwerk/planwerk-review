@@ -5,7 +5,7 @@
 **Severity**: WARNING
 **Category**: technology
 **Applies-When**: kubernetes
-**Sources**: CNCF Operator White Paper (https://tag-app-delivery.cncf.io/whitepapers/operator/), Operator SDK Observability Best Practices (https://sdk.operatorframework.io/docs/best-practices/observability-best-practices/), Kubernetes Operators Deep Dive: Internals (https://dev.to/piyushjajoo/kubernetes-operators-a-deep-dive-into-the-internals-221m)
+**Sources**: Kubebuilder Good Practices (https://book.kubebuilder.io/reference/good-practices), CNCF Operator White Paper (https://tag-app-delivery.cncf.io/whitepapers/operator/), Operator SDK Observability Best Practices (https://sdk.operatorframework.io/docs/best-practices/observability-best-practices/)
 
 ## What to check
 

@@ -5,7 +5,7 @@
 **Severity**: INFO
 **Category**: technology
 **Applies-When**: go
-**Sources**: Effective Go (https://go.dev/doc/effective_go#init), Effective Go (https://go.dev/doc/effective_go#constants)
+**Sources**: Effective Go (https://go.dev/doc/effective_go#init), Effective Go (https://go.dev/doc/effective_go#constants), Google Go Style Guide — Best Practices (https://google.github.io/styleguide/go/best-practices), The Go Memory Model (https://go.dev/ref/mem)
 
 ## What to check
 

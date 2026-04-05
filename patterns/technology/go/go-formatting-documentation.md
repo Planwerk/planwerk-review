@@ -5,7 +5,7 @@
 **Severity**: INFO
 **Category**: technology
 **Applies-When**: go
-**Sources**: Effective Go (https://go.dev/doc/effective_go#formatting), Effective Go (https://go.dev/doc/effective_go#commentary)
+**Sources**: Effective Go (https://go.dev/doc/effective_go#formatting), Effective Go (https://go.dev/doc/effective_go#commentary), Google Go Style Guide — Decisions (https://google.github.io/styleguide/go/decisions#doc-comments), Google Go Style Guide — Guide (https://google.github.io/styleguide/go/guide)
 
 ## What to check
 
