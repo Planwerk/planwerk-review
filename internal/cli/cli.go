@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"github.com/planwerk/planwerk-review/internal/audit"
 	"github.com/planwerk/planwerk-review/internal/propose"
 	"github.com/planwerk/planwerk-review/internal/report"
 	"github.com/planwerk/planwerk-review/internal/review"
@@ -56,5 +57,33 @@ func (c ProposeConfig) ToProposeOptions(version string) propose.Options {
 		Format:       c.Format,
 		Version:      version,
 		CreateIssues: c.CreateIssues,
+	}
+}
+
+// AuditConfig holds configuration for the audit command.
+type AuditConfig struct {
+	RepoRef         string
+	PatternDirs     []string
+	NoRepoPatterns  bool
+	NoLocalPatterns bool
+	NoCache         bool
+	MinSeverity     report.Severity
+	Format          string // "markdown" or "json"
+	MaxPatterns     int
+	MaxFindings     int
+}
+
+func (c AuditConfig) ToAuditOptions(version string) audit.Options {
+	return audit.Options{
+		RepoRef:         c.RepoRef,
+		PatternDirs:     c.PatternDirs,
+		NoRepoPatterns:  c.NoRepoPatterns,
+		NoLocalPatterns: c.NoLocalPatterns,
+		NoCache:         c.NoCache,
+		MinSeverity:     c.MinSeverity,
+		Format:          c.Format,
+		Version:         version,
+		MaxPatterns:     c.MaxPatterns,
+		MaxFindings:     c.MaxFindings,
 	}
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/planwerk/planwerk-review/internal/audit"
 	"github.com/planwerk/planwerk-review/internal/cache"
 	"github.com/planwerk/planwerk-review/internal/claude"
 	"github.com/planwerk/planwerk-review/internal/cli"
@@ -147,6 +148,64 @@ or short form (owner/repo).`,
 	proposeFlags.BoolVar(&proposeCfg.CreateIssues, "create-issues", false, "Interactively create GitHub issues from proposals")
 
 	rootCmd.AddCommand(proposeCmd)
+
+	// audit subcommand
+	var auditCfg cli.AuditConfig
+	var auditMinSeverity string
+
+	auditCmd := &cobra.Command{
+		Use:   "audit <repo-ref>",
+		Short: "Apply all known review patterns to an entire codebase",
+		Long: `Clone a GitHub repository and apply every loaded review pattern to the
+entire current state of the codebase. Produces concrete, prioritized
+improvement findings (blocking/critical/warning/info) with file paths,
+line numbers, and suggested fixes — identical finding format to the
+review command, but analyzing the whole repo instead of a PR diff.
+
+Repository reference can be a URL (https://github.com/owner/repo)
+or short form (owner/repo).`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			auditCfg.RepoRef = args[0]
+
+			maxPatterns, err := resolveMaxPatterns(auditCfg.MaxPatterns, cmd.Flags().Changed("max-patterns"))
+			if err != nil {
+				return err
+			}
+			auditCfg.MaxPatterns = maxPatterns
+
+			if auditMinSeverity != "" {
+				sev, err := report.ParseSeverity(auditMinSeverity)
+				if err != nil {
+					return err
+				}
+				auditCfg.MinSeverity = sev
+			} else {
+				auditCfg.MinSeverity = report.SeverityInfo
+			}
+
+			switch auditCfg.Format {
+			case "markdown", "json":
+			default:
+				return fmt.Errorf("unknown format %q, supported: markdown, json", auditCfg.Format)
+			}
+
+			opts := auditCfg.ToAuditOptions(version)
+			return audit.Run(os.Stdout, opts, claude.Audit)
+		},
+	}
+
+	auditFlags := auditCmd.Flags()
+	auditFlags.StringSliceVar(&auditCfg.PatternDirs, "patterns", nil, "Additional pattern directories")
+	auditFlags.StringVar(&auditMinSeverity, "min-severity", "", "Minimum severity level (info, warning, critical, blocking)")
+	auditFlags.BoolVar(&auditCfg.NoRepoPatterns, "no-repo-patterns", false, "Ignore repo-specific patterns")
+	auditFlags.BoolVar(&auditCfg.NoLocalPatterns, "no-local-patterns", false, "Ignore local patterns from the tool")
+	auditFlags.BoolVar(&auditCfg.NoCache, "no-cache", false, "Ignore cache, force a fresh audit")
+	auditFlags.StringVar(&auditCfg.Format, "format", "markdown", "Output format (markdown, json)")
+	auditFlags.IntVar(&auditCfg.MaxPatterns, "max-patterns", patterns.DefaultMaxPatternsInPrompt, "Max review patterns injected into the prompt (<=0 disables truncation, env: "+envMaxPatterns+")")
+	auditFlags.IntVar(&auditCfg.MaxFindings, "max-findings", 0, "Cap on findings returned (<=0 disables cap)")
+
+	rootCmd.AddCommand(auditCmd)
 	rootCmd.Version = version
 
 	if err := rootCmd.Execute(); err != nil {

@@ -62,6 +62,18 @@ func RepoKey(owner, repo, headSHA string) string {
 	return fmt.Sprintf("%x", h[:16])
 }
 
+// AuditKey generates a cache key for a full-codebase audit.
+// It includes the default-branch HEAD SHA so the cache invalidates when the
+// repo changes, plus any flags that alter the audit output.
+func AuditKey(owner, repo, headSHA string, flags ...string) string {
+	input := fmt.Sprintf("audit:%s/%s@%s", owner, repo, headSHA)
+	for _, f := range flags {
+		input += "+" + f
+	}
+	h := sha256.Sum256([]byte(input))
+	return fmt.Sprintf("%x", h[:16])
+}
+
 // GetRaw retrieves raw cached data.
 func GetRaw(key string) ([]byte, bool) {
 	path := filepath.Join(cacheDir, key+".json")

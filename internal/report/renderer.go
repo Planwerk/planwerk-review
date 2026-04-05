@@ -159,6 +159,63 @@ type PRInfo struct {
 	Title  string
 }
 
+// RepoInfo identifies a repository audited as a whole (no PR context).
+type RepoInfo struct {
+	Owner string
+	Name  string
+}
+
+// RenderAuditMarkdown writes a full-codebase audit result as Markdown.
+// The format mirrors RenderMarkdown but uses an "Audit" header and an
+// audit-specific verdict line (no merge decision).
+func (r *Renderer) RenderAuditMarkdown(result ReviewResult, repo RepoInfo, minSeverity Severity, version string) {
+	cf := Categorize(result.Findings, minSeverity)
+
+	_, _ = fmt.Fprintf(r.w, "# Audit: %s/%s\n\n", repo.Owner, repo.Name)
+	_, _ = fmt.Fprintf(r.w, "> Audited by planwerk-review %s with Claude CLI\n\n", version)
+
+	_, _ = fmt.Fprintf(r.w, "<!-- planwerk-audit: blocking=%d critical=%d warning=%d info=%d verdict=%s -->\n\n",
+		len(cf.Blocking), len(cf.Critical), len(cf.Warning), len(cf.Info),
+		r.auditVerdictKey(cf))
+
+	r.renderSection("BLOCKING", cf.Blocking)
+	r.renderSection("CRITICAL", cf.Critical)
+	r.renderSection("WARNING", cf.Warning)
+	r.renderSection("INFO", cf.Info)
+
+	r.renderSummary(cf, result.Summary)
+	r.renderAuditVerdict(cf)
+}
+
+// auditVerdictKey returns a short machine-readable verdict for the HTML comment.
+func (r *Renderer) auditVerdictKey(cf CategorizedFindings) string {
+	if cf.HasBlockersOrCritical() {
+		return "ACTION-REQUIRED"
+	}
+	if len(cf.Warning) > 0 {
+		return "IMPROVEMENTS-SUGGESTED"
+	}
+	return "HEALTHY"
+}
+
+func (r *Renderer) renderAuditVerdict(cf CategorizedFindings) {
+	var parts []string
+	if len(cf.Blocking) > 0 {
+		parts = append(parts, fmt.Sprintf("%d BLOCKING", len(cf.Blocking)))
+	}
+	if len(cf.Critical) > 0 {
+		parts = append(parts, fmt.Sprintf("%d CRITICAL", len(cf.Critical)))
+	}
+	if cf.HasBlockersOrCritical() {
+		_, _ = fmt.Fprintf(r.w, "> [!CAUTION]\n> **Action required** — %s finding(s) must be addressed.\n",
+			strings.Join(parts, " and "))
+	} else if len(cf.Warning) > 0 {
+		_, _ = fmt.Fprintf(r.w, "> [!WARNING]\n> **Improvements suggested** — %d warning(s) should be addressed.\n", len(cf.Warning))
+	} else {
+		_, _ = fmt.Fprint(r.w, "> [!TIP]\n> **Codebase healthy** — no blocking or critical findings.\n")
+	}
+}
+
 // dataBlockPayload is the JSON structure embedded in the HTML comment for machine consumption.
 type dataBlockPayload struct {
 	CommitSHA string    `json:"commit_sha"`

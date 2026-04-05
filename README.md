@@ -1,6 +1,6 @@
 # planwerk-review
 
-AI-powered code review and codebase analysis tool for GitHub repositories. Uses Claude CLI to automatically analyze PR changes and produce structured review results, or to analyze entire repositories and generate actionable feature proposals.
+AI-powered code review and codebase analysis tool for GitHub repositories. Uses Claude CLI to automatically analyze PR changes and produce structured review results, to analyze entire repositories and generate actionable feature proposals, or to audit an entire codebase against all known review patterns.
 
 ## Concept
 
@@ -30,6 +30,19 @@ Propose:
                      │ Cache (SHA-based)│     │  Structure    │     │ --create-    │
                      │                  │     │  into JSON    │     │ issues (gh)  │
                      └──────────────────┘     └───────────────┘     └──────────────┘
+
+Audit:
+┌──────────────┐     ┌──────────────────┐     ┌───────────────┐     ┌──────────────┐
+│  GitHub Repo │────▶│  planwerk-review │────▶│  Claude CLI   │────▶│  Findings    │
+│  (URL/Ref)   │     │  audit           │     │  (full scan)  │     │  (MD/JSON)   │
+└──────────────┘     └──────────────────┘     └───────────────┘     └──────────────┘
+                            │                        │
+                            ▼                        ▼
+                     ┌──────────────────┐     ┌───────────────┐
+                     │ Review Patterns  │     │ Structure into│
+                     │ (local + repo)   │     │ BLOCKING/…/   │
+                     │                  │     │ INFO findings │
+                     └──────────────────┘     └───────────────┘
 ```
 
 ### Review Workflow
@@ -115,6 +128,17 @@ Each finding is classified by actionability:
 6. **Output**: Proposals are rendered as Markdown (default), JSON, or GitHub issue templates.
 7. **Interactive Issue Creation** (optional): With `--create-issues`, the user is shown a summary table and walked through each proposal with a prompt to create a GitHub issue via `gh`.
 
+### Audit Workflow
+
+1. **Repo Input**: The tool receives a GitHub repository reference (URL or `owner/repo`).
+2. **Clone**: The repository is cloned locally with a partial clone filter.
+3. **Cache Check**: The default branch HEAD SHA is fetched via `git ls-remote`. If a cached result exists for this SHA and set of flags, it is reused.
+4. **Technology Detection**: The clone is scanned for language/framework markers (Go, Python, Kubernetes, Helm, GitHub Actions, …) and patterns are filtered to those applicable.
+5. **Pattern Load**: Patterns are loaded from `patterns/` (general) and `.planwerk/review_patterns/` (repo-specific) — identical sources to the review command.
+6. **Claude Audit**: Claude is instructed to apply EVERY loaded pattern to the ENTIRE current state of the codebase (not a diff) and emit concrete violations with file paths, line numbers, code snippets, and suggested fixes. Beyond patterns, it also flags BLOCKING/CRITICAL issues it encounters (security, data loss, broken error handling) and missing tests/docs matching the project's own conventions.
+7. **Structuring**: A second Claude call converts the raw findings into the same structured JSON format used by the review command (`BLOCKING`/`CRITICAL`/`WARNING`/`INFO` with fix class, confidence, related findings).
+8. **Output**: Findings are rendered as Markdown (default) or JSON, with an audit-specific verdict line (`Action required` / `Improvements suggested` / `Codebase healthy`) instead of the PR merge verdict.
+
 ### CLI Interface
 
 #### Review (default command)
@@ -188,6 +212,44 @@ planwerk-review propose owner/repo > proposals.md
 | `--no-cache` | Ignore cache, force a fresh analysis | `false` |
 | `--format` | Output format (`markdown`, `json`, `issues`) | `markdown` |
 | `--create-issues` | Interactively create GitHub issues from proposals | `false` |
+
+#### Audit (subcommand)
+
+```bash
+# Apply all loaded review patterns to an entire codebase
+planwerk-review audit https://github.com/owner/repo
+
+# Short form
+planwerk-review audit owner/repo
+
+# Only output findings at or above a severity threshold
+planwerk-review audit --min-severity warning owner/repo
+
+# JSON output for tooling
+planwerk-review audit --format json owner/repo
+
+# Force fresh audit (ignore cache)
+planwerk-review audit --no-cache owner/repo
+
+# Cap the number of findings Claude returns
+planwerk-review audit --max-findings 25 owner/repo
+
+# Write findings to file
+planwerk-review audit owner/repo > audit.md
+```
+
+##### Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--patterns` | Additional pattern directory | - |
+| `--min-severity` | Minimum severity level for output (`info`, `warning`, `critical`, `blocking`) | `info` |
+| `--no-repo-patterns` | Ignore repo-specific patterns | `false` |
+| `--no-local-patterns` | Ignore local patterns from the tool | `false` |
+| `--no-cache` | Ignore cache, force a fresh audit | `false` |
+| `--format` | Output format (`markdown`, `json`) | `markdown` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; overridable via `PLANWERK_MAX_PATTERNS`) | `50` |
+| `--max-findings` | Cap on findings returned (`<=0` disables cap) | `0` |
 
 ### Output Format
 
@@ -388,10 +450,13 @@ planwerk-review/
 │       └── release.yml         # GoReleaser on tag push
 ├── cmd/
 │   └── planwerk-review/
-│       └── main.go             # CLI entrypoint (cobra): review + propose
+│       └── main.go             # CLI entrypoint (cobra): review + propose + audit
 ├── internal/
+│   ├── audit/
+│   │   ├── auditor.go          # Orchestration: Repo → Patterns → Claude → Findings
+│   │   └── auditor_test.go
 │   ├── cache/
-│   │   ├── cache.go            # SHA-based caching (review + propose)
+│   │   ├── cache.go            # SHA-based caching (review + propose + audit)
 │   │   └── cache_test.go
 │   ├── checklist/
 │   │   ├── checklist.go        # Load review checklist (embedded default + override)
@@ -403,6 +468,8 @@ planwerk-review/
 │   │   ├── claude.go           # Claude CLI invocation + review structuring
 │   │   ├── claude_test.go
 │   │   ├── adversarial.go      # Adversarial review pass (--thorough)
+│   │   ├── audit.go            # Full-codebase audit against review patterns
+│   │   ├── audit_test.go
 │   │   ├── coverage.go         # Test coverage map generation (--coverage-map)
 │   │   ├── propose.go          # Codebase analysis for proposals
 │   │   └── propose_test.go
@@ -441,8 +508,9 @@ planwerk-review/
 │   │   ├── finding_test.go
 │   │   ├── inline.go           # Format findings as GitHub inline review comments
 │   │   ├── inline_test.go
-│   │   ├── renderer.go         # Markdown/JSON output (compact format, GitHub Alerts)
-│   │   └── renderer_test.go
+│   │   ├── renderer.go         # Markdown/JSON output (compact format, GitHub Alerts, audit verdicts)
+│   │   ├── renderer_test.go
+│   │   └── audit_renderer_test.go
 │   ├── review/
 │   │   ├── reviewer.go         # Orchestration: PR → Claude → Report
 │   │   ├── reviewer_test.go
@@ -521,6 +589,9 @@ planwerk-review/
 | 18 | **Inline review comments** | `--inline` posts via GitHub Review API with `suggestion` syntax | Puts findings exactly where the code is; auto-fix suggestions become one-click "Apply suggestion" buttons on GitHub |
 | 19 | **Machine-readable comment** | HTML comment with counts + verdict in Markdown output | CI scripts and Claude Code can parse review results without processing full Markdown |
 | 20 | **Compact Markdown format** | Empty sections skipped, single-line metadata, GitHub Alert syntax | Reduces noise for human readers and GitHub rendering; no "No findings." placeholders |
+| 21 | **Audit: reuse finding schema** | Same `ReviewResult`/`Finding` types as review | Audit findings drop straight into existing tooling, filters, and renderers — no parallel schema to maintain |
+| 22 | **Audit: verdict phrasing** | `Action required` / `Improvements suggested` / `Codebase healthy` | PR merge verdicts (`Do not merge` / `Ready to merge`) do not apply to a full-codebase audit; audit-specific phrasing avoids misleading readers |
+| 23 | **Audit: no patterns = error** | `audit` fails fast when no patterns load | An audit with zero patterns would produce an unfocused, generic review; surfacing the misconfiguration is better than silently running it |
 
 ### Future Extensions
 
