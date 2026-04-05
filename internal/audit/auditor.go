@@ -17,16 +17,18 @@ import (
 
 // Options configures the audit pipeline.
 type Options struct {
-	RepoRef         string
-	PatternDirs     []string
-	NoRepoPatterns  bool
-	NoLocalPatterns bool
-	NoCache         bool
-	MinSeverity     report.Severity
-	Format          string // "markdown" or "json"
-	Version         string
-	MaxPatterns     int // max patterns to inject into prompt; <= 0 disables truncation
-	MaxFindings     int // cap on findings Claude returns; <= 0 disables cap
+	RepoRef          string
+	PatternDirs      []string
+	NoRepoPatterns   bool
+	NoLocalPatterns  bool
+	NoCache          bool
+	MinSeverity      report.Severity
+	Format           string // "markdown" or "json"
+	Version          string
+	MaxPatterns      int             // max patterns to inject into prompt; <= 0 disables truncation
+	MaxFindings      int             // cap on findings Claude returns; <= 0 disables cap
+	CreateIssues     bool            // interactively create GitHub issues after audit
+	IssueMinSeverity report.Severity // minimum severity for a finding group to become an issue candidate
 }
 
 // AuditFn performs the Claude-backed codebase audit for a cloned repo.
@@ -166,6 +168,10 @@ func renderAudit(w io.Writer, result *report.ReviewResult, repo *github.Repo, op
 		return renderer.RenderJSON(*result, opts.MinSeverity)
 	default:
 		renderer.RenderAuditMarkdown(*result, repoInfo, opts.MinSeverity, opts.Version)
+	}
+
+	if opts.CreateIssues {
+		return RunInteractiveIssueCreation(w, os.Stdin, result, repo.Owner, repo.Name, opts.IssueMinSeverity)
 	}
 	return nil
 }

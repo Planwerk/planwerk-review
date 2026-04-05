@@ -152,6 +152,7 @@ or short form (owner/repo).`,
 	// audit subcommand
 	var auditCfg cli.AuditConfig
 	var auditMinSeverity string
+	var auditIssueMinSeverity string
 
 	auditCmd := &cobra.Command{
 		Use:   "audit <repo-ref>",
@@ -190,6 +191,20 @@ or short form (owner/repo).`,
 				return fmt.Errorf("unknown format %q, supported: markdown, json", auditCfg.Format)
 			}
 
+			if auditIssueMinSeverity != "" {
+				sev, err := report.ParseSeverity(auditIssueMinSeverity)
+				if err != nil {
+					return err
+				}
+				auditCfg.IssueMinSeverity = sev
+			} else {
+				auditCfg.IssueMinSeverity = report.SeverityWarning
+			}
+
+			if auditCfg.CreateIssues && auditCfg.Format == "json" {
+				return fmt.Errorf("--create-issues cannot be used with --format json")
+			}
+
 			opts := auditCfg.ToAuditOptions(version)
 			return audit.Run(os.Stdout, opts, claude.Audit)
 		},
@@ -204,6 +219,8 @@ or short form (owner/repo).`,
 	auditFlags.StringVar(&auditCfg.Format, "format", "markdown", "Output format (markdown, json)")
 	auditFlags.IntVar(&auditCfg.MaxPatterns, "max-patterns", patterns.DefaultMaxPatternsInPrompt, "Max review patterns injected into the prompt (<=0 disables truncation, env: "+envMaxPatterns+")")
 	auditFlags.IntVar(&auditCfg.MaxFindings, "max-findings", 0, "Cap on findings returned (<=0 disables cap)")
+	auditFlags.BoolVar(&auditCfg.CreateIssues, "create-issues", false, "Interactively create GitHub issues from audit findings")
+	auditFlags.StringVar(&auditIssueMinSeverity, "issue-min-severity", "", "Minimum severity for issue creation (default WARNING)")
 
 	rootCmd.AddCommand(auditCmd)
 	rootCmd.Version = version

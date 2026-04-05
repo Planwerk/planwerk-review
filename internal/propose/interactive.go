@@ -1,7 +1,7 @@
 package propose
 
 import (
-	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -14,85 +14,34 @@ import (
 // then walks through each one, showing full content and asking whether to
 // create a GitHub issue.
 func RunInteractiveIssueCreation(w io.Writer, result *ProposalResult, owner, name string) error {
-	reader := bufio.NewReader(os.Stdin)
 	cp := CategorizeByPriority(result.Proposals)
 
 	// 1. Show summary table
 	printSummaryTable(w, cp)
 
-	// 2. Walk through each proposal by priority
-	allProposals := make([]Proposal, 0, len(result.Proposals))
-	allProposals = append(allProposals, cp.High...)
-	allProposals = append(allProposals, cp.Medium...)
-	allProposals = append(allProposals, cp.Low...)
+	// 2. Build candidates list, walking proposals by priority
+	ordered := make([]Proposal, 0, len(result.Proposals))
+	ordered = append(ordered, cp.High...)
+	ordered = append(ordered, cp.Medium...)
+	ordered = append(ordered, cp.Low...)
 
-	created := 0
-	skipped := 0
-
-	for i, p := range allProposals {
-		_, _ = fmt.Fprintf(w, "\n%s\n", strings.Repeat("=", 80))
-		_, _ = fmt.Fprintf(w, "Proposal %d/%d\n", i+1, len(allProposals))
-		_, _ = fmt.Fprintf(w, "%s\n\n", strings.Repeat("=", 80))
-
-		// Show full proposal content
-		r := NewRenderer(w)
+	candidates := make([]github.IssueCandidate, 0, len(ordered))
+	for _, p := range ordered {
+		var previewBuf bytes.Buffer
+		r := NewRenderer(&previewBuf)
 		r.renderProposal(p)
 
-		// Ask user
-		_, _ = fmt.Fprintf(w, "\nCreate issue for this proposal in %s/%s? [y/N/q] ", owner, name)
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			return fmt.Errorf("reading input: %w", err)
-		}
-		input = strings.TrimSpace(strings.ToLower(input))
-
-		switch input {
-		case "q", "quit":
-			_, _ = fmt.Fprintf(w, "\nAborted. Created %d issue(s), skipped %d.\n", created, skipped)
-			return nil
-		case "y", "yes":
-			title := p.Title
-			body := buildIssueBody(p)
-
-			// Check for existing issues with a similar title
-			matches, err := github.SearchIssues(owner, name, title)
-			if err != nil {
-				_, _ = fmt.Fprintf(w, "Warning: could not check for duplicates: %v\n", err)
-			} else if len(matches) > 0 {
-				_, _ = fmt.Fprintf(w, "\nPossible duplicate issue(s) found:\n")
-				for _, m := range matches {
-					_, _ = fmt.Fprintf(w, "  - %s\n", m)
-				}
-				_, _ = fmt.Fprintf(w, "\nStill create this issue? [y/N] ")
-				confirm, err := reader.ReadString('\n')
-				if err != nil {
-					return fmt.Errorf("reading input: %w", err)
-				}
-				confirm = strings.TrimSpace(strings.ToLower(confirm))
-				if confirm != "y" && confirm != "yes" {
-					_, _ = fmt.Fprintf(w, "Skipped (duplicate).\n")
-					skipped++
-					continue
-				}
-			}
-
-			_, _ = fmt.Fprintf(w, "Creating issue...\n")
-			url, err := github.CreateIssue(owner, name, title, body)
-			if err != nil {
-				_, _ = fmt.Fprintf(w, "Error creating issue: %v\n", err)
-				skipped++
-				continue
-			}
-			_, _ = fmt.Fprintf(w, "Created: %s\n", url)
-			created++
-		default:
-			_, _ = fmt.Fprintf(w, "Skipped.\n")
-			skipped++
-		}
+		candidates = append(candidates, github.IssueCandidate{
+			Title:   p.Title,
+			Preview: previewBuf.String(),
+			Body:    buildIssueBody(p),
+		})
 	}
 
-	_, _ = fmt.Fprintf(w, "\nDone. Created %d issue(s), skipped %d.\n", created, skipped)
-	return nil
+	return github.RunInteractiveIssueCreation(
+		w, os.Stdin, candidates, owner, name, "proposal",
+		github.CreateIssue, github.SearchIssues,
+	)
 }
 
 func printSummaryTable(w io.Writer, cp CategorizedProposals) {
