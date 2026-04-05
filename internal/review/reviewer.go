@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/planwerk/planwerk-review/internal/cache"
 	"github.com/planwerk/planwerk-review/internal/checklist"
 	"github.com/planwerk/planwerk-review/internal/claude"
@@ -137,9 +139,18 @@ func Run(w io.Writer, opts Options) error {
 	// 8. Load TODOS.md for cross-reference
 	todoContent := todocheck.Load(pr.Dir)
 
-	// 9. Run Claude /review + structuring
+	// 9-11. Run Claude /review, adversarial review, and coverage map concurrently.
+	// All three calls operate on the same checkout and diff with no data dependencies,
+	// so running them in parallel cuts wall-clock time from sum to max.
 	fmt.Fprintln(os.Stderr, "Running Claude /review...")
-	ctx := claude.ReviewContext{
+	if opts.Thorough {
+		fmt.Fprintln(os.Stderr, "Running adversarial review pass...")
+	}
+	if opts.CoverageMap {
+		fmt.Fprintln(os.Stderr, "Generating test coverage map...")
+	}
+
+	reviewCtx := claude.ReviewContext{
 		Patterns:    pats,
 		MaxPatterns: opts.MaxPatterns,
 		PRTitle:     pr.Title,
@@ -150,32 +161,47 @@ func Run(w io.Writer, opts Options) error {
 		NewFeatures: newFeatures,
 		TodoContent: todoContent,
 	}
-	result, err := claude.Review(pr.Dir, ctx)
-	if err != nil {
-		return fmt.Errorf("claude review: %w", err)
-	}
 
-	// 10. Adversarial review pass (if --thorough)
+	var (
+		result         *report.ReviewResult
+		advResult      *report.ReviewResult
+		coverageResult *report.CoverageResult
+		advErr         error
+		covErr         error
+	)
+
+	var g errgroup.Group
+	g.Go(func() error {
+		r, err := claude.Review(pr.Dir, reviewCtx)
+		if err != nil {
+			return fmt.Errorf("claude review: %w", err)
+		}
+		result = r
+		return nil
+	})
 	if opts.Thorough {
-		fmt.Fprintln(os.Stderr, "Running adversarial review pass...")
-		advResult, err := claude.AdversarialReview(pr.Dir, pr.BaseBranch)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: adversarial review failed: %v\n", err)
-		} else {
-			result = mergeResults(result, advResult)
-		}
+		g.Go(func() error {
+			advResult, advErr = claude.AdversarialReview(pr.Dir, pr.BaseBranch)
+			return nil
+		})
+	}
+	if opts.CoverageMap {
+		g.Go(func() error {
+			coverageResult, covErr = claude.CoverageMap(pr.Dir, pr.BaseBranch)
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
-	// 11. Coverage map (if --coverage-map)
-	var coverageResult *report.CoverageResult
-	if opts.CoverageMap {
-		fmt.Fprintln(os.Stderr, "Generating test coverage map...")
-		covResult, err := claude.CoverageMap(pr.Dir, pr.BaseBranch)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: coverage map failed: %v\n", err)
-		} else {
-			coverageResult = covResult
-		}
+	if advErr != nil {
+		fmt.Fprintf(os.Stderr, "Warning: adversarial review failed: %v\n", advErr)
+	} else if advResult != nil {
+		result = mergeResults(result, advResult)
+	}
+	if covErr != nil {
+		fmt.Fprintf(os.Stderr, "Warning: coverage map failed: %v\n", covErr)
 	}
 
 	// 12. Cache result
