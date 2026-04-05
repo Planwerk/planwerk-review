@@ -32,7 +32,7 @@ func AdversarialReview(dir, baseBranch string) (*report.ReviewResult, error) {
 }
 
 func runAdversarialReview(dir, baseBranch string) (string, error) {
-	return runClaude(dir, buildAdversarialPrompt(baseBranch))
+	return runClaude(dir, buildAdversarialPrompt(baseBranch), "adversarial")
 }
 
 func buildAdversarialPrompt(baseBranch string) string {

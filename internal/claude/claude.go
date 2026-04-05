@@ -22,10 +22,15 @@ const (
 const DefaultBaseBranch = "main"
 
 // runClaude invokes `claude -p <prompt> --output-format json` in the given
-// directory and returns the extracted text response.
-func runClaude(dir, prompt string) (string, error) {
+// directory and returns the extracted text response. The label is used to
+// tag elapsed-time progress updates printed to stderr while Claude runs.
+func runClaude(dir, prompt, label string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), claudeTimeout)
 	defer cancel()
+
+	stopProgress := startProgress(label)
+	defer stopProgress()
+
 	cmd := exec.CommandContext(ctx, "claude", "-p", prompt, "--output-format", "json")
 	if dir != "" {
 		cmd.Dir = dir
@@ -76,7 +81,7 @@ func Review(dir string, ctx ReviewContext) (*report.ReviewResult, error) {
 
 // runReview invokes `claude -p` with a prompt that includes patterns and the /review command.
 func runReview(dir string, rctx ReviewContext) (string, error) {
-	return runClaude(dir, buildReviewPrompt(rctx))
+	return runClaude(dir, buildReviewPrompt(rctx), "review")
 }
 
 // buildReviewPrompt constructs a prompt that includes patterns and triggers /review.
@@ -312,7 +317,7 @@ Keep it balanced and constructive — acknowledge good work, but be direct about
 // If the first attempt produces invalid JSON, it retries once with the parse
 // error included so Claude can correct the output.
 func structureReview(rawReview string) (*report.ReviewResult, error) {
-	text, err := runClaude("", buildStructurePrompt(rawReview))
+	text, err := runClaude("", buildStructurePrompt(rawReview), "structure")
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +327,7 @@ func structureReview(rawReview string) (*report.ReviewResult, error) {
 	var result report.ReviewResult
 	if err := json.Unmarshal([]byte(text), &result); err != nil {
 		// Retry once with the error fed back to Claude for correction.
-		text, retryErr := runClaude("", buildRepairPrompt(text, err))
+		text, retryErr := runClaude("", buildRepairPrompt(text, err), "repair")
 		if retryErr != nil {
 			return nil, fmt.Errorf("parsing structured review as JSON: %w\nraw output:\n%s", err, text)
 		}

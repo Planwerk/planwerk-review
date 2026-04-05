@@ -30,7 +30,7 @@ func Propose(dir string) (*propose.ProposalResult, error) {
 }
 
 func runAnalysis(dir string) (string, error) {
-	return runClaude(dir, buildAnalysisPrompt())
+	return runClaude(dir, buildAnalysisPrompt(), "analysis")
 }
 
 func buildAnalysisPrompt() string {
@@ -60,7 +60,7 @@ IMPORTANT: Do NOT just list generic software improvements. Your proposals must b
 }
 
 func structureProposals(rawAnalysis string) (*propose.ProposalResult, error) {
-	text, err := runClaude("", buildProposalStructurePrompt(rawAnalysis))
+	text, err := runClaude("", buildProposalStructurePrompt(rawAnalysis), "proposals")
 	if err != nil {
 		return nil, err
 	}
