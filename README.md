@@ -154,6 +154,7 @@ planwerk-review owner/repo#123 > review.md
 | `--inline` | Post review with inline comments using GitHub Review API (implies `--post-review`) | `false` |
 | `--thorough` | Run additional adversarial review pass for security and failure modes | `false` |
 | `--coverage-map` | Generate test coverage map for changed functions | `false` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; overridable via `PLANWERK_MAX_PATTERNS`) | `50` |
 
 #### Propose (subcommand)
 
@@ -322,6 +323,10 @@ Review Patterns are structured rules that systematically improve the review. The
    - Created by planwerk-review and recommended for adoption
    - Contain universally applicable review knowledge (e.g., "Hardcoded values in matrix workflows")
    - Grow over time through insights from conducted reviews
+
+#### Prompt Budget
+
+To keep review prompts within Claude's context window, patterns are capped at `--max-patterns` (default: `50`, env: `PLANWERK_MAX_PATTERNS`). When more patterns are loaded than the budget allows, the tool keeps the highest-priority patterns by severity (`BLOCKING` > `CRITICAL` > `WARNING` > `INFO`) and prints a warning to stderr. Set `--max-patterns 0` to disable truncation and inject all loaded patterns.
 
 #### Pattern Format
 

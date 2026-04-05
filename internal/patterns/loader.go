@@ -8,8 +8,11 @@ import (
 	"strings"
 )
 
-// MaxPatternsInPrompt is the hard cap on patterns injected into the prompt.
-const MaxPatternsInPrompt = 50
+// DefaultMaxPatternsInPrompt is the default cap on patterns injected into the
+// prompt when no explicit limit is configured. It can be overridden via the
+// --max-patterns flag or PLANWERK_MAX_PATTERNS environment variable.
+// A value <= 0 disables truncation.
+const DefaultMaxPatternsInPrompt = 50
 
 // severityOrder maps severity strings to priority (lower = higher priority for truncation).
 var severityOrder = map[string]int{
@@ -129,14 +132,15 @@ func FormatAllForPrompt(patterns []Pattern) string {
 }
 
 // FormatGroupedForPrompt groups patterns by category and formats them with XML tags
-// for structured prompt injection. Applies the MaxPatternsInPrompt budget.
-func FormatGroupedForPrompt(pats []Pattern) string {
+// for structured prompt injection. If maxPatterns > 0, patterns are truncated
+// to that limit, prioritizing by severity. A value <= 0 disables truncation.
+func FormatGroupedForPrompt(pats []Pattern, maxPatterns int) string {
 	if len(pats) == 0 {
 		return ""
 	}
 
 	// Apply prompt budget via truncation
-	pats = truncatePatterns(pats)
+	pats = truncatePatterns(pats, maxPatterns)
 
 	// Group by category
 	var technology, design, general []Pattern
@@ -183,10 +187,11 @@ func FormatGroupedForPrompt(pats []Pattern) string {
 	return sb.String()
 }
 
-// truncatePatterns limits the number of patterns to MaxPatternsInPrompt,
+// truncatePatterns limits the number of patterns to maxPatterns,
 // prioritizing by severity (BLOCKING > CRITICAL > WARNING > INFO).
-func truncatePatterns(pats []Pattern) []Pattern {
-	if len(pats) <= MaxPatternsInPrompt {
+// A maxPatterns value <= 0 disables truncation and returns pats unchanged.
+func truncatePatterns(pats []Pattern, maxPatterns int) []Pattern {
+	if maxPatterns <= 0 || len(pats) <= maxPatterns {
 		return pats
 	}
 
@@ -204,20 +209,20 @@ func truncatePatterns(pats []Pattern) []Pattern {
 		items[i] = indexed{pattern: p, order: ord}
 	}
 
-	// Simple stable selection: pick the first MaxPatternsInPrompt by severity
+	// Simple stable selection: pick the first maxPatterns by severity
 	// We do a simple multi-pass to preserve original order within same severity
 	var result []Pattern
-	for targetOrd := 0; targetOrd <= 99 && len(result) < MaxPatternsInPrompt; targetOrd++ {
+	for targetOrd := 0; targetOrd <= 99 && len(result) < maxPatterns; targetOrd++ {
 		for _, item := range items {
 			if item.order == targetOrd {
 				result = append(result, item.pattern)
-				if len(result) >= MaxPatternsInPrompt {
+				if len(result) >= maxPatterns {
 					break
 				}
 			}
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "Warning: %d patterns loaded, truncated to %d for prompt budget\n", len(pats), MaxPatternsInPrompt)
+	fmt.Fprintf(os.Stderr, "Warning: %d patterns loaded, truncated to %d for prompt budget\n", len(pats), maxPatterns)
 	return result
 }

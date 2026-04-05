@@ -43,6 +43,7 @@ func runClaude(dir, prompt string) (string, error) {
 // ReviewContext holds all context needed to build the review prompt.
 type ReviewContext struct {
 	Patterns    []patterns.Pattern
+	MaxPatterns int                       // max patterns to inject; <= 0 disables truncation
 	PRTitle     string
 	PRBody      string
 	Checklist   string                    // external checklist content (empty = use built-in)
@@ -97,7 +98,7 @@ func buildReviewPrompt(ctx ReviewContext) string {
 	if len(ctx.Patterns) > 0 {
 		sb.WriteString("Before running the review, consider these review patterns grouped by category. Flag violations in your review, noting the pattern source when referencing best practice patterns:\n\n")
 		sb.WriteString("<review-patterns>\n")
-		sb.WriteString(patterns.FormatGroupedForPrompt(ctx.Patterns))
+		sb.WriteString(patterns.FormatGroupedForPrompt(ctx.Patterns, ctx.MaxPatterns))
 		sb.WriteString("</review-patterns>\n\n")
 	}
 

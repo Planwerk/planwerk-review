@@ -3,16 +3,39 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"github.com/planwerk/planwerk-review/internal/cache"
 	"github.com/planwerk/planwerk-review/internal/claude"
 	"github.com/planwerk/planwerk-review/internal/cli"
+	"github.com/planwerk/planwerk-review/internal/patterns"
 	"github.com/planwerk/planwerk-review/internal/propose"
 	"github.com/planwerk/planwerk-review/internal/report"
 	"github.com/planwerk/planwerk-review/internal/review"
 )
+
+// envMaxPatterns is the environment variable used to override the default
+// maximum number of review patterns injected into the prompt.
+const envMaxPatterns = "PLANWERK_MAX_PATTERNS"
+
+// resolveMaxPatterns returns the effective max-patterns limit, preferring
+// an explicitly set CLI flag, then PLANWERK_MAX_PATTERNS, then the default.
+// A value of 0 or negative disables truncation.
+func resolveMaxPatterns(flagValue int, flagSet bool) (int, error) {
+	if flagSet {
+		return flagValue, nil
+	}
+	if raw, ok := os.LookupEnv(envMaxPatterns); ok && raw != "" {
+		v, err := strconv.Atoi(raw)
+		if err != nil {
+			return 0, fmt.Errorf("invalid %s=%q: %w", envMaxPatterns, raw, err)
+		}
+		return v, nil
+	}
+	return patterns.DefaultMaxPatternsInPrompt, nil
+}
 
 var version = "dev"
 
@@ -38,6 +61,12 @@ or short form (owner/repo#123).`,
 				return fmt.Errorf("requires a PR reference argument")
 			}
 			cfg.PRRef = args[0]
+
+			maxPatterns, err := resolveMaxPatterns(cfg.MaxPatterns, cmd.Flags().Changed("max-patterns"))
+			if err != nil {
+				return err
+			}
+			cfg.MaxPatterns = maxPatterns
 
 			if minSeverity != "" {
 				sev, err := report.ParseSeverity(minSeverity)
@@ -84,6 +113,7 @@ or short form (owner/repo#123).`,
 	flags.BoolVar(&cfg.InlineReview, "inline", false, "Post review with inline comments using GitHub Review API (implies --post-review)")
 	flags.BoolVar(&cfg.Thorough, "thorough", false, "Run additional adversarial review pass")
 	flags.BoolVar(&cfg.CoverageMap, "coverage-map", false, "Generate test coverage map for changed functions")
+	flags.IntVar(&cfg.MaxPatterns, "max-patterns", patterns.DefaultMaxPatternsInPrompt, "Max review patterns injected into the prompt (<=0 disables truncation, env: "+envMaxPatterns+")")
 
 	// propose subcommand
 	var proposeCfg cli.ProposeConfig

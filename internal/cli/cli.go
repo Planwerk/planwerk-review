@@ -20,6 +20,7 @@ type Config struct {
 	InlineReview    bool
 	Thorough        bool
 	CoverageMap     bool
+	MaxPatterns     int
 }
 
 func (c Config) ToReviewOptions(version string) review.Options {
@@ -36,6 +37,7 @@ func (c Config) ToReviewOptions(version string) review.Options {
 		InlineReview:    c.InlineReview,
 		Thorough:        c.Thorough,
 		CoverageMap:     c.CoverageMap,
+		MaxPatterns:     c.MaxPatterns,
 	}
 }
 

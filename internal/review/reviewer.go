@@ -47,6 +47,7 @@ type Options struct {
 	InlineReview    bool
 	Thorough        bool
 	CoverageMap     bool
+	MaxPatterns     int // max patterns to inject into prompt; <= 0 disables truncation
 }
 
 // Run executes the full review pipeline:
@@ -140,6 +141,7 @@ func Run(w io.Writer, opts Options) error {
 	fmt.Fprintln(os.Stderr, "Running Claude /review...")
 	ctx := claude.ReviewContext{
 		Patterns:    pats,
+		MaxPatterns: opts.MaxPatterns,
 		PRTitle:     pr.Title,
 		PRBody:      pr.Body,
 		Checklist:   checklistContent,

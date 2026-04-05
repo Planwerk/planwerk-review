@@ -223,7 +223,7 @@ func TestFormatGroupedForPrompt(t *testing.T) {
 		{Name: "Legacy", Category: "", ReviewArea: "quality", DetectionHint: "check", Severity: "INFO", Body: "## Check\nStuff."},
 	}
 
-	out := FormatGroupedForPrompt(pats)
+	out := FormatGroupedForPrompt(pats, DefaultMaxPatternsInPrompt)
 
 	if !strings.Contains(out, "<technology-patterns>") {
 		t.Error("should contain technology-patterns tag")
@@ -243,16 +243,17 @@ func TestFormatGroupedForPrompt(t *testing.T) {
 }
 
 func TestFormatGroupedForPrompt_Empty(t *testing.T) {
-	out := FormatGroupedForPrompt(nil)
+	out := FormatGroupedForPrompt(nil, DefaultMaxPatternsInPrompt)
 	if out != "" {
 		t.Errorf("empty patterns should return empty string, got %q", out)
 	}
 }
 
 func TestTruncatePatterns(t *testing.T) {
-	// Create more than MaxPatternsInPrompt patterns
+	// Create more than the limit: 5 BLOCKING, 10 CRITICAL, rest INFO
+	limit := DefaultMaxPatternsInPrompt
 	var pats []Pattern
-	for i := 0; i < MaxPatternsInPrompt+10; i++ {
+	for i := 0; i < limit+10; i++ {
 		sev := "INFO"
 		if i < 5 {
 			sev = "BLOCKING"
@@ -265,9 +266,9 @@ func TestTruncatePatterns(t *testing.T) {
 		})
 	}
 
-	result := truncatePatterns(pats)
-	if len(result) != MaxPatternsInPrompt {
-		t.Errorf("truncated to %d, want %d", len(result), MaxPatternsInPrompt)
+	result := truncatePatterns(pats, limit)
+	if len(result) != limit {
+		t.Errorf("truncated to %d, want %d", len(result), limit)
 	}
 
 	// All BLOCKING patterns should be present
@@ -279,5 +280,43 @@ func TestTruncatePatterns(t *testing.T) {
 	}
 	if blocking != 5 {
 		t.Errorf("expected all 5 BLOCKING patterns, got %d", blocking)
+	}
+}
+
+func TestTruncatePatterns_CustomLimit(t *testing.T) {
+	pats := make([]Pattern, 20)
+	for i := range pats {
+		pats[i] = Pattern{Name: "P", Severity: "INFO"}
+	}
+
+	result := truncatePatterns(pats, 7)
+	if len(result) != 7 {
+		t.Errorf("expected 7 patterns with custom limit, got %d", len(result))
+	}
+}
+
+func TestTruncatePatterns_NoLimit(t *testing.T) {
+	pats := make([]Pattern, 200)
+	for i := range pats {
+		pats[i] = Pattern{Name: "P", Severity: "INFO"}
+	}
+
+	for _, limit := range []int{0, -1} {
+		result := truncatePatterns(pats, limit)
+		if len(result) != len(pats) {
+			t.Errorf("limit=%d: expected no truncation (%d), got %d", limit, len(pats), len(result))
+		}
+	}
+}
+
+func TestTruncatePatterns_BelowLimit(t *testing.T) {
+	pats := make([]Pattern, 3)
+	for i := range pats {
+		pats[i] = Pattern{Name: "P", Severity: "INFO"}
+	}
+
+	result := truncatePatterns(pats, 10)
+	if len(result) != 3 {
+		t.Errorf("expected 3 patterns (unchanged), got %d", len(result))
 	}
 }
