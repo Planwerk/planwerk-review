@@ -29,6 +29,7 @@ type PR struct {
 	Body       string
 	HeadSHA    string
 	BaseBranch string // base branch name (e.g. "main")
+	HeadBranch string // head branch name (e.g. "feature/CC-0042")
 	Dir        string // local checkout directory (temp dir, caller must clean up)
 }
 
@@ -56,6 +57,7 @@ func FetchAndCheckout(ref string) (*PR, error) {
 	pr.Body = meta.Body
 	pr.HeadSHA = meta.HeadRefOid
 	pr.BaseBranch = meta.BaseRefName
+	pr.HeadBranch = meta.HeadRefName
 
 	// Clone and checkout PR into temp directory
 	dir, err := checkoutPR(fullName, number)
@@ -79,6 +81,7 @@ type prMeta struct {
 	Body        string `json:"body"`
 	HeadRefOid  string `json:"headRefOid"`
 	BaseRefName string `json:"baseRefName"`
+	HeadRefName string `json:"headRefName"`
 }
 
 func ghJSON(repo string, number int) (prMeta, error) {
@@ -86,7 +89,7 @@ func ghJSON(repo string, number int) (prMeta, error) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "gh", "pr", "view", strconv.Itoa(number),
 		"--repo", repo,
-		"--json", "title,body,headRefOid,baseRefName")
+		"--json", "title,body,headRefOid,baseRefName,headRefName")
 	out, err := cmd.Output()
 	if err != nil {
 		return prMeta{}, fmt.Errorf("gh pr view: %w", err)

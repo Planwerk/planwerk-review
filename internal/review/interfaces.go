@@ -3,6 +3,7 @@ package review
 import (
 	"github.com/planwerk/planwerk-review/internal/claude"
 	"github.com/planwerk/planwerk-review/internal/github"
+	"github.com/planwerk/planwerk-review/internal/planwerk"
 	"github.com/planwerk/planwerk-review/internal/report"
 )
 
@@ -15,6 +16,7 @@ type ClaudeRunner interface {
 	Review(dir string, ctx claude.ReviewContext) (*report.ReviewResult, error)
 	AdversarialReview(dir, baseBranch string) (*report.ReviewResult, error)
 	CoverageMap(dir, baseBranch string) (*report.CoverageResult, error)
+	FeatureCompliance(dir, baseBranch string, feature *planwerk.Feature) (*report.ReviewResult, error)
 }
 
 // GitHubClient wraps the GitHub operations the review pipeline needs:
@@ -41,6 +43,10 @@ func (defaultClaudeRunner) AdversarialReview(dir, baseBranch string) (*report.Re
 
 func (defaultClaudeRunner) CoverageMap(dir, baseBranch string) (*report.CoverageResult, error) {
 	return claude.CoverageMap(dir, baseBranch)
+}
+
+func (defaultClaudeRunner) FeatureCompliance(dir, baseBranch string, feature *planwerk.Feature) (*report.ReviewResult, error) {
+	return claude.FeatureCompliance(dir, baseBranch, feature)
 }
 
 // defaultGitHubClient is the production GitHubClient backed by the github package.

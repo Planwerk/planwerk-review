@@ -7,6 +7,7 @@ import (
 
 	"github.com/planwerk/planwerk-review/internal/claude"
 	"github.com/planwerk/planwerk-review/internal/github"
+	"github.com/planwerk/planwerk-review/internal/planwerk"
 	"github.com/planwerk/planwerk-review/internal/report"
 )
 
@@ -52,6 +53,10 @@ func (mockClaude) AdversarialReview(dir, baseBranch string) (*report.ReviewResul
 
 func (mockClaude) CoverageMap(dir, baseBranch string) (*report.CoverageResult, error) {
 	panic("mockClaude.CoverageMap called unexpectedly")
+}
+
+func (mockClaude) FeatureCompliance(dir, baseBranch string, feature *planwerk.Feature) (*report.ReviewResult, error) {
+	panic("mockClaude.FeatureCompliance called unexpectedly")
 }
 
 func newTestRunner(gh *mockGitHub) *Runner {

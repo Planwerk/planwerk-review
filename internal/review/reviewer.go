@@ -20,6 +20,7 @@ import (
 	"github.com/planwerk/planwerk-review/internal/doccheck"
 	"github.com/planwerk/planwerk-review/internal/github"
 	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-review/internal/planwerk"
 	"github.com/planwerk/planwerk-review/internal/report"
 	"github.com/planwerk/planwerk-review/internal/todocheck"
 )
@@ -151,8 +152,14 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	// 8. Load TODOS.md for cross-reference
 	todoContent := todocheck.Load(pr.Dir)
 
-	// 9-11. Run Claude /review, adversarial review, and coverage map concurrently.
-	// All three calls operate on the same checkout and diff with no data dependencies,
+	// 8b. Detect Planwerk feature file for compliance checking
+	feature, _ := planwerk.DetectFeature(pr.Dir, pr.Title, pr.Body, pr.HeadBranch)
+	if feature != nil {
+		fmt.Fprintf(os.Stderr, "Detected Planwerk feature file: %s (%s)\n", feature.FeatureID, feature.Title)
+	}
+
+	// 9-12. Run Claude /review, adversarial review, coverage map, and feature compliance concurrently.
+	// All calls operate on the same checkout and diff with no data dependencies,
 	// so running them in parallel cuts wall-clock time from sum to max.
 	fmt.Fprintln(os.Stderr, "Running Claude /review...")
 	if opts.Thorough {
@@ -160,6 +167,9 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	}
 	if opts.CoverageMap {
 		fmt.Fprintln(os.Stderr, "Generating test coverage map...")
+	}
+	if feature != nil {
+		fmt.Fprintln(os.Stderr, "Running feature compliance check...")
 	}
 
 	reviewCtx := claude.ReviewContext{
@@ -175,11 +185,13 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	}
 
 	var (
-		result         *report.ReviewResult
-		advResult      *report.ReviewResult
-		coverageResult *report.CoverageResult
-		advErr         error
-		covErr         error
+		result           *report.ReviewResult
+		advResult        *report.ReviewResult
+		complianceResult *report.ReviewResult
+		coverageResult   *report.CoverageResult
+		advErr           error
+		complianceErr    error
+		covErr           error
 	)
 
 	var g errgroup.Group
@@ -203,6 +215,12 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 			return nil
 		})
 	}
+	if feature != nil {
+		g.Go(func() error {
+			complianceResult, complianceErr = r.Claude.FeatureCompliance(pr.Dir, pr.BaseBranch, feature)
+			return nil
+		})
+	}
 	if err := g.Wait(); err != nil {
 		return err
 	}
@@ -211,6 +229,11 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 		fmt.Fprintf(os.Stderr, "Warning: adversarial review failed: %v\n", advErr)
 	} else if advResult != nil {
 		result = mergeResults(result, advResult)
+	}
+	if complianceErr != nil {
+		fmt.Fprintf(os.Stderr, "Warning: feature compliance check failed: %v\n", complianceErr)
+	} else if complianceResult != nil {
+		result = mergeResults(result, complianceResult)
 	}
 	if covErr != nil {
 		fmt.Fprintf(os.Stderr, "Warning: coverage map failed: %v\n", covErr)
