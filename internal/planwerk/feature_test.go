@@ -209,24 +209,74 @@ func TestDetectFeature_AmbiguousBodyReturnsNil(t *testing.T) {
 	}
 }
 
-// TestDetectFeature_BranchIDWithoutFeatureFileFallsThrough ensures that a
-// branch carrying a feature ID with no matching feature file on disk does
-// not short-circuit detection — later stages still get a chance.
-func TestDetectFeature_BranchIDWithoutFeatureFileFallsThrough(t *testing.T) {
+// TestDetectFeature_BranchIDIsAuthoritative ensures that when a branch
+// carries an explicit feature ID with no matching feature file on disk,
+// detection returns nil rather than falling through to weaker signals
+// (paths, body) that might pick an unrelated feature.
+func TestDetectFeature_BranchIDIsAuthoritative(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
 	writeFeatureFile(t, dir, "features", "CC-0055-b.json", `{"feature_id": "CC-0055", "title": "B"}`)
 
-	// Branch references CC-0099 which has no feature file; changed files
-	// point at CC-0055 which does.
+	// Branch references CC-0099 (no feature file). Changed paths reference
+	// CC-0055 which does have a file, but that is not what the PR is about —
+	// the branch stated CC-0099 as the work item, so detection must return
+	// nil instead of silently substituting CC-0055.
 	changed := []string{".planwerk/progress/CC-0055-b.json"}
 	f, err := DetectFeature(dir, "Some PR", "", "feature/CC-0099", changed)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if f == nil || f.FeatureID != "CC-0055" {
-		t.Fatalf("feature_id = %v, want CC-0055", f)
+	if f != nil {
+		t.Errorf("expected nil (branch CC-0099 has no feature file), got %q", f.FeatureID)
+	}
+}
+
+// TestDetectFeature_PR167_NewFeatureFileInDiff reproduces the real PR #167
+// scenario end-to-end. The branch is feature/CC-0055 and the title uses
+// feat(CC-0055), but CC-0055 has no feature file anywhere on the branch.
+// The PR happens to add a new, unrelated feature file for CC-0056, and it
+// also edits .planwerk/progress/CC-0055-*.json and .planwerk/reviews/
+// CC-0055-*.json. Detection must return nil: substituting CC-0056 would be
+// wrong because CC-0056 is a separate feature that just ships in the same PR.
+func TestDetectFeature_PR167_NewFeatureFileInDiff(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	// CC-0050 is the cross-referenced feature from the PR body (lives in
+	// completed/ because it already shipped).
+	writeFeatureFile(t, dir, "completed", "CC-0050-refactor-ci.json", `{
+		"feature_id": "CC-0050",
+		"title": "Refactor CI workflow into reusable scripts and actions"
+	}`)
+	// CC-0056 is the unrelated feature newly added by this same PR.
+	writeFeatureFile(t, dir, "features", "CC-0056-implement-expand-migrate-contract.json", `{
+		"feature_id": "CC-0056",
+		"title": "Implement expand-migrate-contract DB migration strategy"
+	}`)
+	// CC-0055 intentionally has NO feature file — that is the real-world
+	// state on the PR branch.
+
+	body := "`.github/workflows/build-images.yaml` has grown... " +
+		"following the pattern established by CC-0050 for ci.yaml."
+	changed := []string{
+		".github/workflows/build-images.yaml",
+		".planwerk/features/CC-0056-implement-expand-migrate-contract.json",
+		".planwerk/progress/CC-0055-refactor-build-images-workflow-into-reusable.json",
+		".planwerk/reviews/CC-0055-refactor-build-images-workflow-into-reusable-review-1.json",
+	}
+	f, err := DetectFeature(dir,
+		"feat(CC-0055): Refactor build-images workflow into reusable components",
+		body,
+		"feature/CC-0055",
+		changed,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if f != nil {
+		t.Errorf("expected nil (CC-0055 has no feature file; CC-0056 is unrelated), got %q", f.FeatureID)
 	}
 }
 

@@ -5,9 +5,14 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+// featureIDRe matches Planwerk-style feature IDs like "CC-0042". The text
+// is uppercased before matching, so the character class needs only A-Z.
+var featureIDRe = regexp.MustCompile(`[A-Z]{2,}-\d+`)
 
 // Requirement is a single requirement from a Planwerk feature file.
 type Requirement struct {
@@ -71,14 +76,15 @@ type Feature struct {
 // It searches .planwerk/features/ and .planwerk/completed/ for feature files
 // and selects one by signal strength, in order:
 //
-//  1. branch name (e.g. "feature/CC-0042")
-//  2. PR title (e.g. "feat(CC-0042): ...")
-//  3. changed file paths under .planwerk/{features,progress,reviews,completed}/
-//  4. PR body, but only if exactly one candidate is referenced (body often
-//     contains cross-references to unrelated features)
-//
-// Earlier stages win over later ones. Within a stage, a match is only accepted
-// if it unambiguously picks a single candidate.
+//  1. branch name (e.g. "feature/CC-0042") — authoritative: if the branch
+//     carries an explicit feature ID, that ID is the user's intent; either
+//     the matching feature file is returned or nil (no fall-through).
+//  2. PR title (e.g. "feat(CC-0042): ...") — authoritative, same semantics.
+//  3. changed file paths under .planwerk/{features,progress,reviews,completed}/ —
+//     fallback, only used when neither branch nor title carries a feature ID.
+//  4. PR body — last-resort fallback, only accepted if exactly one candidate
+//     is referenced (the body often contains cross-references to unrelated
+//     features).
 func DetectFeature(repoDir, prTitle, prBody, branchName string, changedFiles []string) (*Feature, error) {
 	planwerkDir := filepath.Join(repoDir, ".planwerk")
 
@@ -107,14 +113,16 @@ func DetectFeature(repoDir, prTitle, prBody, branchName string, changedFiles []s
 		return nil, nil
 	}
 
-	// Stage 1: branch name — strongest signal.
-	if m := matchUnique(candidates, strings.ToUpper(branchName)); m != nil {
-		return m, nil
+	// Stage 1: branch name — authoritative. If the branch carries a
+	// feature ID, that ID is the user's declared intent; return the
+	// matching candidate or nil, but do not fall through.
+	if ids := extractFeatureIDs(branchName); len(ids) > 0 {
+		return matchByIDs(candidates, ids), nil
 	}
 
-	// Stage 2: PR title.
-	if m := matchUnique(candidates, strings.ToUpper(prTitle)); m != nil {
-		return m, nil
+	// Stage 2: PR title — authoritative, same semantics as branch.
+	if ids := extractFeatureIDs(prTitle); len(ids) > 0 {
+		return matchByIDs(candidates, ids), nil
 	}
 
 	// Stage 3: changed file paths under .planwerk/ subtrees that track
@@ -131,6 +139,41 @@ func DetectFeature(repoDir, prTitle, prBody, branchName string, changedFiles []s
 	}
 
 	return nil, nil
+}
+
+// extractFeatureIDs pulls feature-ID-looking tokens from text, uppercased
+// and deduplicated in order of first appearance.
+func extractFeatureIDs(text string) []string {
+	if text == "" {
+		return nil
+	}
+	matches := featureIDRe.FindAllString(strings.ToUpper(text), -1)
+	if len(matches) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(matches))
+	ids := make([]string, 0, len(matches))
+	for _, m := range matches {
+		if _, ok := seen[m]; ok {
+			continue
+		}
+		seen[m] = struct{}{}
+		ids = append(ids, m)
+	}
+	return ids
+}
+
+// matchByIDs returns the first candidate whose FeatureID equals any of the
+// given IDs (case-insensitive), or nil if none match.
+func matchByIDs(candidates []*Feature, ids []string) *Feature {
+	for _, id := range ids {
+		for _, f := range candidates {
+			if strings.EqualFold(f.FeatureID, id) {
+				return f
+			}
+		}
+	}
+	return nil
 }
 
 // matchUnique returns the single candidate whose FeatureID appears in text,
