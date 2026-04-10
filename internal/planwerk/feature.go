@@ -68,12 +68,21 @@ type Feature struct {
 }
 
 // DetectFeature looks for a Planwerk feature file that matches the given PR.
-// It searches .planwerk/features/ and .planwerk/completed/ for files whose
-// feature_id appears in the PR title, body, or branch name.
-func DetectFeature(repoDir, prTitle, prBody, branchName string) (*Feature, error) {
+// It searches .planwerk/features/ and .planwerk/completed/ for feature files
+// and selects one by signal strength, in order:
+//
+//  1. branch name (e.g. "feature/CC-0042")
+//  2. PR title (e.g. "feat(CC-0042): ...")
+//  3. changed file paths under .planwerk/{features,progress,reviews,completed}/
+//  4. PR body, but only if exactly one candidate is referenced (body often
+//     contains cross-references to unrelated features)
+//
+// Earlier stages win over later ones. Within a stage, a match is only accepted
+// if it unambiguously picks a single candidate.
+func DetectFeature(repoDir, prTitle, prBody, branchName string, changedFiles []string) (*Feature, error) {
 	planwerkDir := filepath.Join(repoDir, ".planwerk")
 
-	var candidates []string
+	var candidates []*Feature
 	for _, subdir := range []string{"features", "completed"} {
 		dir := filepath.Join(planwerkDir, subdir)
 		entries, err := os.ReadDir(dir)
@@ -84,7 +93,13 @@ func DetectFeature(repoDir, prTitle, prBody, branchName string) (*Feature, error
 			if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
 				continue
 			}
-			candidates = append(candidates, filepath.Join(dir, e.Name()))
+			path := filepath.Join(dir, e.Name())
+			f, err := parseFeatureFile(path)
+			if err != nil || f.FeatureID == "" {
+				continue
+			}
+			f.FilePath = path
+			candidates = append(candidates, f)
 		}
 	}
 
@@ -92,21 +107,71 @@ func DetectFeature(repoDir, prTitle, prBody, branchName string) (*Feature, error
 		return nil, nil
 	}
 
-	// Build search text from PR metadata
-	searchText := strings.ToUpper(prTitle + " " + prBody + " " + branchName)
+	// Stage 1: branch name — strongest signal.
+	if m := matchUnique(candidates, strings.ToUpper(branchName)); m != nil {
+		return m, nil
+	}
 
-	for _, path := range candidates {
-		f, err := parseFeatureFile(path)
-		if err != nil {
-			continue // skip unparseable files
-		}
-		if f.FeatureID != "" && strings.Contains(searchText, strings.ToUpper(f.FeatureID)) {
-			f.FilePath = path
-			return f, nil
-		}
+	// Stage 2: PR title.
+	if m := matchUnique(candidates, strings.ToUpper(prTitle)); m != nil {
+		return m, nil
+	}
+
+	// Stage 3: changed file paths under .planwerk/ subtrees that track
+	// feature work. Other paths are ignored to avoid noise from e.g. a
+	// pattern doc that mentions an unrelated feature ID.
+	if m := matchUnique(candidates, planwerkPathsText(changedFiles)); m != nil {
+		return m, nil
+	}
+
+	// Stage 4: PR body — only accepted if exactly one candidate matches,
+	// to avoid trapping on cross-references like "following CC-0050".
+	if m := matchUnique(candidates, strings.ToUpper(prBody)); m != nil {
+		return m, nil
 	}
 
 	return nil, nil
+}
+
+// matchUnique returns the single candidate whose FeatureID appears in text,
+// or nil if zero or more than one candidate matches.
+func matchUnique(candidates []*Feature, text string) *Feature {
+	if text == "" {
+		return nil
+	}
+	var found *Feature
+	for _, f := range candidates {
+		if strings.Contains(text, strings.ToUpper(f.FeatureID)) {
+			if found != nil {
+				return nil // ambiguous
+			}
+			found = f
+		}
+	}
+	return found
+}
+
+// planwerkPathsText extracts the basenames of changed files that live under
+// .planwerk/{features,progress,reviews,completed}/ and joins them into a
+// single uppercase search string.
+func planwerkPathsText(changedFiles []string) string {
+	var parts []string
+	for _, p := range changedFiles {
+		p = filepath.ToSlash(p)
+		if !strings.HasPrefix(p, ".planwerk/") {
+			continue
+		}
+		rest := strings.TrimPrefix(p, ".planwerk/")
+		slash := strings.IndexByte(rest, '/')
+		if slash < 0 {
+			continue
+		}
+		switch rest[:slash] {
+		case "features", "progress", "reviews", "completed":
+			parts = append(parts, filepath.Base(p))
+		}
+	}
+	return strings.ToUpper(strings.Join(parts, " "))
 }
 
 func parseFeatureFile(path string) (*Feature, error) {

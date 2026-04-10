@@ -22,15 +22,16 @@ const (
 )
 
 type PR struct {
-	Owner      string
-	Repo       string
-	Number     int
-	Title      string
-	Body       string
-	HeadSHA    string
-	BaseBranch string // base branch name (e.g. "main")
-	HeadBranch string // head branch name (e.g. "feature/CC-0042")
-	Dir        string // local checkout directory (temp dir, caller must clean up)
+	Owner        string
+	Repo         string
+	Number       int
+	Title        string
+	Body         string
+	HeadSHA      string
+	BaseBranch   string   // base branch name (e.g. "main")
+	HeadBranch   string   // head branch name (e.g. "feature/CC-0042")
+	Dir          string   // local checkout directory (temp dir, caller must clean up)
+	ChangedFiles []string // repo-relative paths of files changed between base and head
 }
 
 // FetchAndCheckout retrieves PR metadata and checks out the PR locally into a temp directory.
@@ -65,8 +66,33 @@ func FetchAndCheckout(ref string) (*PR, error) {
 		return nil, fmt.Errorf("checking out PR: %w", err)
 	}
 	pr.Dir = dir
+	pr.ChangedFiles = diffNames(dir, pr.BaseBranch)
 
 	return pr, nil
+}
+
+// diffNames returns repo-relative paths of files changed between the base
+// branch and HEAD. Best-effort: on any error, returns nil so callers can
+// degrade gracefully.
+func diffNames(dir, baseBranch string) []string {
+	if dir == "" || baseBranch == "" {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), gitRemoteTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "diff", "--name-only", "origin/"+baseBranch+"...HEAD")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	var files []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			files = append(files, line)
+		}
+	}
+	return files
 }
 
 // Cleanup removes the temporary checkout directory.

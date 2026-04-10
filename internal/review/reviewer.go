@@ -153,7 +153,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	todoContent := todocheck.Load(pr.Dir)
 
 	// 8b. Detect Planwerk feature file for compliance checking
-	feature, _ := planwerk.DetectFeature(pr.Dir, pr.Title, pr.Body, pr.HeadBranch)
+	feature, _ := planwerk.DetectFeature(pr.Dir, pr.Title, pr.Body, pr.HeadBranch, pr.ChangedFiles)
 	if feature != nil {
 		fmt.Fprintf(os.Stderr, "Detected Planwerk feature file: %s (%s)\n", feature.FeatureID, feature.Title)
 	}
