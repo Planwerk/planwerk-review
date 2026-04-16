@@ -16,6 +16,14 @@ import (
 const (
 	// claudeTimeout is the maximum time allowed for a Claude CLI invocation.
 	claudeTimeout = 15 * time.Minute
+	// claudeModel pins every Claude CLI invocation to Opus 4.7. Opus 4.7
+	// follows instructions more literally than earlier models, which matches
+	// the strict MUST/NEVER style used throughout the review prompts.
+	claudeModel = "claude-opus-4-7"
+	// claudeEffort sets the reasoning effort. "max" gives the model the
+	// largest thinking budget — reviews are latency-tolerant and benefit
+	// from the extra reasoning on tricky findings.
+	claudeEffort = "max"
 )
 
 // DefaultBaseBranch is the fallback base branch name when none is specified.
@@ -31,7 +39,12 @@ func runClaude(dir, prompt, label string) (string, error) {
 	stopProgress := startProgress(label)
 	defer stopProgress()
 
-	cmd := exec.CommandContext(ctx, "claude", "-p", prompt, "--output-format", "json")
+	cmd := exec.CommandContext(ctx, "claude",
+		"-p", prompt,
+		"--model", claudeModel,
+		"--effort", claudeEffort,
+		"--output-format", "json",
+	)
 	if dir != "" {
 		cmd.Dir = dir
 	}
