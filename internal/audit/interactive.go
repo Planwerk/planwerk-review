@@ -10,6 +10,12 @@ import (
 	"github.com/planwerk/planwerk-review/internal/report"
 )
 
+// Column widths for the findings summary table.
+const (
+	patternColumnWidth = 30
+	fileColumnWidth    = 44
+)
+
 // RunInteractiveIssueCreation groups findings, filters them by minSeverity,
 // and walks through each resulting group to interactively create a GitHub
 // issue via the shared github helper.
@@ -48,8 +54,10 @@ func printFindingsSummaryTable(w io.Writer, groups []FindingGroup) {
 	_, _ = fmt.Fprintf(w, "| # | Severity | Count | Pattern                        | File                                         |\n")
 	_, _ = fmt.Fprintf(w, "|---|----------|-------|--------------------------------|----------------------------------------------|\n")
 	for i, g := range groups {
-		_, _ = fmt.Fprintf(w, "| %d | %-8s | %-5d | %-30s | %-44s |\n",
-			i+1, g.MaxSeverity, len(g.Findings), truncateStr(g.Pattern, 30), truncateStr(g.File, 44))
+		_, _ = fmt.Fprintf(w, "| %d | %-8s | %-5d | %-*s | %-*s |\n",
+			i+1, g.MaxSeverity, len(g.Findings),
+			patternColumnWidth, truncateStr(g.Pattern, patternColumnWidth),
+			fileColumnWidth, truncateStr(g.File, fileColumnWidth))
 	}
 	_, _ = fmt.Fprintln(w)
 }

@@ -10,6 +10,10 @@ import (
 	"github.com/planwerk/planwerk-review/internal/github"
 )
 
+// titleColumnWidth is the fixed width of the Title column in the proposals
+// summary table.
+const titleColumnWidth = 58
+
 // RunInteractiveIssueCreation displays all proposals in a summary table,
 // then walks through each one, showing full content and asking whether to
 // create a GitHub issue.
@@ -53,15 +57,15 @@ func printSummaryTable(w io.Writer, cp CategorizedProposals) {
 	n := 0
 	for _, p := range cp.High {
 		n++
-		_, _ = fmt.Fprintf(w, "| %d | %s | %-8s | %-14s | %-6s | %-58s |\n", n, p.ID, p.Priority, p.Category, p.Scope, truncate(p.Title, 58))
+		_, _ = fmt.Fprintf(w, "| %d | %s | %-8s | %-14s | %-6s | %-*s |\n", n, p.ID, p.Priority, p.Category, p.Scope, titleColumnWidth, truncate(p.Title, titleColumnWidth))
 	}
 	for _, p := range cp.Medium {
 		n++
-		_, _ = fmt.Fprintf(w, "| %d | %s | %-8s | %-14s | %-6s | %-58s |\n", n, p.ID, p.Priority, p.Category, p.Scope, truncate(p.Title, 58))
+		_, _ = fmt.Fprintf(w, "| %d | %s | %-8s | %-14s | %-6s | %-*s |\n", n, p.ID, p.Priority, p.Category, p.Scope, titleColumnWidth, truncate(p.Title, titleColumnWidth))
 	}
 	for _, p := range cp.Low {
 		n++
-		_, _ = fmt.Fprintf(w, "| %d | %s | %-8s | %-14s | %-6s | %-58s |\n", n, p.ID, p.Priority, p.Category, p.Scope, truncate(p.Title, 58))
+		_, _ = fmt.Fprintf(w, "| %d | %s | %-8s | %-14s | %-6s | %-*s |\n", n, p.ID, p.Priority, p.Category, p.Scope, titleColumnWidth, truncate(p.Title, titleColumnWidth))
 	}
 	_, _ = fmt.Fprintln(w)
 }

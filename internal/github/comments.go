@@ -15,12 +15,18 @@ const (
 	maxCommentLen = 65536
 	// commentSignature is appended to comments so we can detect duplicates.
 	commentSignature = "<!-- planwerk-review -->"
-	truncationNotice = "\n\n---\n*Review truncated due to GitHub comment size limit.*\n"
+)
+
+// truncationNotice is appended when a comment body is cut to fit within
+// maxCommentLen. The %d is filled in with maxCommentLen at format time.
+var truncationNotice = fmt.Sprintf(
+	"\n\n---\n*Review truncated due to GitHub comment size limit (%d characters).*\n",
+	maxCommentLen,
 )
 
 // PostPRComment posts a comment on a GitHub pull request via the gh CLI.
 // It detects and replaces any previous planwerk-review comment on the same PR.
-// Bodies exceeding GitHub's 65 536-character limit are truncated.
+// Bodies exceeding maxCommentLen are truncated.
 func PostPRComment(owner, repo string, number int, body string) (string, error) {
 	fullName := fmt.Sprintf("%s/%s", owner, repo)
 	body = truncateComment(body + "\n" + commentSignature)
