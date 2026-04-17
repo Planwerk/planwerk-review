@@ -281,6 +281,24 @@ planwerk-review audit owner/repo > audit.md
 | `--issue-min-severity` | Minimum severity for issue creation | `warning` |
 | `--no-issue-dedupe` | Do not filter findings whose title matches an existing GitHub issue | `false` |
 
+#### Cache (subcommand)
+
+Inspect the on-disk cache shared by `review`, `propose`, and `audit`:
+
+```bash
+# Show total entries, size, age distribution, and per-command breakdown
+planwerk-review cache stats
+
+# Dump metadata and pretty-printed payload for one key (keys come from `cache stats`)
+planwerk-review cache inspect <key>
+```
+
+`cache stats` surfaces which commands dominate the cache and how stale entries
+are — useful before running `--clear-cache` to decide whether you actually need
+a full wipe. `cache inspect <key>` shows the cached command, `writtenAt`, age,
+size, and the full JSON payload for a single entry, so you can confirm what
+would be reused on the next run without rerunning the analysis.
+
 #### Existing-Issue Dedupe
 
 Before rendering, both `propose` and `audit` query the target repo's GitHub

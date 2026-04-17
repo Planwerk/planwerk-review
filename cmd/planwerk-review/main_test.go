@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/planwerk/planwerk-review/internal/cache"
 )
 
 func TestResolveBuildInfoUsesLdflagsVersion(t *testing.T) {
@@ -125,6 +127,65 @@ func TestResolveMaxPatternsInvalidEnv(t *testing.T) {
 	_, err := resolveMaxPatterns(0, false, nil)
 	if err == nil {
 		t.Fatalf("expected error for invalid env, got nil")
+	}
+}
+
+func TestRunCacheStatsEmpty(t *testing.T) {
+	dir := t.TempDir()
+	t.Cleanup(cache.SetDir(dir))
+
+	var buf bytes.Buffer
+	if err := runCacheStats(&buf); err != nil {
+		t.Fatalf("runCacheStats: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "entries:   0") {
+		t.Fatalf("expected zero-entry summary, got:\n%s", out)
+	}
+}
+
+func TestRunCacheStatsAndInspectPopulated(t *testing.T) {
+	dir := t.TempDir()
+	t.Cleanup(cache.SetDir(dir))
+
+	if err := cache.PutRaw("abc123", cache.CommandReview, []byte(`{"hello":"world"}`)); err != nil {
+		t.Fatalf("PutRaw: %v", err)
+	}
+
+	var statsBuf bytes.Buffer
+	if err := runCacheStats(&statsBuf); err != nil {
+		t.Fatalf("runCacheStats: %v", err)
+	}
+	statsOut := statsBuf.String()
+	for _, want := range []string{"entries:   1", "review", "abc123"} {
+		if !strings.Contains(statsOut, want) {
+			t.Fatalf("stats output missing %q:\n%s", want, statsOut)
+		}
+	}
+
+	var inspectBuf bytes.Buffer
+	if err := runCacheInspect(&inspectBuf, "abc123"); err != nil {
+		t.Fatalf("runCacheInspect: %v", err)
+	}
+	inspectOut := inspectBuf.String()
+	for _, want := range []string{"key:       abc123", "command:   review", "\"hello\": \"world\""} {
+		if !strings.Contains(inspectOut, want) {
+			t.Fatalf("inspect output missing %q:\n%s", want, inspectOut)
+		}
+	}
+}
+
+func TestRunCacheInspectMissingKey(t *testing.T) {
+	dir := t.TempDir()
+	t.Cleanup(cache.SetDir(dir))
+
+	var buf bytes.Buffer
+	err := runCacheInspect(&buf, "does-not-exist")
+	if err == nil {
+		t.Fatalf("expected error for missing key, got nil")
+	}
+	if !strings.Contains(err.Error(), "no cache entry for key") {
+		t.Fatalf("error = %v, want friendly not-found message", err)
 	}
 }
 

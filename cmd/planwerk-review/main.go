@@ -475,6 +475,42 @@ or short form (owner/repo).`,
 
 	rootCmd.AddCommand(auditCmd)
 
+	// cache subcommand group: visibility into the on-disk cache. The existing
+	// top-level --cache-stats / --cache-inspect flags remain for compatibility;
+	// these subcommands are the preferred entry points.
+	cacheCmd := &cobra.Command{
+		Use:   "cache",
+		Short: "Inspect and manage cached review/propose/audit results",
+		Long: `Inspect and manage planwerk-review's on-disk cache.
+
+Cached entries are keyed by repo + HEAD SHA + flags and are written under the
+user cache directory. Use "cache stats" for an overview and "cache inspect
+<key>" to dump a single entry.`,
+	}
+
+	cacheStatsCmd := &cobra.Command{
+		Use:   "stats",
+		Short: "Show cache size, age distribution, and per-command breakdown",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCacheStats(cmd.OutOrStdout())
+		},
+	}
+
+	cacheInspectCmd := &cobra.Command{
+		Use:   "inspect <key>",
+		Short: "Print metadata and payload for a single cache key",
+		Long: `Print the metadata (command, writtenAt, age, size) and pretty-printed
+payload for a single cache entry. Keys are listed by "cache stats".`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCacheInspect(cmd.OutOrStdout(), args[0])
+		},
+	}
+
+	cacheCmd.AddCommand(cacheStatsCmd, cacheInspectCmd)
+	rootCmd.AddCommand(cacheCmd)
+
 	// gen-man-pages: hidden helper used by release tooling to emit man pages.
 	genManCmd := &cobra.Command{
 		Use:    "gen-man-pages <dir>",
