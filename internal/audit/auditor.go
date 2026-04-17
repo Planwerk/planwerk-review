@@ -69,10 +69,43 @@ func Run(w io.Writer, opts Options, auditFn AuditFn) error {
 	return NewRunner(auditFn).Run(w, opts)
 }
 
-// Run executes the full audit pipeline:
-// clone repo → detect technologies → load patterns → Claude audit → render report.
+// Run executes the full audit pipeline: resolve HEAD SHA, check cache, and on
+// a miss clone the repo, detect tech, load patterns, run Claude, cache, and
+// render. Cache hits skip the clone entirely so CI loops against the same
+// commit don't pay the clone cost.
 func (r *Runner) Run(w io.Writer, opts Options) error {
-	// 1. Clone the repository
+	owner, name, err := github.ParseRepoRef(opts.RepoRef)
+	if err != nil {
+		return fmt.Errorf("parsing repo ref: %w", err)
+	}
+
+	// Resolve HEAD SHA via git ls-remote before cloning, so a cache hit can
+	// short-circuit the clone entirely.
+	headSHA, err := r.GitHub.DefaultBranchHEAD(owner, name)
+	if err != nil {
+		slog.Warn("could not fetch HEAD SHA, caching disabled", "err", err)
+		opts.NoCache = true
+		headSHA = ""
+	}
+
+	// Build cache key (includes min-severity so filtered caches don't leak).
+	var cacheFlags []string
+	if opts.MinSeverity != "" {
+		cacheFlags = append(cacheFlags, "min="+string(opts.MinSeverity))
+	}
+	cacheKey := cache.AuditKey(owner, name, headSHA, cacheFlags...)
+
+	if !opts.NoCache && headSHA != "" {
+		if data, ok := cache.GetRaw(cacheKey); ok {
+			var result report.ReviewResult
+			if err := json.Unmarshal(data, &result); err == nil {
+				slog.Info("using cached audit result — skipping clone", "repo", opts.RepoRef)
+				return renderAudit(w, &result, &github.Repo{Owner: owner, Name: name}, opts)
+			}
+			slog.Warn("cache corrupted, running fresh audit")
+		}
+	}
+
 	slog.Info("cloning repository", "repo", opts.RepoRef)
 	repo, err := r.GitHub.CloneRepo(opts.RepoRef)
 	if err != nil {
@@ -82,40 +115,11 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 
 	slog.Info("cloned repository", "dir", repo.Dir)
 
-	// 2. Fetch HEAD SHA for cache key (so cache invalidates when repo changes)
-	headSHA, err := r.GitHub.DefaultBranchHEAD(repo.Owner, repo.Name)
-	if err != nil {
-		slog.Warn("could not fetch HEAD SHA, caching disabled", "err", err)
-		opts.NoCache = true
-		headSHA = ""
-	}
-
-	// 3. Build cache key (includes min-severity so filtered caches don't leak)
-	var cacheFlags []string
-	if opts.MinSeverity != "" {
-		cacheFlags = append(cacheFlags, "min="+string(opts.MinSeverity))
-	}
-	cacheKey := cache.AuditKey(repo.Owner, repo.Name, headSHA, cacheFlags...)
-
-	// 4. Check cache
-	if !opts.NoCache && headSHA != "" {
-		if data, ok := cache.GetRaw(cacheKey); ok {
-			slog.Info("using cached audit result")
-			var result report.ReviewResult
-			if err := json.Unmarshal(data, &result); err == nil {
-				return renderAudit(w, &result, repo, opts)
-			}
-			slog.Warn("cache corrupted, running fresh audit")
-		}
-	}
-
-	// 5. Detect technologies in the cloned repo
 	techTags := detect.Technologies(repo.Dir)
 	if len(techTags) > 0 {
 		slog.Info("detected technologies", "technologies", strings.Join(techTags, ", "))
 	}
 
-	// 6. Load patterns (filtered by detected technologies)
 	patternDirs := collectPatternDirs(opts, repo.Dir)
 	pats, err := patterns.LoadFiltered(techTags, patternDirs...)
 	if err != nil {
@@ -126,7 +130,6 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	}
 	slog.Info("loaded review patterns", "count", len(pats))
 
-	// 7. Run Claude audit
 	slog.Info("auditing codebase with Claude")
 	result, err := r.Claude.Audit(repo.Dir, AuditContext{
 		Patterns:    pats,
@@ -138,7 +141,6 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 		return fmt.Errorf("claude audit: %w", err)
 	}
 
-	// 8. Cache result
 	if !opts.NoCache && headSHA != "" {
 		if data, err := json.Marshal(result); err == nil {
 			if err := cache.PutRaw(cacheKey, data); err != nil {
@@ -147,7 +149,6 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 		}
 	}
 
-	// 9. Render output
 	slog.Info("audit complete")
 	return renderAudit(w, result, repo, opts)
 }

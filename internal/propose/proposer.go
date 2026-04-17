@@ -43,10 +43,36 @@ func Run(w io.Writer, opts Options, analyzeFn AnalyzeFn) error {
 	return NewRunner(analyzeFn).Run(w, opts)
 }
 
-// Run executes the full proposal pipeline:
-// clone repo → analyze with Claude → structure proposals → render output.
+// Run executes the full proposal pipeline: resolve HEAD SHA, check cache, and
+// on a miss clone the repo, run Claude, cache, and render. Cache hits skip the
+// clone entirely so CI loops against the same commit don't pay the clone cost.
 func (r *Runner) Run(w io.Writer, opts Options) error {
-	// 1. Clone the repository
+	owner, name, err := github.ParseRepoRef(opts.RepoRef)
+	if err != nil {
+		return fmt.Errorf("parsing repo ref: %w", err)
+	}
+
+	// Resolve HEAD SHA via git ls-remote before cloning, so a cache hit can
+	// short-circuit the clone entirely.
+	headSHA, err := r.GitHub.DefaultBranchHEAD(owner, name)
+	if err != nil {
+		slog.Warn("could not fetch HEAD SHA, caching disabled", "err", err)
+		opts.NoCache = true
+		headSHA = ""
+	}
+
+	cacheKey := cache.RepoKey(owner, name, headSHA)
+	if !opts.NoCache && headSHA != "" {
+		if data, ok := cache.GetRaw(cacheKey); ok {
+			var result ProposalResult
+			if err := json.Unmarshal(data, &result); err == nil {
+				slog.Info("using cached proposal result — skipping clone", "repo", opts.RepoRef)
+				return renderProposals(w, &result, &github.Repo{Owner: owner, Name: name}, opts)
+			}
+			slog.Warn("cache corrupted, running fresh analysis")
+		}
+	}
+
 	slog.Info("cloning repository", "repo", opts.RepoRef)
 	repo, err := r.GitHub.CloneRepo(opts.RepoRef)
 	if err != nil {
@@ -56,37 +82,13 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 
 	slog.Info("cloned repository", "dir", repo.Dir)
 
-	// 2. Fetch HEAD SHA for cache key (so cache invalidates when repo changes)
-	headSHA, err := r.GitHub.DefaultBranchHEAD(repo.Owner, repo.Name)
-	if err != nil {
-		slog.Warn("could not fetch HEAD SHA, caching disabled", "err", err)
-		opts.NoCache = true
-		headSHA = ""
-	}
-
-	// 3. Check cache
-	cacheKey := cache.RepoKey(repo.Owner, repo.Name, headSHA)
-	if !opts.NoCache {
-		if data, ok := cache.GetRaw(cacheKey); ok {
-			slog.Info("using cached proposal result")
-			var result ProposalResult
-			if err := json.Unmarshal(data, &result); err == nil {
-				return renderProposals(w, &result, repo, opts)
-			}
-			// If cache is corrupted, continue with fresh analysis
-			slog.Warn("cache corrupted, running fresh analysis")
-		}
-	}
-
-	// 4. Run Claude analysis
 	slog.Info("analyzing codebase with Claude")
 	result, err := r.Claude.Analyze(repo.Dir)
 	if err != nil {
 		return fmt.Errorf("claude analysis: %w", err)
 	}
 
-	// 5. Cache result
-	if !opts.NoCache {
+	if !opts.NoCache && headSHA != "" {
 		if data, err := json.Marshal(result); err == nil {
 			if err := cache.PutRaw(cacheKey, data); err != nil {
 				slog.Warn("could not cache result", "err", err)
@@ -94,7 +96,6 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 		}
 	}
 
-	// 6. Render output
 	slog.Info("analysis complete")
 	return renderProposals(w, result, repo, opts)
 }

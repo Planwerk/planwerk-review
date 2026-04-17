@@ -117,8 +117,9 @@ func TestProposeRun_NoCacheBypassesCachedEntry(t *testing.T) {
 		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-propose-nocache", nil },
 	}
 
-	// Seed the cache with a sentinel that NoCache must ignore.
-	cacheKey := cache.RepoKey("acme", "widgets", "sha-propose-nocache")
+	// Seed the cache with a sentinel that NoCache must ignore. Cache key owner/name
+	// follow ParseRepoRef(opts.RepoRef) = ("owner", "repo").
+	cacheKey := cache.RepoKey("owner", "repo", "sha-propose-nocache")
 	if err := cache.PutRaw(cacheKey, []byte(`{"repository_overview":"CACHED SENTINEL"}`)); err != nil {
 		t.Fatalf("seeding cache: %v", err)
 	}
@@ -178,12 +179,15 @@ func TestProposeRun_HEADFailureDisablesCaching(t *testing.T) {
 }
 
 func TestProposeRun_CloneErrorFailsFast(t *testing.T) {
+	// With the reordered flow, HEAD resolution runs before clone so the cache
+	// can short-circuit a hit; clone failure must still bubble up when the
+	// cache misses.
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
 	gh := &fakeGitHub{
-		cloneRepo: func(ref string) (*github.Repo, error) { return nil, errors.New("clone failed") },
-		defaultBranchHEAD: func(owner, name string) (string, error) {
-			t.Fatal("DefaultBranchHEAD should not be called when clone fails")
-			return "", nil
-		},
+		cloneRepo:         func(ref string) (*github.Repo, error) { return nil, errors.New("clone failed") },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha", nil },
 	}
 	runner := &Runner{Claude: &fakeClaude{}, GitHub: gh}
 
@@ -194,6 +198,68 @@ func TestProposeRun_CloneErrorFailsFast(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "cloning repo") {
 		t.Errorf("error should wrap clone failure, got: %v", err)
+	}
+}
+
+func TestProposeRun_CacheHitSkipsClone(t *testing.T) {
+	// Cache hits must not invoke CloneRepo — that's the whole point of the
+	// ls-remote-first reordering.
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	// baseProposeOpts uses RepoRef "owner/repo", so the cache key owner/name
+	// must match ParseRepoRef("owner/repo") = ("owner", "repo").
+	cacheKey := cache.RepoKey("owner", "repo", "sha-skip-clone")
+	if err := cache.PutRaw(cacheKey, []byte(`{"repository_overview":"Cached overview"}`)); err != nil {
+		t.Fatalf("seeding cache: %v", err)
+	}
+
+	gh := &fakeGitHub{
+		cloneRepo: func(ref string) (*github.Repo, error) {
+			t.Fatal("CloneRepo must not be called on cache hit")
+			return nil, nil
+		},
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-skip-clone", nil },
+	}
+	claudeMock := &fakeClaude{
+		fn: func(dir string) (*ProposalResult, error) {
+			t.Fatal("Analyze must not be called on cache hit")
+			return nil, nil
+		},
+	}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	var out bytes.Buffer
+	if err := runner.Run(&out, baseProposeOpts()); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if !strings.Contains(out.String(), "Cached overview") {
+		t.Errorf("output missing cached overview, got:\n%s", out.String())
+	}
+}
+
+func TestProposeRun_InvalidRepoRefFailsBeforeHEAD(t *testing.T) {
+	gh := &fakeGitHub{
+		cloneRepo: func(ref string) (*github.Repo, error) {
+			t.Fatal("CloneRepo must not be called for invalid repo ref")
+			return nil, nil
+		},
+		defaultBranchHEAD: func(owner, name string) (string, error) {
+			t.Fatal("DefaultBranchHEAD must not be called for invalid repo ref")
+			return "", nil
+		},
+	}
+	runner := &Runner{Claude: &fakeClaude{}, GitHub: gh}
+
+	opts := baseProposeOpts()
+	opts.RepoRef = "not a valid ref"
+	var out bytes.Buffer
+	err := runner.Run(&out, opts)
+	if err == nil {
+		t.Fatal("expected error for invalid repo ref")
+	}
+	if !strings.Contains(err.Error(), "parsing repo ref") {
+		t.Errorf("error should wrap parse failure, got: %v", err)
 	}
 }
 
@@ -230,7 +296,8 @@ func TestProposeRun_CorruptedCacheFallsBackToFreshAnalysis(t *testing.T) {
 		cloneRepo:         func(ref string) (*github.Repo, error) { return fakeRepo(t, "acme", "widgets"), nil },
 		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-corrupt", nil },
 	}
-	cacheKey := cache.RepoKey("acme", "widgets", "sha-corrupt")
+	// Cache key owner/name follow ParseRepoRef(opts.RepoRef) = ("owner", "repo").
+	cacheKey := cache.RepoKey("owner", "repo", "sha-corrupt")
 	if err := cache.PutRaw(cacheKey, []byte("not valid json{")); err != nil {
 		t.Fatalf("seeding cache: %v", err)
 	}

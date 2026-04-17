@@ -140,8 +140,9 @@ func TestAuditRun_NoCacheRefreshesResult(t *testing.T) {
 		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-audit-nocache", nil },
 	}
 
-	// Seed cache with sentinel to confirm NoCache bypasses it.
-	cacheKey := cache.AuditKey("acme", "widgets", "sha-audit-nocache", "min=info")
+	// Seed cache with sentinel to confirm NoCache bypasses it. Cache key owner/name
+	// follow ParseRepoRef(opts.RepoRef) = ("owner", "repo").
+	cacheKey := cache.AuditKey("owner", "repo", "sha-audit-nocache", "min="+string(report.SeverityInfo))
 	if err := cache.PutRaw(cacheKey, []byte(`{"summary":"CACHED SENTINEL"}`)); err != nil {
 		t.Fatalf("seeding cache: %v", err)
 	}
@@ -206,12 +207,15 @@ func TestAuditRun_HEADFailureDisablesCaching(t *testing.T) {
 }
 
 func TestAuditRun_CloneErrorFailsFast(t *testing.T) {
+	// With the reordered flow, HEAD resolution runs before clone so the cache
+	// can short-circuit a hit; clone failure must still bubble up when the
+	// cache misses.
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
 	gh := &fakeGitHub{
-		cloneRepo: func(ref string) (*github.Repo, error) { return nil, errors.New("clone failed") },
-		defaultBranchHEAD: func(owner, name string) (string, error) {
-			t.Fatal("DefaultBranchHEAD should not be called when clone fails")
-			return "", nil
-		},
+		cloneRepo:         func(ref string) (*github.Repo, error) { return nil, errors.New("clone failed") },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha", nil },
 	}
 	runner := &Runner{Claude: &fakeClaude{}, GitHub: gh}
 
@@ -222,6 +226,71 @@ func TestAuditRun_CloneErrorFailsFast(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "cloning repo") {
 		t.Errorf("error should wrap clone failure, got: %v", err)
+	}
+}
+
+func TestAuditRun_CacheHitSkipsClone(t *testing.T) {
+	// Cache hits must not invoke CloneRepo — that's the whole point of the
+	// ls-remote-first reordering. Patterns are also irrelevant on a hit.
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	// baseAuditOpts uses RepoRef "owner/repo", so the cache key owner/name
+	// must match ParseRepoRef("owner/repo") = ("owner", "repo").
+	cacheKey := cache.AuditKey("owner", "repo", "sha-skip-clone", "min="+string(report.SeverityInfo))
+	if err := cache.PutRaw(cacheKey, []byte(`{"summary":"Cached audit"}`)); err != nil {
+		t.Fatalf("seeding cache: %v", err)
+	}
+
+	gh := &fakeGitHub{
+		cloneRepo: func(ref string) (*github.Repo, error) {
+			t.Fatal("CloneRepo must not be called on cache hit")
+			return nil, nil
+		},
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-skip-clone", nil },
+	}
+	claudeMock := &fakeClaude{
+		fn: func(dir string, ctx AuditContext) (*report.ReviewResult, error) {
+			t.Fatal("Audit must not be called on cache hit")
+			return nil, nil
+		},
+	}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	// Pattern dir is empty — would normally error out, but we should never
+	// reach the pattern-loading step on a cache hit.
+	opts := baseAuditOpts(t.TempDir())
+	var out bytes.Buffer
+	if err := runner.Run(&out, opts); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if !strings.Contains(out.String(), "Cached audit") {
+		t.Errorf("output missing cached summary, got:\n%s", out.String())
+	}
+}
+
+func TestAuditRun_InvalidRepoRefFailsBeforeHEAD(t *testing.T) {
+	gh := &fakeGitHub{
+		cloneRepo: func(ref string) (*github.Repo, error) {
+			t.Fatal("CloneRepo must not be called for invalid repo ref")
+			return nil, nil
+		},
+		defaultBranchHEAD: func(owner, name string) (string, error) {
+			t.Fatal("DefaultBranchHEAD must not be called for invalid repo ref")
+			return "", nil
+		},
+	}
+	runner := &Runner{Claude: &fakeClaude{}, GitHub: gh}
+
+	opts := baseAuditOpts(t.TempDir())
+	opts.RepoRef = "not a valid ref"
+	var out bytes.Buffer
+	err := runner.Run(&out, opts)
+	if err == nil {
+		t.Fatal("expected error for invalid repo ref")
+	}
+	if !strings.Contains(err.Error(), "parsing repo ref") {
+		t.Errorf("error should wrap parse failure, got: %v", err)
 	}
 }
 
