@@ -22,6 +22,7 @@ import (
 	"github.com/planwerk/planwerk-review/internal/github"
 	"github.com/planwerk/planwerk-review/internal/patterns"
 	"github.com/planwerk/planwerk-review/internal/planwerk"
+	"github.com/planwerk/planwerk-review/internal/redact"
 	"github.com/planwerk/planwerk-review/internal/report"
 	"github.com/planwerk/planwerk-review/internal/todocheck"
 )
@@ -173,13 +174,23 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 		slog.Info("running feature compliance check")
 	}
 
+	// Scrub obvious secrets from untrusted PR-supplied text before it is
+	// forwarded to Claude. A PR body or commit log accidentally committing
+	// a token would otherwise be echoed verbatim into the prompt.
+	redactedTitle := redact.Redact(pr.Title)
+	redactedBody := redact.Redact(pr.Body)
+	redactedCommitLog := redact.Redact(commitLog)
+	warnRedaction("PR title", redactedTitle)
+	warnRedaction("PR body", redactedBody)
+	warnRedaction("commit log", redactedCommitLog)
+
 	reviewCtx := claude.ReviewContext{
 		Patterns:    pats,
 		MaxPatterns: opts.MaxPatterns,
-		PRTitle:     pr.Title,
-		PRBody:      pr.Body,
+		PRTitle:     redactedTitle.Text,
+		PRBody:      redactedBody.Text,
 		Checklist:   checklistContent,
-		CommitLog:   commitLog,
+		CommitLog:   redactedCommitLog.Text,
 		StaleDocs:   staleDocs,
 		NewFeatures: newFeatures,
 		TodoContent: todoContent,
@@ -362,6 +373,20 @@ func (r *Runner) postInlineReview(result *report.ReviewResult, pr *github.PR, su
 
 // gitLogTimeout is the maximum time allowed for local git log operations.
 const gitLogTimeout = 30 * time.Second
+
+// warnRedaction emits a slog.Warn when redact scrubbed at least one secret
+// from a PR-supplied text field. The source argument identifies which field
+// (e.g. "PR body") so operators can trace back to the leaking commit.
+func warnRedaction(source string, r redact.Result) {
+	if r.Total() == 0 {
+		return
+	}
+	attrs := []any{"source", source, "total", r.Total()}
+	for _, name := range r.Names() {
+		attrs = append(attrs, name, r.Counts[name])
+	}
+	slog.Warn("redacted secrets before sending to Claude", attrs...)
+}
 
 // getCommitLog returns the one-line commit log between the base branch and HEAD.
 // Returns empty string on error (non-fatal).
