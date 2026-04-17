@@ -142,12 +142,13 @@ func (r *Renderer) renderRecommendation(cf CategorizedFindings, custom string) {
 	if len(cf.Critical) > 0 {
 		parts = append(parts, fmt.Sprintf("%d CRITICAL", len(cf.Critical)))
 	}
-	if cf.HasBlockersOrCritical() {
+	switch {
+	case cf.HasBlockersOrCritical():
 		_, _ = fmt.Fprintf(r.w, "> [!CAUTION]\n> **Do not merge** — %s findings must be resolved first.\n",
 			strings.Join(parts, " and "))
-	} else if len(cf.Warning) > 0 {
+	case len(cf.Warning) > 0:
 		_, _ = fmt.Fprintf(r.w, "> [!WARNING]\n> **Review before merging** — %d warning(s) should be addressed.\n", len(cf.Warning))
-	} else {
+	default:
 		_, _ = fmt.Fprint(r.w, "> [!TIP]\n> **Ready to merge** — no blocking or critical findings.\n")
 	}
 }
@@ -206,12 +207,13 @@ func (r *Renderer) renderAuditVerdict(cf CategorizedFindings) {
 	if len(cf.Critical) > 0 {
 		parts = append(parts, fmt.Sprintf("%d CRITICAL", len(cf.Critical)))
 	}
-	if cf.HasBlockersOrCritical() {
+	switch {
+	case cf.HasBlockersOrCritical():
 		_, _ = fmt.Fprintf(r.w, "> [!CAUTION]\n> **Action required** — %s finding(s) must be addressed.\n",
 			strings.Join(parts, " and "))
-	} else if len(cf.Warning) > 0 {
+	case len(cf.Warning) > 0:
 		_, _ = fmt.Fprintf(r.w, "> [!WARNING]\n> **Improvements suggested** — %d warning(s) should be addressed.\n", len(cf.Warning))
-	} else {
+	default:
 		_, _ = fmt.Fprint(r.w, "> [!TIP]\n> **Codebase healthy** — no blocking or critical findings.\n")
 	}
 }

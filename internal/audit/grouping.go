@@ -79,13 +79,13 @@ func GroupFindings(findings []report.Finding) []FindingGroup {
 
 // FilterBySeverity returns the subset of groups whose MaxSeverity meets the
 // minimum severity threshold.
-func FilterBySeverity(groups []FindingGroup, min report.Severity) []FindingGroup {
-	if min == "" {
+func FilterBySeverity(groups []FindingGroup, minSeverity report.Severity) []FindingGroup {
+	if minSeverity == "" {
 		return groups
 	}
 	out := make([]FindingGroup, 0, len(groups))
 	for _, g := range groups {
-		if g.MaxSeverity.MeetsMinimum(min) {
+		if g.MaxSeverity.MeetsMinimum(minSeverity) {
 			out = append(out, g)
 		}
 	}

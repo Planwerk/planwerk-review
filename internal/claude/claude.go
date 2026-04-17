@@ -3,6 +3,7 @@ package claude
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -50,7 +51,8 @@ func runClaude(dir, prompt, label string) (string, error) {
 	}
 	out, err := cmd.Output()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			return "", fmt.Errorf("claude: %w\nstderr: %s", err, exitErr.Stderr)
 		}
 		return "", fmt.Errorf("claude: %w", err)

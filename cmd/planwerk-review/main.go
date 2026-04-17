@@ -22,6 +22,13 @@ import (
 // maximum number of review patterns injected into the prompt.
 const envMaxPatterns = "PLANWERK_MAX_PATTERNS"
 
+// Output format identifiers accepted by the --format flag.
+const (
+	formatMarkdown = "markdown"
+	formatJSON     = "json"
+	formatIssues   = "issues"
+)
+
 // resolveMaxPatterns returns the effective max-patterns limit, preferring
 // an explicitly set CLI flag, then PLANWERK_MAX_PATTERNS, then the default.
 // A value of 0 or negative disables truncation.
@@ -81,12 +88,12 @@ or short form (owner/repo#123).`,
 			}
 
 			switch cfg.Format {
-			case "markdown", "json":
+			case formatMarkdown, formatJSON:
 			default:
 				return fmt.Errorf("unknown format %q, supported: markdown, json", cfg.Format)
 			}
 
-			if cfg.PostReview && cfg.Format == "json" {
+			if cfg.PostReview && cfg.Format == formatJSON {
 				return fmt.Errorf("--post-review cannot be used with --format json")
 			}
 
@@ -94,7 +101,7 @@ or short form (owner/repo#123).`,
 			if cfg.InlineReview {
 				cfg.PostReview = true
 			}
-			if cfg.InlineReview && cfg.Format == "json" {
+			if cfg.InlineReview && cfg.Format == formatJSON {
 				return fmt.Errorf("--inline cannot be used with --format json")
 			}
 
@@ -133,7 +140,7 @@ or short form (owner/repo).`,
 			proposeCfg.RepoRef = args[0]
 
 			switch proposeCfg.Format {
-			case "markdown", "json", "issues":
+			case formatMarkdown, formatJSON, formatIssues:
 			default:
 				return fmt.Errorf("unknown format %q, supported: markdown, json, issues", proposeCfg.Format)
 			}
@@ -187,7 +194,7 @@ or short form (owner/repo).`,
 			}
 
 			switch auditCfg.Format {
-			case "markdown", "json":
+			case formatMarkdown, formatJSON:
 			default:
 				return fmt.Errorf("unknown format %q, supported: markdown, json", auditCfg.Format)
 			}
@@ -202,7 +209,7 @@ or short form (owner/repo).`,
 				auditCfg.IssueMinSeverity = report.SeverityWarning
 			}
 
-			if auditCfg.CreateIssues && auditCfg.Format == "json" {
+			if auditCfg.CreateIssues && auditCfg.Format == formatJSON {
 				return fmt.Errorf("--create-issues cannot be used with --format json")
 			}
 

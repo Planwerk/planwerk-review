@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -23,7 +24,8 @@ func FetchDiff(owner, repo string, number int) (string, error) {
 	)
 	out, err := cmd.Output()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			return "", fmt.Errorf("fetching PR diff: %s: %w", strings.TrimSpace(string(exitErr.Stderr)), err)
 		}
 		return "", fmt.Errorf("fetching PR diff: %w", err)
@@ -74,18 +76,18 @@ func ParseDiff(rawDiff string) *DiffMap {
 		}
 
 		// Process hunk lines
-		if strings.HasPrefix(line, "+") {
+		switch {
+		case strings.HasPrefix(line, "+"):
 			// Addition: record on right side, advance right counter
 			dm.files[currentFile][rightLine] = true
 			rightLine++
-		} else if strings.HasPrefix(line, "-") {
-			// Deletion: left-side only, do NOT advance right counter
-		} else if strings.HasPrefix(line, " ") {
+		case strings.HasPrefix(line, " "):
 			// Context line: appears on both sides, advance right counter
 			dm.files[currentFile][rightLine] = true
 			rightLine++
 		}
-		// Other lines (e.g., "\ No newline at end of file") are ignored
+		// Deletion ("-") lines: left-side only, do not advance right counter.
+		// Other lines (e.g., "\ No newline at end of file") are ignored.
 	}
 
 	return dm

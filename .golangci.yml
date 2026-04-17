@@ -7,6 +7,33 @@ linters:
     - staticcheck
     - unused
     - ineffassign
+    - gocritic
+    - revive
+    - goconst
+    - errorlint
+    - copyloopvar
+  settings:
+    revive:
+      rules:
+        - name: empty-block
+        - name: redefines-builtin-id
+        - name: var-declaration
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: increment-decrement
+        - name: range
+        - name: receiver-naming
+        - name: superfluous-else
+        - name: time-naming
+        - name: unreachable-code
+        - name: var-naming
+        - name: indent-error-flow
+        - name: errorf
 
 issues:
   max-issues-per-linter: 0

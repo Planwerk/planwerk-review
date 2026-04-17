@@ -49,8 +49,8 @@ func (s *Severity) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (s Severity) MeetsMinimum(min Severity) bool {
-	return severityOrder[s] <= severityOrder[min]
+func (s Severity) MeetsMinimum(minSeverity Severity) bool {
+	return severityOrder[s] <= severityOrder[minSeverity]
 }
 
 type Actionability string
