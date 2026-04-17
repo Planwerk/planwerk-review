@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 
 	"github.com/planwerk/planwerk-review/internal/audit"
 	"github.com/planwerk/planwerk-review/internal/cache"
@@ -223,6 +224,28 @@ or short form (owner/repo).`,
 	auditFlags.StringVar(&auditIssueMinSeverity, "issue-min-severity", "", "Minimum severity for issue creation (default WARNING)")
 
 	rootCmd.AddCommand(auditCmd)
+
+	// gen-man-pages: hidden helper used by release tooling to emit man pages.
+	genManCmd := &cobra.Command{
+		Use:    "gen-man-pages <dir>",
+		Short:  "Generate man pages into the given directory",
+		Args:   cobra.ExactArgs(1),
+		Hidden: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dir := args[0]
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				return err
+			}
+			header := &doc.GenManHeader{
+				Title:   "PLANWERK-REVIEW",
+				Section: "1",
+				Source:  "planwerk-review " + version,
+			}
+			return doc.GenManTree(rootCmd, header, dir)
+		},
+	}
+	rootCmd.AddCommand(genManCmd)
+
 	rootCmd.Version = version
 
 	if err := rootCmd.Execute(); err != nil {

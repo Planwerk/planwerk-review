@@ -5,5 +5,9 @@ planwerk-review
 # Go build artifacts
 dist/
 
+# Generated shell completions and man pages
+completions/
+docs/man/
+
 # OS files
 .DS_Store

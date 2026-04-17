@@ -251,6 +251,30 @@ planwerk-review audit owner/repo > audit.md
 | `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; overridable via `PLANWERK_MAX_PATTERNS`) | `50` |
 | `--max-findings` | Cap on findings returned (`<=0` disables cap) | `0` |
 
+### Shell Completions & Man Pages
+
+Completions for `bash`, `zsh`, `fish`, and `powershell` are emitted via Cobra's built-in `completion` subcommand:
+
+```bash
+# Load completions for the current shell session (bash)
+source <(planwerk-review completion bash)
+
+# Install persistently (zsh, Homebrew example)
+planwerk-review completion zsh > "$(brew --prefix)/share/zsh/site-functions/_planwerk-review"
+
+# Fish
+planwerk-review completion fish > ~/.config/fish/completions/planwerk-review.fish
+```
+
+When installed from Homebrew, deb, or rpm packages, completions and man pages (`man planwerk-review`) are installed automatically. Packages are produced by `goreleaser` — see `.goreleaser.yml`.
+
+For local development, regenerate the artifacts into `completions/` and `docs/man/`:
+
+```bash
+make completions
+make man
+```
+
 ### Output Format
 
 The generated Markdown report follows a fixed structure:

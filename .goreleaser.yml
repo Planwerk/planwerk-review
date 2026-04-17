@@ -1,5 +1,14 @@
 version: 2
 
+before:
+  hooks:
+    - go mod tidy
+    - mkdir -p completions docs/man
+    - sh -c "go run ./cmd/planwerk-review completion bash > completions/planwerk-review.bash"
+    - sh -c "go run ./cmd/planwerk-review completion zsh > completions/_planwerk-review"
+    - sh -c "go run ./cmd/planwerk-review completion fish > completions/planwerk-review.fish"
+    - go run ./cmd/planwerk-review gen-man-pages docs/man
+
 builds:
   - main: ./cmd/planwerk-review
     binary: planwerk-review
@@ -9,6 +18,7 @@ builds:
       - -s -w -X main.version={{.Version}}
     goos:
       - linux
+      - darwin
       - windows
     goarch:
       - amd64
@@ -20,6 +30,54 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
+    files:
+      - LICENSE
+      - README.md
+      - completions/*
+      - docs/man/*.1
+
+brews:
+  - repository:
+      owner: planwerk
+      name: homebrew-tap
+    homepage: "https://github.com/planwerk/planwerk-review"
+    description: "AI-powered code review for GitHub Pull Requests"
+    license: "MIT"
+    install: |
+      bin.install "planwerk-review"
+      bash_completion.install "completions/planwerk-review.bash" => "planwerk-review"
+      zsh_completion.install "completions/_planwerk-review"
+      fish_completion.install "completions/planwerk-review.fish"
+      man1.install Dir["docs/man/*.1"]
+
+nfpms:
+  - id: packages
+    package_name: planwerk-review
+    vendor: planwerk
+    homepage: "https://github.com/planwerk/planwerk-review"
+    maintainer: "planwerk <noreply@planwerk.dev>"
+    description: "AI-powered code review for GitHub Pull Requests"
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    contents:
+      - src: completions/planwerk-review.bash
+        dst: /usr/share/bash-completion/completions/planwerk-review
+        file_info:
+          mode: 0644
+      - src: completions/_planwerk-review
+        dst: /usr/share/zsh/site-functions/_planwerk-review
+        file_info:
+          mode: 0644
+      - src: completions/planwerk-review.fish
+        dst: /usr/share/fish/vendor_completions.d/planwerk-review.fish
+        file_info:
+          mode: 0644
+      - src: docs/man/*.1
+        dst: /usr/share/man/man1/
+        file_info:
+          mode: 0644
 
 sboms:
   - artifacts: archive
