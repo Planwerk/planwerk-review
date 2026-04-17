@@ -1,5 +1,8 @@
 # planwerk-review
 
+[![CI](https://github.com/planwerk/planwerk-review/actions/workflows/ci.yml/badge.svg)](https://github.com/planwerk/planwerk-review/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/planwerk/planwerk-review/branch/main/graph/badge.svg)](https://codecov.io/gh/planwerk/planwerk-review)
+
 AI-powered code review and codebase analysis tool for GitHub repositories. Uses Claude CLI to automatically analyze PR changes and produce structured review results, to analyze entire repositories and generate actionable feature proposals, or to audit an entire codebase against all known review patterns.
 
 ## Concept
