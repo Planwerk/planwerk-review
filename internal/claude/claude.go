@@ -64,6 +64,7 @@ func runClaude(dir, prompt, label string) (string, error) {
 type ReviewContext struct {
 	Patterns    []patterns.Pattern
 	MaxPatterns int                       // max patterns to inject; <= 0 disables truncation
+	MaxFindings int                       // cap on findings Claude returns; <= 0 disables cap
 	PRTitle     string
 	PRBody      string
 	Checklist   string                    // external checklist content (empty = use built-in)
@@ -310,6 +311,11 @@ For EVERY finding you report, you MUST include:
 5. **Related Findings**: If two or more findings are connected (e.g., a missing nil check and a missing test for that nil check), note the relationship by referencing the other finding's title.
 
 `)
+
+	// Finding limit
+	if ctx.MaxFindings > 0 {
+		fmt.Fprintf(&sb, "## Finding Budget\n\nReport at most %d findings. Prioritize BLOCKING > CRITICAL > WARNING > INFO. If more exist, keep the highest-severity and most representative ones.\n\n", ctx.MaxFindings)
+	}
 
 	// Review Summary instructions
 	sb.WriteString(`## Review Summary

@@ -182,6 +182,7 @@ planwerk-review owner/repo#123 > review.md
 | `--thorough` | Run additional adversarial review pass for security and failure modes | `false` |
 | `--coverage-map` | Generate test coverage map for changed functions | `false` |
 | `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; overridable via `PLANWERK_MAX_PATTERNS`) | `50` |
+| `--max-findings` | Cap on findings returned (`<=0` disables cap) | `0` |
 
 ##### Global Flags
 
@@ -312,6 +313,74 @@ For local development, regenerate the artifacts into `completions/` and `docs/ma
 make completions
 make man
 ```
+
+### GitHub Action
+
+The repo ships a composite GitHub Action at the root (`action.yml`) that wraps
+the `review` command for use on pull requests. It installs Claude Code,
+downloads the planwerk-review release binary, runs the review against the PR
+that triggered the workflow, and posts a summary plus inline review comments.
+
+Minimal example workflow:
+
+```yaml
+name: Planwerk Review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Planwerk/planwerk-review@v1
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+The major-version tag (`@v1`) follows the standard GitHub Action convention and
+is updated alongside each minor/patch release. To pin a specific version, use
+the `version` input or a full tag (`Planwerk/planwerk-review@v1.2.3`).
+
+#### Inputs
+
+| Input | Description | Default |
+|-------|-------------|---------|
+| `pr-ref` | PR reference (URL, `owner/repo#number`, or bare PR number for the current repo) | the PR that triggered the workflow |
+| `patterns` | Comma-separated additional pattern directories | `""` |
+| `min-severity` | Minimum severity to report (`info`, `warning`, `critical`, `blocking`) | `info` |
+| `format` | Output format written to the action log (`markdown`, `json`); posting always uses markdown | `markdown` |
+| `max-findings` | Cap on findings returned (`0` disables cap) | `0` |
+| `post-inline` | Post inline review comments and a summary via the GitHub Review API | `true` |
+| `thorough` | Run the additional adversarial review pass | `false` |
+| `version` | planwerk-review release tag to install (`latest` resolves to the most recent release) | `latest` |
+| `binary-path` | Path to a pre-built binary; skips the download step (used by the in-repo smoke test) | `""` |
+| `github-token` | Token used to fetch PR data and post review comments (`pull-requests: write`) | `${{ github.token }}` |
+| `anthropic-api-key` | Anthropic API key consumed by Claude Code in non-interactive mode (**required**) | — |
+
+#### Outputs
+
+| Output | Description |
+|--------|-------------|
+| `findings-count` | Total number of findings reported |
+| `blocking-count` | Number of `BLOCKING` findings |
+| `critical-count` | Number of `CRITICAL` findings |
+| `warning-count` | Number of `WARNING` findings |
+| `info-count` | Number of `INFO` findings |
+
+Counts are extracted by parsing the `<!-- planwerk-review-data ... -->` JSON
+block embedded in the posted PR review/comment, so they reflect the same set
+of findings the reviewer sees on the PR.
+
+The action is exercised end-to-end on every relevant PR via
+`.github/workflows/action-smoke.yml`, which builds the binary from source and
+runs the action with `binary-path` pointing at the dev build. The smoke job is
+gated on `pull_request.head.repo.full_name == github.repository` so forked PRs
+(which cannot read `secrets.ANTHROPIC_API_KEY`) skip cleanly.
 
 ### Output Format
 
@@ -661,5 +730,4 @@ planwerk-review/
 - **Diff-based re-review**: Only check new changes since the last review
 - **Multi-reviewer**: Integrate other review tools alongside Claude
 - **Dashboard**: Overview of review statistics per repository
-- **GitHub Action**: Publish as a GitHub Action for automated PR reviews
 - **Propose: incremental analysis**: Track which proposals have been addressed across runs

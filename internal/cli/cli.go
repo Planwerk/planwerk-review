@@ -22,6 +22,7 @@ type Config struct {
 	Thorough        bool
 	CoverageMap     bool
 	MaxPatterns     int
+	MaxFindings     int
 }
 
 func (c Config) ToReviewOptions(version string) review.Options {
@@ -39,6 +40,7 @@ func (c Config) ToReviewOptions(version string) review.Options {
 		Thorough:        c.Thorough,
 		CoverageMap:     c.CoverageMap,
 		MaxPatterns:     c.MaxPatterns,
+		MaxFindings:     c.MaxFindings,
 	}
 }
 

@@ -1,0 +1,49 @@
+name: Action smoke test
+
+# Verifies the composite action defined in action.yml end-to-end against the PR
+# that triggered the workflow. Skipped for forked PRs (they cannot access the
+# ANTHROPIC_API_KEY secret) and skipped automatically when the secret is unset.
+on:
+  pull_request:
+    paths:
+      - 'action.yml'
+      - '.github/workflows/action-smoke.yml'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'go.mod'
+      - 'go.sum'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  smoke:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build planwerk-review from source
+        run: go build -o ./planwerk-review ./cmd/planwerk-review
+
+      - name: Run Planwerk Review action
+        id: review
+        uses: ./
+        with:
+          binary-path: ${{ github.workspace }}/planwerk-review
+          min-severity: warning
+          post-inline: 'true'
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Show outputs
+        run: |
+          echo "findings-count=${{ steps.review.outputs.findings-count }}"
+          echo "blocking-count=${{ steps.review.outputs.blocking-count }}"
+          echo "critical-count=${{ steps.review.outputs.critical-count }}"
+          echo "warning-count=${{ steps.review.outputs.warning-count }}"
+          echo "info-count=${{ steps.review.outputs.info-count }}"

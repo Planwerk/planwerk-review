@@ -41,6 +41,7 @@ type Options struct {
 	Thorough        bool
 	CoverageMap     bool
 	MaxPatterns     int // max patterns to inject into prompt; <= 0 disables truncation
+	MaxFindings     int // cap on findings Claude returns; <= 0 disables cap
 }
 
 // Runner executes the review pipeline using injected Claude and GitHub
@@ -187,6 +188,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	reviewCtx := claude.ReviewContext{
 		Patterns:    pats,
 		MaxPatterns: opts.MaxPatterns,
+		MaxFindings: opts.MaxFindings,
 		PRTitle:     redactedTitle.Text,
 		PRBody:      redactedBody.Text,
 		Checklist:   checklistContent,

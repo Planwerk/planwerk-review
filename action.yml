@@ -1,0 +1,241 @@
+name: 'Planwerk Review'
+description: 'AI-powered code review for GitHub Pull Requests using Claude'
+author: 'planwerk'
+branding:
+  icon: 'check-square'
+  color: 'purple'
+
+inputs:
+  pr-ref:
+    description: 'PR reference: URL, owner/repo#number, or PR number for the current repo. Defaults to the PR that triggered the workflow.'
+    required: false
+    default: ${{ github.event.pull_request.number }}
+  patterns:
+    description: 'Comma-separated additional pattern directories to load alongside the built-in patterns.'
+    required: false
+    default: ''
+  min-severity:
+    description: 'Minimum severity to report (info, warning, critical, blocking).'
+    required: false
+    default: 'info'
+  format:
+    description: 'Output format written to the action log (markdown, json). Posting to the PR always uses markdown.'
+    required: false
+    default: 'markdown'
+  max-findings:
+    description: 'Cap on findings returned. 0 disables the cap.'
+    required: false
+    default: '0'
+  post-inline:
+    description: 'Post inline review comments via the GitHub Review API along with a summary comment. Ignored when format=json.'
+    required: false
+    default: 'true'
+  thorough:
+    description: 'Run the additional adversarial review pass.'
+    required: false
+    default: 'false'
+  version:
+    description: 'planwerk-review release tag to install (e.g. v0.3.0). Use "latest" to resolve to the most recent release. Ignored when binary-path is set.'
+    required: false
+    default: 'latest'
+  binary-path:
+    description: 'Path to a pre-built planwerk-review binary. When set, the download step is skipped — useful for testing the action against a development build of the binary.'
+    required: false
+    default: ''
+  github-token:
+    description: 'Token used to fetch PR data and post review comments. Needs `pull-requests: write` and `contents: read`.'
+    required: false
+    default: ${{ github.token }}
+  anthropic-api-key:
+    description: 'Anthropic API key consumed by Claude Code in non-interactive mode. Required.'
+    required: true
+
+outputs:
+  findings-count:
+    description: 'Total number of findings reported (0 when no review comment was found).'
+    value: ${{ steps.parse.outputs.findings-count }}
+  blocking-count:
+    description: 'Number of BLOCKING findings.'
+    value: ${{ steps.parse.outputs.blocking-count }}
+  critical-count:
+    description: 'Number of CRITICAL findings.'
+    value: ${{ steps.parse.outputs.critical-count }}
+  warning-count:
+    description: 'Number of WARNING findings.'
+    value: ${{ steps.parse.outputs.warning-count }}
+  info-count:
+    description: 'Number of INFO findings.'
+    value: ${{ steps.parse.outputs.info-count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Claude Code
+      shell: bash
+      run: |
+        set -euo pipefail
+        npm install -g @anthropic-ai/claude-code
+        claude --version
+
+    - name: Install planwerk-review
+      id: install
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        BINARY_PATH: ${{ inputs.binary-path }}
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        if [ -n "$BINARY_PATH" ]; then
+          if [ ! -x "$BINARY_PATH" ]; then
+            echo "binary-path '$BINARY_PATH' is not executable" >&2
+            exit 1
+          fi
+          dir=$(cd "$(dirname "$BINARY_PATH")" && pwd)
+          echo "$dir" >> "$GITHUB_PATH"
+          "$BINARY_PATH" --version
+          exit 0
+        fi
+
+        case "${RUNNER_OS:-}" in
+          Linux) os=linux ;;
+          macOS) os=darwin ;;
+          *) echo "unsupported runner OS: ${RUNNER_OS:-}" >&2; exit 1 ;;
+        esac
+        case "${RUNNER_ARCH:-}" in
+          X64)   arch=amd64 ;;
+          ARM64) arch=arm64 ;;
+          *) echo "unsupported runner arch: ${RUNNER_ARCH:-}" >&2; exit 1 ;;
+        esac
+
+        if [ "$VERSION" = "latest" ]; then
+          tag=$(gh release view --repo planwerk/planwerk-review --json tagName -q .tagName)
+        else
+          tag="$VERSION"
+        fi
+        ver="${tag#v}"
+        asset="planwerk-review_${ver}_${os}_${arch}.tar.gz"
+
+        workdir="$RUNNER_TEMP/planwerk-review"
+        mkdir -p "$workdir"
+        echo "Downloading $asset from release $tag"
+        gh release download "$tag" \
+          --repo planwerk/planwerk-review \
+          --pattern "$asset" \
+          --dir "$workdir"
+        tar -xzf "$workdir/$asset" -C "$workdir"
+        echo "$workdir" >> "$GITHUB_PATH"
+        "$workdir/planwerk-review" --version
+
+    - name: Run review
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        PR_REF: ${{ inputs.pr-ref }}
+        FORMAT: ${{ inputs.format }}
+        MIN_SEVERITY: ${{ inputs.min-severity }}
+        MAX_FINDINGS: ${{ inputs.max-findings }}
+        POST_INLINE: ${{ inputs.post-inline }}
+        THOROUGH: ${{ inputs.thorough }}
+        PATTERNS: ${{ inputs.patterns }}
+      run: |
+        set -euo pipefail
+        if [ -z "${PR_REF:-}" ]; then
+          echo "pr-ref is empty: pass it explicitly when not running on a pull_request event" >&2
+          exit 1
+        fi
+
+        args=(--format "$FORMAT" --min-severity "$MIN_SEVERITY")
+
+        if [ "$POST_INLINE" = "true" ]; then
+          if [ "$FORMAT" = "json" ]; then
+            echo "post-inline=true is incompatible with format=json — skipping inline posting" >&2
+          else
+            args+=(--inline)
+          fi
+        fi
+        if [ "$THOROUGH" = "true" ]; then
+          args+=(--thorough)
+        fi
+        if [ "$MAX_FINDINGS" != "0" ] && [ -n "$MAX_FINDINGS" ]; then
+          args+=(--max-findings "$MAX_FINDINGS")
+        fi
+        if [ -n "$PATTERNS" ]; then
+          IFS=',' read -ra dirs <<< "$PATTERNS"
+          for d in "${dirs[@]}"; do
+            d=$(printf '%s' "$d" | awk '{$1=$1};1')
+            [ -n "$d" ] && args+=(--patterns "$d")
+          done
+        fi
+
+        planwerk-review "${args[@]}" "$PR_REF"
+
+    - name: Parse findings counts
+      id: parse
+      if: always()
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR_REF: ${{ inputs.pr-ref }}
+      run: |
+        set -euo pipefail
+
+        if [[ "$PR_REF" =~ ^https?://github.com/([^/]+)/([^/]+)/pull/([0-9]+) ]]; then
+          owner="${BASH_REMATCH[1]}"
+          repo="${BASH_REMATCH[2]}"
+          number="${BASH_REMATCH[3]}"
+        elif [[ "$PR_REF" =~ ^([^/]+)/([^#]+)#([0-9]+)$ ]]; then
+          owner="${BASH_REMATCH[1]}"
+          repo="${BASH_REMATCH[2]}"
+          number="${BASH_REMATCH[3]}"
+        elif [[ "$PR_REF" =~ ^[0-9]+$ ]]; then
+          owner="${GITHUB_REPOSITORY%%/*}"
+          repo="${GITHUB_REPOSITORY##*/}"
+          number="$PR_REF"
+        else
+          echo "Could not parse pr-ref '$PR_REF' for output extraction; skipping." >&2
+          {
+            echo "findings-count="
+            echo "blocking-count="
+            echo "critical-count="
+            echo "warning-count="
+            echo "info-count="
+          } >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        body=$(gh api "repos/$owner/$repo/pulls/$number/reviews" \
+          --jq 'map(select(.body and (.body | contains("planwerk-review-data")))) | sort_by(.submitted_at) | last | (.body // "")')
+        if [ -z "$body" ]; then
+          body=$(gh api "repos/$owner/$repo/issues/$number/comments" \
+            --jq 'map(select(.body and (.body | contains("planwerk-review-data")))) | sort_by(.created_at) | last | (.body // "")')
+        fi
+
+        json=$(printf '%s' "$body" | awk '/planwerk-review-data/{flag=1; next} /-->/{flag=0} flag')
+
+        if [ -z "$json" ]; then
+          echo "No planwerk-review data block found on PR $number; emitting zero counts." >&2
+          {
+            echo "findings-count=0"
+            echo "blocking-count=0"
+            echo "critical-count=0"
+            echo "warning-count=0"
+            echo "info-count=0"
+          } >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        total=$(printf '%s' "$json" | jq '.findings | length')
+        blocking=$(printf '%s' "$json" | jq '[.findings[] | select(.severity=="BLOCKING")] | length')
+        critical=$(printf '%s' "$json" | jq '[.findings[] | select(.severity=="CRITICAL")] | length')
+        warning=$(printf '%s' "$json" | jq '[.findings[] | select(.severity=="WARNING")]  | length')
+        info=$(printf '%s' "$json" | jq '[.findings[] | select(.severity=="INFO")]     | length')
+
+        {
+          echo "findings-count=$total"
+          echo "blocking-count=$blocking"
+          echo "critical-count=$critical"
+          echo "warning-count=$warning"
+          echo "info-count=$info"
+        } >> "$GITHUB_OUTPUT"

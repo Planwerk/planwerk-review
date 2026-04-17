@@ -162,6 +162,20 @@ func TestBuildReviewPrompt_ContainsFindingEnrichment(t *testing.T) {
 	}
 }
 
+func TestBuildReviewPrompt_IncludesMaxFindings(t *testing.T) {
+	prompt := buildReviewPrompt(ReviewContext{MaxFindings: 25})
+	if !strings.Contains(prompt, "at most 25") {
+		t.Error("review prompt should surface MaxFindings cap when set")
+	}
+}
+
+func TestBuildReviewPrompt_OmitsMaxFindingsWhenZero(t *testing.T) {
+	prompt := buildReviewPrompt(ReviewContext{})
+	if strings.Contains(prompt, "Finding Budget") {
+		t.Error("review prompt should omit the finding budget section when MaxFindings <= 0")
+	}
+}
+
 func TestBuildStructurePrompt_ContainsNewFields(t *testing.T) {
 	prompt := buildStructurePrompt("test review output")
 	checks := []string{

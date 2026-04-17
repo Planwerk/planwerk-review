@@ -218,6 +218,7 @@ or short form (owner/repo#123).`,
 	flags.BoolVar(&cfg.Thorough, "thorough", false, "Run additional adversarial review pass")
 	flags.BoolVar(&cfg.CoverageMap, "coverage-map", false, "Generate test coverage map for changed functions")
 	flags.IntVar(&cfg.MaxPatterns, "max-patterns", patterns.DefaultMaxPatternsInPrompt, "Max review patterns injected into the prompt (<=0 disables truncation, env: "+envMaxPatterns+")")
+	flags.IntVar(&cfg.MaxFindings, "max-findings", 0, "Cap on findings returned (<=0 disables cap)")
 	flags.BoolVar(&showVersion, "version", false, "Show version information and exit")
 
 	// propose subcommand
