@@ -20,6 +20,16 @@ func defaultCacheDir() string {
 	return filepath.Join(os.TempDir(), "planwerk-review-cache")
 }
 
+// SetDir overrides the cache directory and returns a function that restores
+// the previous value. It is intended for use in tests; callers should invoke
+// the restore function (e.g. via t.Cleanup) so parallel tests do not bleed
+// state into each other.
+func SetDir(dir string) (restore func()) {
+	old := cacheDir
+	cacheDir = dir
+	return func() { cacheDir = old }
+}
+
 // Key generates a cache key from the PR head SHA and review flags.
 func Key(owner, repo string, number int, headSHA string, flags ...string) string {
 	input := fmt.Sprintf("%s/%s#%d@%s", owner, repo, number, headSHA)

@@ -45,12 +45,36 @@ type AuditContext struct {
 	RepoName    string // "owner/repo" for context in the prompt
 }
 
+// Runner executes the audit pipeline using injected Claude and GitHub
+// clients. Constructing a Runner per invocation keeps dependencies explicit
+// and allows tests to run in parallel without mutating package-level state.
+type Runner struct {
+	Claude ClaudeAuditor
+	GitHub GitHubClient
+}
+
+// NewRunner returns a Runner wired with the production GitHub (git/gh CLI)
+// backend and the given Claude audit function.
+func NewRunner(auditFn AuditFn) *Runner {
+	return &Runner{
+		Claude: auditFnAdapter{fn: auditFn},
+		GitHub: defaultGitHubClient{},
+	}
+}
+
+// Run is a package-level convenience that delegates to NewRunner(auditFn).Run.
+// Callers that need to inject alternative Claude or GitHub backends should
+// construct a Runner directly.
+func Run(w io.Writer, opts Options, auditFn AuditFn) error {
+	return NewRunner(auditFn).Run(w, opts)
+}
+
 // Run executes the full audit pipeline:
 // clone repo → detect technologies → load patterns → Claude audit → render report.
-func Run(w io.Writer, opts Options, auditFn AuditFn) error {
+func (r *Runner) Run(w io.Writer, opts Options) error {
 	// 1. Clone the repository
 	slog.Info("cloning repository", "repo", opts.RepoRef)
-	repo, err := github.CloneRepo(opts.RepoRef)
+	repo, err := r.GitHub.CloneRepo(opts.RepoRef)
 	if err != nil {
 		return fmt.Errorf("cloning repo: %w", err)
 	}
@@ -59,7 +83,7 @@ func Run(w io.Writer, opts Options, auditFn AuditFn) error {
 	slog.Info("cloned repository", "dir", repo.Dir)
 
 	// 2. Fetch HEAD SHA for cache key (so cache invalidates when repo changes)
-	headSHA, err := github.DefaultBranchHEAD(repo.Owner, repo.Name)
+	headSHA, err := r.GitHub.DefaultBranchHEAD(repo.Owner, repo.Name)
 	if err != nil {
 		slog.Warn("could not fetch HEAD SHA, caching disabled", "err", err)
 		opts.NoCache = true
@@ -104,7 +128,7 @@ func Run(w io.Writer, opts Options, auditFn AuditFn) error {
 
 	// 7. Run Claude audit
 	slog.Info("auditing codebase with Claude")
-	result, err := auditFn(repo.Dir, AuditContext{
+	result, err := r.Claude.Audit(repo.Dir, AuditContext{
 		Patterns:    pats,
 		MaxPatterns: opts.MaxPatterns,
 		MaxFindings: opts.MaxFindings,

@@ -1,0 +1,255 @@
+package propose
+
+import (
+	"bytes"
+	"errors"
+	"strings"
+	"sync/atomic"
+	"testing"
+
+	"github.com/planwerk/planwerk-review/internal/cache"
+	"github.com/planwerk/planwerk-review/internal/github"
+)
+
+// fakeGitHub is a test GitHubClient whose CloneRepo / DefaultBranchHEAD
+// behavior is configured per-test via closures.
+type fakeGitHub struct {
+	cloneRepo         func(ref string) (*github.Repo, error)
+	defaultBranchHEAD func(owner, name string) (string, error)
+}
+
+func (f *fakeGitHub) CloneRepo(ref string) (*github.Repo, error) {
+	return f.cloneRepo(ref)
+}
+
+func (f *fakeGitHub) DefaultBranchHEAD(owner, name string) (string, error) {
+	return f.defaultBranchHEAD(owner, name)
+}
+
+// fakeClaude is a test ClaudeAnalyzer tracking call count so cache-hit tests
+// can assert Claude was skipped.
+type fakeClaude struct {
+	calls int32
+	fn    func(dir string) (*ProposalResult, error)
+}
+
+func (f *fakeClaude) Analyze(dir string) (*ProposalResult, error) {
+	atomic.AddInt32(&f.calls, 1)
+	if f.fn == nil {
+		return &ProposalResult{RepositoryOverview: "ok"}, nil
+	}
+	return f.fn(dir)
+}
+
+func fakeRepo(t *testing.T, owner, name string) *github.Repo {
+	t.Helper()
+	return &github.Repo{
+		Owner: owner,
+		Name:  name,
+		Dir:   t.TempDir(),
+	}
+}
+
+func baseProposeOpts() Options {
+	return Options{
+		RepoRef: "owner/repo",
+		Format:  "markdown",
+		Version: "test",
+	}
+}
+
+func TestProposeRun_CacheMissThenHit(t *testing.T) {
+	// Not t.Parallel(): cache.SetDir mutates a package-level variable.
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	repo := fakeRepo(t, "acme", "widgets")
+	gh := &fakeGitHub{
+		cloneRepo:         func(ref string) (*github.Repo, error) { return repo, nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-propose-1", nil },
+	}
+	claudeMock := &fakeClaude{
+		fn: func(dir string) (*ProposalResult, error) {
+			return &ProposalResult{
+				RepositoryOverview: "Proposal overview",
+				Proposals: []Proposal{
+					{ID: "H-001", Priority: "HIGH", Category: "feature", Title: "Add thing", Description: "d", Motivation: "m", Scope: "Small"},
+				},
+			}, nil
+		},
+	}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	var out bytes.Buffer
+	if err := runner.Run(&out, baseProposeOpts()); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if claudeMock.calls != 1 {
+		t.Errorf("Analyze calls = %d, want 1", claudeMock.calls)
+	}
+	if !strings.Contains(out.String(), "Proposal overview") {
+		t.Errorf("output missing overview, got:\n%s", out.String())
+	}
+
+	// Second run: cache should short-circuit Claude entirely.
+	claudeMock2 := &fakeClaude{
+		fn: func(dir string) (*ProposalResult, error) {
+			t.Fatal("Analyze must not be called on cache hit")
+			return nil, nil
+		},
+	}
+	runner2 := &Runner{Claude: claudeMock2, GitHub: gh}
+	var out2 bytes.Buffer
+	if err := runner2.Run(&out2, baseProposeOpts()); err != nil {
+		t.Fatalf("cache-hit Run returned error: %v", err)
+	}
+	if !strings.Contains(out2.String(), "Proposal overview") {
+		t.Errorf("cache-hit output missing overview, got:\n%s", out2.String())
+	}
+}
+
+func TestProposeRun_NoCacheBypassesCachedEntry(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	gh := &fakeGitHub{
+		cloneRepo:         func(ref string) (*github.Repo, error) { return fakeRepo(t, "acme", "widgets"), nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-propose-nocache", nil },
+	}
+
+	// Seed the cache with a sentinel that NoCache must ignore.
+	cacheKey := cache.RepoKey("acme", "widgets", "sha-propose-nocache")
+	if err := cache.PutRaw(cacheKey, []byte(`{"repository_overview":"CACHED SENTINEL"}`)); err != nil {
+		t.Fatalf("seeding cache: %v", err)
+	}
+
+	claudeMock := &fakeClaude{
+		fn: func(dir string) (*ProposalResult, error) {
+			return &ProposalResult{RepositoryOverview: "Fresh overview"}, nil
+		},
+	}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	opts := baseProposeOpts()
+	opts.NoCache = true
+	var out bytes.Buffer
+	if err := runner.Run(&out, opts); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if claudeMock.calls != 1 {
+		t.Errorf("Analyze should run with NoCache=true, got %d calls", claudeMock.calls)
+	}
+	if strings.Contains(out.String(), "CACHED SENTINEL") {
+		t.Error("NoCache run rendered cached sentinel; expected fresh output")
+	}
+	if !strings.Contains(out.String(), "Fresh overview") {
+		t.Errorf("output missing fresh overview, got:\n%s", out.String())
+	}
+}
+
+func TestProposeRun_HEADFailureDisablesCaching(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	gh := &fakeGitHub{
+		cloneRepo: func(ref string) (*github.Repo, error) { return fakeRepo(t, "acme", "widgets"), nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) {
+			return "", errors.New("network unreachable")
+		},
+	}
+	claudeMock := &fakeClaude{}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	var out bytes.Buffer
+	if err := runner.Run(&out, baseProposeOpts()); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if claudeMock.calls != 1 {
+		t.Errorf("Analyze calls = %d, want 1", claudeMock.calls)
+	}
+
+	// Running again still calls Claude since nothing was cached.
+	if err := runner.Run(&bytes.Buffer{}, baseProposeOpts()); err != nil {
+		t.Fatalf("Run (second) returned error: %v", err)
+	}
+	if claudeMock.calls != 2 {
+		t.Errorf("Analyze calls after HEAD failure = %d, want 2", claudeMock.calls)
+	}
+}
+
+func TestProposeRun_CloneErrorFailsFast(t *testing.T) {
+	gh := &fakeGitHub{
+		cloneRepo: func(ref string) (*github.Repo, error) { return nil, errors.New("clone failed") },
+		defaultBranchHEAD: func(owner, name string) (string, error) {
+			t.Fatal("DefaultBranchHEAD should not be called when clone fails")
+			return "", nil
+		},
+	}
+	runner := &Runner{Claude: &fakeClaude{}, GitHub: gh}
+
+	var out bytes.Buffer
+	err := runner.Run(&out, baseProposeOpts())
+	if err == nil {
+		t.Fatal("expected error when CloneRepo fails")
+	}
+	if !strings.Contains(err.Error(), "cloning repo") {
+		t.Errorf("error should wrap clone failure, got: %v", err)
+	}
+}
+
+func TestProposeRun_AnalyzeErrorPropagates(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	gh := &fakeGitHub{
+		cloneRepo:         func(ref string) (*github.Repo, error) { return fakeRepo(t, "acme", "widgets"), nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha", nil },
+	}
+	claudeMock := &fakeClaude{
+		fn: func(dir string) (*ProposalResult, error) { return nil, errors.New("claude exploded") },
+	}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	var out bytes.Buffer
+	err := runner.Run(&out, baseProposeOpts())
+	if err == nil {
+		t.Fatal("expected error when Analyze fails")
+	}
+	if !strings.Contains(err.Error(), "claude analysis") {
+		t.Errorf("error should wrap claude analysis failure, got: %v", err)
+	}
+}
+
+func TestProposeRun_CorruptedCacheFallsBackToFreshAnalysis(t *testing.T) {
+	// When a cached entry is not valid JSON, Run must log a warning and
+	// re-run the analysis rather than returning an error.
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	gh := &fakeGitHub{
+		cloneRepo:         func(ref string) (*github.Repo, error) { return fakeRepo(t, "acme", "widgets"), nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-corrupt", nil },
+	}
+	cacheKey := cache.RepoKey("acme", "widgets", "sha-corrupt")
+	if err := cache.PutRaw(cacheKey, []byte("not valid json{")); err != nil {
+		t.Fatalf("seeding cache: %v", err)
+	}
+
+	claudeMock := &fakeClaude{
+		fn: func(dir string) (*ProposalResult, error) {
+			return &ProposalResult{RepositoryOverview: "Recovered overview"}, nil
+		},
+	}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	var out bytes.Buffer
+	if err := runner.Run(&out, baseProposeOpts()); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if claudeMock.calls != 1 {
+		t.Errorf("Analyze should run after corrupted cache, got %d calls", claudeMock.calls)
+	}
+	if !strings.Contains(out.String(), "Recovered overview") {
+		t.Errorf("output missing fresh overview after cache corruption, got:\n%s", out.String())
+	}
+}
