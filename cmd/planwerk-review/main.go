@@ -34,12 +34,15 @@ const (
 	formatIssues   = "issues"
 )
 
-// resolveMaxPatterns returns the effective max-patterns limit, preferring
-// an explicitly set CLI flag, then PLANWERK_MAX_PATTERNS, then the default.
-// A value of 0 or negative disables truncation.
-func resolveMaxPatterns(flagValue int, flagSet bool) (int, error) {
+// resolveMaxPatterns returns the effective max-patterns limit. Precedence:
+// explicit CLI flag, then .planwerk/config.yaml, then PLANWERK_MAX_PATTERNS,
+// then the compiled-in default. A value of 0 or negative disables truncation.
+func resolveMaxPatterns(flagValue int, flagSet bool, fileValue *int) (int, error) {
 	if flagSet {
 		return flagValue, nil
+	}
+	if fileValue != nil {
+		return *fileValue, nil
 	}
 	if raw, ok := os.LookupEnv(envMaxPatterns); ok && raw != "" {
 		v, err := strconv.Atoi(raw)
@@ -123,6 +126,7 @@ func main() {
 	var minSeverity string
 	var showVersion, verbose bool
 	var logFormat string
+	var fileCfg cli.FileConfig
 
 	rootCmd := &cobra.Command{
 		Use:   "planwerk-review <pr-ref>",
@@ -142,11 +146,19 @@ or short form (owner/repo#123).`,
 			if err != nil {
 				return err
 			}
-			return logging.Init(logging.Options{
+			if err := logging.Init(logging.Options{
 				Writer:  os.Stderr,
 				Format:  format,
 				Verbose: verbose,
-			})
+			}); err != nil {
+				return err
+			}
+			loaded, _, err := cli.LoadFileConfig(cli.DefaultConfigPath)
+			if err != nil {
+				return err
+			}
+			fileCfg = loaded
+			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if showVersion {
@@ -162,7 +174,9 @@ or short form (owner/repo#123).`,
 			}
 			cfg.PRRef = args[0]
 
-			maxPatterns, err := resolveMaxPatterns(cfg.MaxPatterns, cmd.Flags().Changed("max-patterns"))
+			fileCfg.ApplyReview(&cfg, &minSeverity, cmd.Flags().Changed)
+
+			maxPatterns, err := resolveMaxPatterns(cfg.MaxPatterns, cmd.Flags().Changed("max-patterns"), fileCfg.Review.MaxPatterns)
 			if err != nil {
 				return err
 			}
@@ -236,7 +250,9 @@ or short form (owner/repo).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			proposeCfg.RepoRef = args[0]
 
-			maxPatterns, err := resolveMaxPatterns(proposeCfg.MaxPatterns, cmd.Flags().Changed("max-patterns"))
+			fileCfg.ApplyPropose(&proposeCfg, cmd.Flags().Changed)
+
+			maxPatterns, err := resolveMaxPatterns(proposeCfg.MaxPatterns, cmd.Flags().Changed("max-patterns"), fileCfg.Propose.MaxPatterns)
 			if err != nil {
 				return err
 			}
@@ -285,7 +301,9 @@ or short form (owner/repo).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			auditCfg.RepoRef = args[0]
 
-			maxPatterns, err := resolveMaxPatterns(auditCfg.MaxPatterns, cmd.Flags().Changed("max-patterns"))
+			fileCfg.ApplyAudit(&auditCfg, &auditMinSeverity, &auditIssueMinSeverity, cmd.Flags().Changed)
+
+			maxPatterns, err := resolveMaxPatterns(auditCfg.MaxPatterns, cmd.Flags().Changed("max-patterns"), fileCfg.Audit.MaxPatterns)
 			if err != nil {
 				return err
 			}

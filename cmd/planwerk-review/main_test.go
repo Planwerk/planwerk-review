@@ -73,3 +73,68 @@ func TestWriteVersionDevWarning(t *testing.T) {
 		t.Fatalf("dev build must emit warning: %q", buf.String())
 	}
 }
+
+func intPtr(i int) *int { return &i }
+
+func TestResolveMaxPatternsFlagWins(t *testing.T) {
+	t.Setenv(envMaxPatterns, "99")
+	got, err := resolveMaxPatterns(7, true, intPtr(42))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != 7 {
+		t.Fatalf("got %d, want 7 (flag value)", got)
+	}
+}
+
+func TestResolveMaxPatternsFileBeatsEnv(t *testing.T) {
+	t.Setenv(envMaxPatterns, "99")
+	got, err := resolveMaxPatterns(0, false, intPtr(42))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != 42 {
+		t.Fatalf("got %d, want 42 (file value)", got)
+	}
+}
+
+func TestResolveMaxPatternsEnvBeatsDefault(t *testing.T) {
+	t.Setenv(envMaxPatterns, "17")
+	got, err := resolveMaxPatterns(0, false, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != 17 {
+		t.Fatalf("got %d, want 17 (env value)", got)
+	}
+}
+
+func TestResolveMaxPatternsDefault(t *testing.T) {
+	t.Setenv(envMaxPatterns, "")
+	got, err := resolveMaxPatterns(0, false, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got <= 0 {
+		t.Fatalf("expected positive default, got %d", got)
+	}
+}
+
+func TestResolveMaxPatternsInvalidEnv(t *testing.T) {
+	t.Setenv(envMaxPatterns, "not-a-number")
+	_, err := resolveMaxPatterns(0, false, nil)
+	if err == nil {
+		t.Fatalf("expected error for invalid env, got nil")
+	}
+}
+
+func TestResolveMaxPatternsFileZeroDisablesTruncation(t *testing.T) {
+	t.Setenv(envMaxPatterns, "50")
+	got, err := resolveMaxPatterns(0, false, intPtr(0))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != 0 {
+		t.Fatalf("got %d, want 0 (file value disables truncation)", got)
+	}
+}

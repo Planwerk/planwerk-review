@@ -181,7 +181,7 @@ planwerk-review owner/repo#123 > review.md
 | `--inline` | Post review with inline comments using GitHub Review API (implies `--post-review`) | `false` |
 | `--thorough` | Run additional adversarial review pass for security and failure modes | `false` |
 | `--coverage-map` | Generate test coverage map for changed functions | `false` |
-| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; overridable via `PLANWERK_MAX_PATTERNS`) | `50` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; see [Configuration File](#configuration-file) for precedence with `PLANWERK_MAX_PATTERNS`) | `50` |
 | `--max-findings` | Cap on findings returned (`<=0` disables cap) | `0` |
 
 ##### Global Flags
@@ -229,7 +229,7 @@ planwerk-review propose owner/repo > proposals.md
 | `--no-local-patterns` | Ignore local patterns from the tool | `false` |
 | `--no-cache` | Ignore cache, force a fresh analysis | `false` |
 | `--format` | Output format (`markdown`, `json`, `issues`) | `markdown` |
-| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; overridable via `PLANWERK_MAX_PATTERNS`) | `50` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; see [Configuration File](#configuration-file) for precedence with `PLANWERK_MAX_PATTERNS`) | `50` |
 | `--create-issues` | Interactively create GitHub issues from proposals | `false` |
 | `--no-issue-dedupe` | Do not filter proposals whose title matches an existing GitHub issue | `false` |
 
@@ -275,7 +275,7 @@ planwerk-review audit owner/repo > audit.md
 | `--no-local-patterns` | Ignore local patterns from the tool | `false` |
 | `--no-cache` | Ignore cache, force a fresh audit | `false` |
 | `--format` | Output format (`markdown`, `json`) | `markdown` |
-| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; overridable via `PLANWERK_MAX_PATTERNS`) | `50` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; see [Configuration File](#configuration-file) for precedence with `PLANWERK_MAX_PATTERNS`) | `50` |
 | `--max-findings` | Cap on findings returned (`<=0` disables cap) | `0` |
 | `--create-issues` | Interactively create GitHub issues from findings | `false` |
 | `--issue-min-severity` | Minimum severity for issue creation | `warning` |
@@ -300,6 +300,60 @@ continues.
 Pass `--no-issue-dedupe` (on either subcommand) to disable the filter for
 debugging or when you want to see the full candidate list regardless of
 upstream state.
+
+### Configuration File
+
+For repos that run `review`, `propose`, or `audit` repeatedly with the same
+flags, defaults can be pinned in `.planwerk/config.yaml`. The file is loaded
+from the current working directory if present — so dropping it at the repo
+root lets teams standardize conventions once instead of repeating flags in
+every CI invocation and local run.
+
+#### Precedence
+
+Values are resolved in this order (highest wins):
+
+1. **Command-line flag** — `--min-severity`, `--max-patterns`, etc.
+2. **Config file** — `.planwerk/config.yaml` entries.
+3. **Environment variable** — e.g. `PLANWERK_MAX_PATTERNS`.
+4. **Compiled-in default** — what you get with no config at all.
+
+Only fields explicitly set in the file override the lower tiers; absent keys
+fall through. A malformed file (bad YAML or unknown keys) is a hard error so
+that typos surface immediately rather than silently running with the wrong
+settings.
+
+#### Schema
+
+```yaml
+# .planwerk/config.yaml
+review:
+  min-severity: warning        # info | warning | critical | blocking
+  max-patterns: 40             # <=0 disables truncation
+  max-findings: 25             # <=0 disables cap
+  format: markdown             # markdown | json
+  patterns:
+    - ./custom-review-patterns
+
+propose:
+  max-patterns: 60
+  format: issues               # markdown | json | issues
+  patterns: []
+
+audit:
+  min-severity: warning        # info | warning | critical | blocking
+  issue-min-severity: critical # default: warning
+  max-patterns: 40
+  max-findings: 50
+  format: markdown             # markdown | json
+  patterns: []
+```
+
+All keys are optional. Flags beyond `--min-severity`, `--max-patterns`,
+`--max-findings`, `--format`, and `--patterns` (the high-churn ones) remain
+CLI-only to keep the config surface small; boolean toggles like
+`--post-review`, `--inline`, `--thorough`, and `--no-cache` stay on the
+command line where they belong.
 
 ### Shell Completions & Man Pages
 
