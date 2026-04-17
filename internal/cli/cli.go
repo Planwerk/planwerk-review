@@ -44,19 +44,21 @@ func (c Config) ToReviewOptions(version string) review.Options {
 
 // ProposeConfig holds configuration for the propose command.
 type ProposeConfig struct {
-	RepoRef      string
-	NoCache      bool
-	Format       string // "markdown", "json", "issues"
-	CreateIssues bool
+	RepoRef       string
+	NoCache       bool
+	Format        string // "markdown", "json", "issues"
+	CreateIssues  bool
+	NoIssueDedupe bool
 }
 
 func (c ProposeConfig) ToProposeOptions(version string) propose.Options {
 	return propose.Options{
-		RepoRef:      c.RepoRef,
-		NoCache:      c.NoCache,
-		Format:       c.Format,
-		Version:      version,
-		CreateIssues: c.CreateIssues,
+		RepoRef:       c.RepoRef,
+		NoCache:       c.NoCache,
+		Format:        c.Format,
+		Version:       version,
+		CreateIssues:  c.CreateIssues,
+		NoIssueDedupe: c.NoIssueDedupe,
 	}
 }
 
@@ -73,6 +75,7 @@ type AuditConfig struct {
 	MaxFindings      int
 	CreateIssues     bool
 	IssueMinSeverity report.Severity
+	NoIssueDedupe    bool
 }
 
 func (c AuditConfig) ToAuditOptions(version string) audit.Options {
@@ -89,5 +92,6 @@ func (c AuditConfig) ToAuditOptions(version string) audit.Options {
 		MaxFindings:      c.MaxFindings,
 		CreateIssues:     c.CreateIssues,
 		IssueMinSeverity: c.IssueMinSeverity,
+		NoIssueDedupe:    c.NoIssueDedupe,
 	}
 }

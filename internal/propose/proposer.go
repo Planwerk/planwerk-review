@@ -12,11 +12,12 @@ import (
 
 // Options configures the proposal pipeline.
 type Options struct {
-	RepoRef      string
-	NoCache      bool
-	Format       string // "markdown", "json", "issues"
-	Version      string
-	CreateIssues bool // interactive issue creation after proposal generation
+	RepoRef       string
+	NoCache       bool
+	Format        string // "markdown", "json", "issues"
+	Version       string
+	CreateIssues  bool // interactive issue creation after proposal generation
+	NoIssueDedupe bool // skip filtering proposals against existing GitHub issues
 }
 
 // Runner executes the propose pipeline using injected Claude and GitHub
@@ -67,6 +68,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 			var result ProposalResult
 			if err := json.Unmarshal(data, &result); err == nil {
 				slog.Info("using cached proposal result — skipping clone", "repo", opts.RepoRef)
+				r.applyIssueDedupe(&result, owner, name, opts)
 				return renderProposals(w, &result, &github.Repo{Owner: owner, Name: name}, opts)
 			}
 			slog.Warn("cache corrupted, running fresh analysis")
@@ -97,7 +99,43 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	}
 
 	slog.Info("analysis complete")
+	r.applyIssueDedupe(result, owner, name, opts)
 	return renderProposals(w, result, repo, opts)
+}
+
+// applyIssueDedupe filters out proposals whose title matches an existing
+// GitHub issue (open or closed) in the target repo. Dedupe runs after the
+// cache layer so cached Claude output stays faithful to what Claude returned —
+// issue state changes take effect on every run without invalidating the cache.
+// A lister error logs a warning and skips dedupe rather than failing the run.
+func (r *Runner) applyIssueDedupe(result *ProposalResult, owner, name string, opts Options) {
+	if opts.NoIssueDedupe || r.GitHub == nil {
+		return
+	}
+	existing, err := r.GitHub.ListExistingIssues(owner, name)
+	if err != nil {
+		slog.Warn("could not list existing issues, skipping dedupe", "err", err)
+		return
+	}
+	idx := github.BuildTitleIndex(existing)
+	if len(idx) == 0 {
+		return
+	}
+	before := len(result.Proposals)
+	kept := make([]Proposal, 0, before)
+	for _, p := range result.Proposals {
+		if match, ok := idx.Lookup(p.Title); ok {
+			slog.Debug("skipping proposal already tracked by an existing issue",
+				"title", p.Title, "existing", match.URL)
+			continue
+		}
+		kept = append(kept, p)
+	}
+	result.Proposals = kept
+	if filtered := before - len(kept); filtered > 0 {
+		slog.Info("filtered proposals with existing issues",
+			"filtered", filtered, "kept", len(kept))
+	}
 }
 
 func renderProposals(w io.Writer, result *ProposalResult, repo *github.Repo, opts Options) error {

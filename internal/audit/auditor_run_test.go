@@ -14,11 +14,15 @@ import (
 	"github.com/planwerk/planwerk-review/internal/report"
 )
 
-// fakeGitHub is a test GitHubClient whose CloneRepo / DefaultBranchHEAD
-// behavior is configured per-test via closures.
+const testDefaultBranchSHA = "sha"
+
+// fakeGitHub is a test GitHubClient whose CloneRepo / DefaultBranchHEAD /
+// ListExistingIssues behavior is configured per-test via closures. A nil
+// listExistingIssues returns no existing issues so dedupe is a no-op.
 type fakeGitHub struct {
-	cloneRepo         func(ref string) (*github.Repo, error)
-	defaultBranchHEAD func(owner, name string) (string, error)
+	cloneRepo          func(ref string) (*github.Repo, error)
+	defaultBranchHEAD  func(owner, name string) (string, error)
+	listExistingIssues func(owner, name string) ([]github.ExistingIssue, error)
 }
 
 func (f *fakeGitHub) CloneRepo(ref string) (*github.Repo, error) {
@@ -27,6 +31,13 @@ func (f *fakeGitHub) CloneRepo(ref string) (*github.Repo, error) {
 
 func (f *fakeGitHub) DefaultBranchHEAD(owner, name string) (string, error) {
 	return f.defaultBranchHEAD(owner, name)
+}
+
+func (f *fakeGitHub) ListExistingIssues(owner, name string) ([]github.ExistingIssue, error) {
+	if f.listExistingIssues == nil {
+		return nil, nil
+	}
+	return f.listExistingIssues(owner, name)
 }
 
 // fakeClaude is a test ClaudeAuditor. Audit records how many times it was
@@ -215,7 +226,7 @@ func TestAuditRun_CloneErrorFailsFast(t *testing.T) {
 
 	gh := &fakeGitHub{
 		cloneRepo:         func(ref string) (*github.Repo, error) { return nil, errors.New("clone failed") },
-		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha", nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return testDefaultBranchSHA, nil },
 	}
 	runner := &Runner{Claude: &fakeClaude{}, GitHub: gh}
 
@@ -301,7 +312,7 @@ func TestAuditRun_ClaudeErrorPropagates(t *testing.T) {
 	patternDir := seedPatternDir(t)
 	gh := &fakeGitHub{
 		cloneRepo:         func(ref string) (*github.Repo, error) { return fakeRepo(t, "acme", "widgets"), nil },
-		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha", nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return testDefaultBranchSHA, nil },
 	}
 	claudeMock := &fakeClaude{
 		fn: func(dir string, ctx AuditContext) (*report.ReviewResult, error) {
@@ -320,6 +331,118 @@ func TestAuditRun_ClaudeErrorPropagates(t *testing.T) {
 	}
 }
 
+func TestAuditRun_FiltersFindingsMatchingExistingIssues(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	patternDir := seedPatternDir(t)
+	repo := fakeRepo(t, "acme", "widgets")
+
+	// Two findings, one of which shares a group title with an existing issue.
+	findings := []report.Finding{
+		{ID: "W-1", Severity: report.SeverityWarning, Title: "Missing error check", Pattern: "err-check", File: "a.go", Line: 10, Problem: "p", Action: "a"},
+		{ID: "W-2", Severity: report.SeverityWarning, Title: "Unused var", Pattern: "unused", File: "b.go", Line: 5, Problem: "p", Action: "a"},
+	}
+	// Pre-compute the title Audit would build for group #1 so the fake
+	// existing-issues list has something that matches by normalization.
+	g1 := GroupFindings([]report.Finding{findings[0]})[0]
+	trackedTitle := buildGroupTitle(g1) + "!"
+
+	gh := &fakeGitHub{
+		cloneRepo:         func(ref string) (*github.Repo, error) { return repo, nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-audit-dedupe", nil },
+		listExistingIssues: func(owner, name string) ([]github.ExistingIssue, error) {
+			return []github.ExistingIssue{{Title: trackedTitle, URL: "https://example/1"}}, nil
+		},
+	}
+	claudeMock := &fakeClaude{
+		fn: func(dir string, ctx AuditContext) (*report.ReviewResult, error) {
+			return &report.ReviewResult{Summary: "s", Findings: findings}, nil
+		},
+	}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	var out bytes.Buffer
+	if err := runner.Run(&out, baseAuditOpts(patternDir)); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	s := out.String()
+	if strings.Contains(s, "Missing error check") {
+		t.Errorf("deduped finding still present in output:\n%s", s)
+	}
+	if !strings.Contains(s, "Unused var") {
+		t.Errorf("non-duplicate finding missing from output:\n%s", s)
+	}
+}
+
+func TestAuditRun_DedupeDisabledByFlag(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	patternDir := seedPatternDir(t)
+	repo := fakeRepo(t, "acme", "widgets")
+
+	listerCalled := false
+	gh := &fakeGitHub{
+		cloneRepo:         func(ref string) (*github.Repo, error) { return repo, nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-audit-nodedupe", nil },
+		listExistingIssues: func(owner, name string) ([]github.ExistingIssue, error) {
+			listerCalled = true
+			return nil, nil
+		},
+	}
+	claudeMock := &fakeClaude{
+		fn: func(dir string, ctx AuditContext) (*report.ReviewResult, error) {
+			return &report.ReviewResult{Summary: "s", Findings: []report.Finding{
+				{ID: "W-1", Severity: report.SeverityWarning, Title: "t", Pattern: "p", File: "f.go", Line: 1, Problem: "p", Action: "a"},
+			}}, nil
+		},
+	}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	opts := baseAuditOpts(patternDir)
+	opts.NoIssueDedupe = true
+	var out bytes.Buffer
+	if err := runner.Run(&out, opts); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if listerCalled {
+		t.Error("ListExistingIssues must not be called when NoIssueDedupe=true")
+	}
+}
+
+func TestAuditRun_DedupeListerErrorIsNonFatal(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	patternDir := seedPatternDir(t)
+	repo := fakeRepo(t, "acme", "widgets")
+
+	gh := &fakeGitHub{
+		cloneRepo:         func(ref string) (*github.Repo, error) { return repo, nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-audit-listerr", nil },
+		listExistingIssues: func(owner, name string) ([]github.ExistingIssue, error) {
+			return nil, errors.New("gh boom")
+		},
+	}
+	claudeMock := &fakeClaude{
+		fn: func(dir string, ctx AuditContext) (*report.ReviewResult, error) {
+			return &report.ReviewResult{Summary: "s", Findings: []report.Finding{
+				{ID: "W-1", Severity: report.SeverityWarning, Title: "kept", Pattern: "p", File: "f.go", Line: 1, Problem: "p", Action: "a"},
+			}}, nil
+		},
+	}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	var out bytes.Buffer
+	if err := runner.Run(&out, baseAuditOpts(patternDir)); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if !strings.Contains(out.String(), "kept") {
+		t.Errorf("finding must survive dedupe-lister failure:\n%s", out.String())
+	}
+}
+
 func TestAuditRun_EmptyPatternsIsError(t *testing.T) {
 	// Audit requires at least one pattern; otherwise it has nothing to
 	// audit against and Run must return an error before calling Claude.
@@ -328,7 +451,7 @@ func TestAuditRun_EmptyPatternsIsError(t *testing.T) {
 
 	gh := &fakeGitHub{
 		cloneRepo:         func(ref string) (*github.Repo, error) { return fakeRepo(t, "acme", "widgets"), nil },
-		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha", nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return testDefaultBranchSHA, nil },
 	}
 	claudeMock := &fakeClaude{
 		fn: func(dir string, ctx AuditContext) (*report.ReviewResult, error) {

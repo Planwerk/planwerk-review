@@ -226,6 +226,7 @@ planwerk-review propose owner/repo > proposals.md
 | `--no-cache` | Ignore cache, force a fresh analysis | `false` |
 | `--format` | Output format (`markdown`, `json`, `issues`) | `markdown` |
 | `--create-issues` | Interactively create GitHub issues from proposals | `false` |
+| `--no-issue-dedupe` | Do not filter proposals whose title matches an existing GitHub issue | `false` |
 
 #### Audit (subcommand)
 
@@ -264,6 +265,29 @@ planwerk-review audit owner/repo > audit.md
 | `--format` | Output format (`markdown`, `json`) | `markdown` |
 | `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; overridable via `PLANWERK_MAX_PATTERNS`) | `50` |
 | `--max-findings` | Cap on findings returned (`<=0` disables cap) | `0` |
+| `--create-issues` | Interactively create GitHub issues from findings | `false` |
+| `--issue-min-severity` | Minimum severity for issue creation | `warning` |
+| `--no-issue-dedupe` | Do not filter findings whose title matches an existing GitHub issue | `false` |
+
+#### Existing-Issue Dedupe
+
+Before rendering, both `propose` and `audit` query the target repo's GitHub
+issues (open and closed) once via `gh issue list` and drop any
+proposal/finding whose title matches an existing issue. This keeps repeated
+runs idempotent: work that's already tracked upstream disappears from every
+output format — Markdown, JSON, `--format=issues`, and the interactive
+`--create-issues` flow.
+
+Matching is case-insensitive, trims surrounding whitespace, collapses internal
+whitespace, and ignores trailing punctuation (`.`, `!`, `?`, `,`, `;`, `:`).
+Severity prefixes like `[BLOCKING] …` are treated as part of the title, so a
+finding escalated from `WARNING` to `CRITICAL` still surfaces as a new item.
+If `gh issue list` fails, dedupe is skipped with a warning and the pipeline
+continues.
+
+Pass `--no-issue-dedupe` (on either subcommand) to disable the filter for
+debugging or when you want to see the full candidate list regardless of
+upstream state.
 
 ### Shell Completions & Man Pages
 

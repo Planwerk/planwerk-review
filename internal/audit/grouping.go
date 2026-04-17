@@ -37,7 +37,7 @@ func GroupFindings(findings []report.Finding) []FindingGroup {
 		if pattern == "" {
 			pattern = f.Title
 		}
-		key := pattern + "|" + f.File
+		key := findingGroupKey(f)
 
 		g, ok := byKey[key]
 		if !ok {

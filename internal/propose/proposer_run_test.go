@@ -11,11 +11,13 @@ import (
 	"github.com/planwerk/planwerk-review/internal/github"
 )
 
-// fakeGitHub is a test GitHubClient whose CloneRepo / DefaultBranchHEAD
-// behavior is configured per-test via closures.
+// fakeGitHub is a test GitHubClient whose CloneRepo / DefaultBranchHEAD /
+// ListExistingIssues behavior is configured per-test via closures. A nil
+// listExistingIssues returns no existing issues so dedupe is a no-op.
 type fakeGitHub struct {
-	cloneRepo         func(ref string) (*github.Repo, error)
-	defaultBranchHEAD func(owner, name string) (string, error)
+	cloneRepo          func(ref string) (*github.Repo, error)
+	defaultBranchHEAD  func(owner, name string) (string, error)
+	listExistingIssues func(owner, name string) ([]github.ExistingIssue, error)
 }
 
 func (f *fakeGitHub) CloneRepo(ref string) (*github.Repo, error) {
@@ -24,6 +26,13 @@ func (f *fakeGitHub) CloneRepo(ref string) (*github.Repo, error) {
 
 func (f *fakeGitHub) DefaultBranchHEAD(owner, name string) (string, error) {
 	return f.defaultBranchHEAD(owner, name)
+}
+
+func (f *fakeGitHub) ListExistingIssues(owner, name string) ([]github.ExistingIssue, error) {
+	if f.listExistingIssues == nil {
+		return nil, nil
+	}
+	return f.listExistingIssues(owner, name)
 }
 
 // fakeClaude is a test ClaudeAnalyzer tracking call count so cache-hit tests
@@ -283,6 +292,113 @@ func TestProposeRun_AnalyzeErrorPropagates(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "claude analysis") {
 		t.Errorf("error should wrap claude analysis failure, got: %v", err)
+	}
+}
+
+func TestProposeRun_FiltersProposalsMatchingExistingIssues(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	repo := fakeRepo(t, "acme", "widgets")
+	gh := &fakeGitHub{
+		cloneRepo:         func(ref string) (*github.Repo, error) { return repo, nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-dedupe", nil },
+		listExistingIssues: func(owner, name string) ([]github.ExistingIssue, error) {
+			return []github.ExistingIssue{
+				{Title: "Add LOGGING.", URL: "https://example/1"},
+			}, nil
+		},
+	}
+	claudeMock := &fakeClaude{
+		fn: func(dir string) (*ProposalResult, error) {
+			return &ProposalResult{
+				RepositoryOverview: "overview",
+				Proposals: []Proposal{
+					{ID: "P-1", Priority: "HIGH", Title: "Add logging", Description: "d", Motivation: "m"},
+					{ID: "P-2", Priority: "HIGH", Title: "Add metrics", Description: "d", Motivation: "m"},
+				},
+			}, nil
+		},
+	}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	var out bytes.Buffer
+	if err := runner.Run(&out, baseProposeOpts()); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	s := out.String()
+	if strings.Contains(s, "Add logging") {
+		t.Errorf("deduped proposal still present in output:\n%s", s)
+	}
+	if !strings.Contains(s, "Add metrics") {
+		t.Errorf("non-duplicate proposal missing from output:\n%s", s)
+	}
+}
+
+func TestProposeRun_DedupeDisabledByFlag(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	repo := fakeRepo(t, "acme", "widgets")
+	listerCalled := false
+	gh := &fakeGitHub{
+		cloneRepo:         func(ref string) (*github.Repo, error) { return repo, nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-nodedupe", nil },
+		listExistingIssues: func(owner, name string) ([]github.ExistingIssue, error) {
+			listerCalled = true
+			return []github.ExistingIssue{{Title: "Add logging", URL: "u"}}, nil
+		},
+	}
+	claudeMock := &fakeClaude{
+		fn: func(dir string) (*ProposalResult, error) {
+			return &ProposalResult{Proposals: []Proposal{
+				{ID: "P-1", Priority: "HIGH", Title: "Add logging", Description: "d", Motivation: "m"},
+			}}, nil
+		},
+	}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	opts := baseProposeOpts()
+	opts.NoIssueDedupe = true
+	var out bytes.Buffer
+	if err := runner.Run(&out, opts); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if listerCalled {
+		t.Error("ListExistingIssues must not be called when NoIssueDedupe=true")
+	}
+	if !strings.Contains(out.String(), "Add logging") {
+		t.Errorf("proposal must be kept when dedupe is disabled:\n%s", out.String())
+	}
+}
+
+func TestProposeRun_DedupeListerErrorIsNonFatal(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	repo := fakeRepo(t, "acme", "widgets")
+	gh := &fakeGitHub{
+		cloneRepo:         func(ref string) (*github.Repo, error) { return repo, nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-listerr", nil },
+		listExistingIssues: func(owner, name string) ([]github.ExistingIssue, error) {
+			return nil, errors.New("gh boom")
+		},
+	}
+	claudeMock := &fakeClaude{
+		fn: func(dir string) (*ProposalResult, error) {
+			return &ProposalResult{Proposals: []Proposal{
+				{ID: "P-1", Priority: "HIGH", Title: "Add logging", Description: "d", Motivation: "m"},
+			}}, nil
+		},
+	}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	var out bytes.Buffer
+	if err := runner.Run(&out, baseProposeOpts()); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if !strings.Contains(out.String(), "Add logging") {
+		t.Errorf("proposal must survive dedupe-lister failure:\n%s", out.String())
 	}
 }
 

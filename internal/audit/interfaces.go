@@ -14,11 +14,13 @@ type ClaudeAuditor interface {
 }
 
 // GitHubClient wraps the GitHub operations the audit pipeline needs: cloning
-// the repository and resolving the default-branch HEAD for cache keying. Tests
-// inject mock clients to avoid touching the real git or gh CLI.
+// the repository, resolving the default-branch HEAD for cache keying, and
+// listing existing issues for duplicate detection. Tests inject mock clients
+// to avoid touching the real git or gh CLI.
 type GitHubClient interface {
 	CloneRepo(ref string) (*github.Repo, error)
 	DefaultBranchHEAD(owner, name string) (string, error)
+	ListExistingIssues(owner, name string) ([]github.ExistingIssue, error)
 }
 
 // auditFnAdapter adapts an AuditFn to the ClaudeAuditor interface so callers
@@ -40,4 +42,8 @@ func (defaultGitHubClient) CloneRepo(ref string) (*github.Repo, error) {
 
 func (defaultGitHubClient) DefaultBranchHEAD(owner, name string) (string, error) {
 	return github.DefaultBranchHEAD(owner, name)
+}
+
+func (defaultGitHubClient) ListExistingIssues(owner, name string) ([]github.ExistingIssue, error) {
+	return github.ListAllIssues(owner, name)
 }

@@ -12,11 +12,13 @@ type ClaudeAnalyzer interface {
 }
 
 // GitHubClient wraps the GitHub operations the propose pipeline needs:
-// cloning the repository and resolving the default-branch HEAD for cache
-// keying. Tests inject mock clients to avoid touching the real git or gh CLI.
+// cloning the repository, resolving the default-branch HEAD for cache keying,
+// and listing existing issues for duplicate detection. Tests inject mock
+// clients to avoid touching the real git or gh CLI.
 type GitHubClient interface {
 	CloneRepo(ref string) (*github.Repo, error)
 	DefaultBranchHEAD(owner, name string) (string, error)
+	ListExistingIssues(owner, name string) ([]github.ExistingIssue, error)
 }
 
 // AnalyzeFn is the bare-function form of ClaudeAnalyzer that existing callers
@@ -40,4 +42,8 @@ func (defaultGitHubClient) CloneRepo(ref string) (*github.Repo, error) {
 
 func (defaultGitHubClient) DefaultBranchHEAD(owner, name string) (string, error) {
 	return github.DefaultBranchHEAD(owner, name)
+}
+
+func (defaultGitHubClient) ListExistingIssues(owner, name string) ([]github.ExistingIssue, error) {
+	return github.ListAllIssues(owner, name)
 }

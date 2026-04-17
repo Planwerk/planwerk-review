@@ -30,6 +30,7 @@ type Options struct {
 	MaxFindings      int             // cap on findings Claude returns; <= 0 disables cap
 	CreateIssues     bool            // interactively create GitHub issues after audit
 	IssueMinSeverity report.Severity // minimum severity for a finding group to become an issue candidate
+	NoIssueDedupe    bool            // skip filtering findings against existing GitHub issues
 }
 
 // AuditFn performs the Claude-backed codebase audit for a cloned repo.
@@ -100,6 +101,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 			var result report.ReviewResult
 			if err := json.Unmarshal(data, &result); err == nil {
 				slog.Info("using cached audit result — skipping clone", "repo", opts.RepoRef)
+				r.applyIssueDedupe(&result, owner, name, opts)
 				return renderAudit(w, &result, &github.Repo{Owner: owner, Name: name}, opts)
 			}
 			slog.Warn("cache corrupted, running fresh audit")
@@ -150,7 +152,67 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	}
 
 	slog.Info("audit complete")
+	r.applyIssueDedupe(result, repo.Owner, repo.Name, opts)
 	return renderAudit(w, result, repo, opts)
+}
+
+// applyIssueDedupe filters out findings whose grouped issue-candidate title
+// matches an existing GitHub issue (open or closed) in the target repo. Runs
+// after the cache layer so cached Claude output stays faithful to what Claude
+// returned — issue state changes take effect on every run without invalidating
+// the cache. A lister error logs a warning and skips dedupe rather than
+// failing the run.
+func (r *Runner) applyIssueDedupe(result *report.ReviewResult, owner, name string, opts Options) {
+	if opts.NoIssueDedupe || r.GitHub == nil {
+		return
+	}
+	existing, err := r.GitHub.ListExistingIssues(owner, name)
+	if err != nil {
+		slog.Warn("could not list existing issues, skipping dedupe", "err", err)
+		return
+	}
+	idx := github.BuildTitleIndex(existing)
+	if len(idx) == 0 {
+		return
+	}
+
+	groups := GroupFindings(result.Findings)
+	dropKeys := make(map[string]struct{})
+	for _, g := range groups {
+		if match, ok := idx.Lookup(buildGroupTitle(g)); ok {
+			slog.Debug("skipping finding group already tracked by an existing issue",
+				"title", buildGroupTitle(g), "existing", match.URL)
+			dropKeys[g.Key] = struct{}{}
+		}
+	}
+	if len(dropKeys) == 0 {
+		return
+	}
+
+	before := len(result.Findings)
+	kept := make([]report.Finding, 0, before)
+	for _, f := range result.Findings {
+		if _, drop := dropKeys[findingGroupKey(f)]; drop {
+			continue
+		}
+		kept = append(kept, f)
+	}
+	result.Findings = kept
+	slog.Info("filtered findings with existing issues",
+		"groups_filtered", len(dropKeys),
+		"findings_filtered", before-len(kept),
+		"findings_kept", len(kept))
+}
+
+// findingGroupKey replicates the grouping key used by GroupFindings so the
+// dedupe pass can map individual findings back to the group that produced the
+// candidate title. Keep these two definitions in sync.
+func findingGroupKey(f report.Finding) string {
+	pattern := f.Pattern
+	if pattern == "" {
+		pattern = f.Title
+	}
+	return pattern + "|" + f.File
 }
 
 // collectPatternDirs assembles the list of pattern directories to load from,
