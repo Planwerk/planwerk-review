@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"runtime/debug"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -46,11 +49,77 @@ func resolveMaxPatterns(flagValue int, flagSet bool) (int, error) {
 	return patterns.DefaultMaxPatternsInPrompt, nil
 }
 
-var version = "dev"
+// devVersion is the placeholder version string used when no release version
+// has been injected via ldflags. Triggers the unreleased-build warning.
+const devVersion = "dev"
+
+var version = devVersion
+
+// buildInfo holds resolved version and build metadata, populated either from
+// ldflags (main.version) or from runtime/debug.ReadBuildInfo.
+type buildInfo struct {
+	Version   string
+	Commit    string
+	BuildDate string
+	GoVersion string
+	IsDev     bool
+}
+
+// resolveBuildInfo returns build metadata, preferring the ldflags-injected
+// version and falling back to debug.ReadBuildInfo when it is unset.
+func resolveBuildInfo(ldflagsVersion string) buildInfo {
+	bi := buildInfo{Version: ldflagsVersion}
+
+	if info, ok := debug.ReadBuildInfo(); ok {
+		bi.GoVersion = info.GoVersion
+		if bi.Version == "" || bi.Version == devVersion {
+			if v := info.Main.Version; v != "" && v != "(devel)" {
+				bi.Version = v
+			}
+		}
+		for _, s := range info.Settings {
+			switch s.Key {
+			case "vcs.revision":
+				bi.Commit = s.Value
+			case "vcs.time":
+				bi.BuildDate = s.Value
+			}
+		}
+	}
+
+	if bi.Version == "" {
+		bi.Version = devVersion
+	}
+	bi.IsDev = bi.Version == devVersion
+	return bi
+}
+
+// writeVersion renders the version line, optional verbose build details, and
+// a warning when this is an unreleased development build.
+func writeVersion(w io.Writer, bi buildInfo, verbose bool) {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "planwerk-review version %s\n", bi.Version)
+	if verbose {
+		if bi.Commit != "" {
+			fmt.Fprintf(&sb, "commit: %s\n", bi.Commit)
+		}
+		if bi.BuildDate != "" {
+			fmt.Fprintf(&sb, "built: %s\n", bi.BuildDate)
+		}
+		if bi.GoVersion != "" {
+			fmt.Fprintf(&sb, "go: %s\n", bi.GoVersion)
+		}
+	}
+	if bi.IsDev {
+		sb.WriteString("warning: unreleased development build — version metadata unavailable\n")
+	}
+	_, _ = io.WriteString(w, sb.String())
+}
 
 func main() {
 	var cfg cli.Config
 	var minSeverity string
+	var showVersion, verbose bool
 
 	rootCmd := &cobra.Command{
 		Use:   "planwerk-review <pr-ref>",
@@ -62,6 +131,10 @@ PR reference can be a URL (https://github.com/owner/repo/pull/123)
 or short form (owner/repo#123).`,
 		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if showVersion {
+				writeVersion(cmd.OutOrStdout(), resolveBuildInfo(version), verbose)
+				return nil
+			}
 			if cfg.ClearCache {
 				return cache.Clear()
 			}
@@ -123,6 +196,8 @@ or short form (owner/repo#123).`,
 	flags.BoolVar(&cfg.Thorough, "thorough", false, "Run additional adversarial review pass")
 	flags.BoolVar(&cfg.CoverageMap, "coverage-map", false, "Generate test coverage map for changed functions")
 	flags.IntVar(&cfg.MaxPatterns, "max-patterns", patterns.DefaultMaxPatternsInPrompt, "Max review patterns injected into the prompt (<=0 disables truncation, env: "+envMaxPatterns+")")
+	flags.BoolVar(&showVersion, "version", false, "Show version information and exit")
+	flags.BoolVarP(&verbose, "verbose", "v", false, "Show verbose build information (with --version)")
 
 	// propose subcommand
 	var proposeCfg cli.ProposeConfig
@@ -252,8 +327,6 @@ or short form (owner/repo).`,
 		},
 	}
 	rootCmd.AddCommand(genManCmd)
-
-	rootCmd.Version = version
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
