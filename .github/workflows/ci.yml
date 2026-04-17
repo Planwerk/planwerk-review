@@ -35,6 +35,17 @@ jobs:
           go-version-file: go.mod
       - run: go build ./cmd/planwerk-review/
 
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test -run=^$ -fuzz=FuzzParseDiff -fuzztime=30s ./internal/github/
+      - run: go test -run=^$ -fuzz=FuzzParse -fuzztime=30s ./internal/patterns/
+      - run: go test -run=^$ -fuzz=FuzzStripMarkdownFences -fuzztime=30s ./internal/claude/
+
   vet:
     runs-on: ubuntu-latest
     steps:

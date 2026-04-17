@@ -443,16 +443,19 @@ func extractText(raw []byte) (string, error) {
 // stripMarkdownFences removes ```json ... ``` wrapping that LLMs frequently add.
 func stripMarkdownFences(s string) string {
 	s = strings.TrimSpace(s)
-	if strings.HasPrefix(s, "```") {
-		// Remove opening fence (```json or ```)
-		if idx := strings.Index(s, "\n"); idx != -1 {
-			s = s[idx+1:]
-		}
-		// Remove closing fence
-		s = strings.TrimSuffix(s, "```")
-		s = strings.TrimSpace(s)
+	// Only strip when the block is well-formed: opening fence, newline,
+	// and a matching closing fence. Otherwise leave the input untouched
+	// so downstream parsers see the original content.
+	if !strings.HasPrefix(s, "```") || !strings.HasSuffix(s, "```") {
+		return s
 	}
-	return s
+	idx := strings.Index(s, "\n")
+	if idx == -1 {
+		return s
+	}
+	s = s[idx+1:]
+	s = strings.TrimSuffix(s, "```")
+	return strings.TrimSpace(s)
 }
 
 func assignIDs(result *report.ReviewResult) {
