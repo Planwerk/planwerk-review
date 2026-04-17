@@ -154,7 +154,7 @@ func TestAuditRun_NoCacheRefreshesResult(t *testing.T) {
 	// Seed cache with sentinel to confirm NoCache bypasses it. Cache key owner/name
 	// follow ParseRepoRef(opts.RepoRef) = ("owner", "repo").
 	cacheKey := cache.AuditKey("owner", "repo", "sha-audit-nocache", "min="+string(report.SeverityInfo))
-	if err := cache.PutRaw(cacheKey, []byte(`{"summary":"CACHED SENTINEL"}`)); err != nil {
+	if err := cache.PutRaw(cacheKey, cache.CommandAudit, []byte(`{"summary":"CACHED SENTINEL"}`)); err != nil {
 		t.Fatalf("seeding cache: %v", err)
 	}
 
@@ -249,7 +249,7 @@ func TestAuditRun_CacheHitSkipsClone(t *testing.T) {
 	// baseAuditOpts uses RepoRef "owner/repo", so the cache key owner/name
 	// must match ParseRepoRef("owner/repo") = ("owner", "repo").
 	cacheKey := cache.AuditKey("owner", "repo", "sha-skip-clone", "min="+string(report.SeverityInfo))
-	if err := cache.PutRaw(cacheKey, []byte(`{"summary":"Cached audit"}`)); err != nil {
+	if err := cache.PutRaw(cacheKey, cache.CommandAudit, []byte(`{"summary":"Cached audit"}`)); err != nil {
 		t.Fatalf("seeding cache: %v", err)
 	}
 

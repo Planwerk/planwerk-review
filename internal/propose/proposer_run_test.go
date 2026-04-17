@@ -40,9 +40,9 @@ func (f *fakeGitHub) ListExistingIssues(owner, name string) ([]github.ExistingIs
 // fakeClaude is a test ClaudeAnalyzer tracking call count so cache-hit tests
 // can assert Claude was skipped.
 type fakeClaude struct {
-	calls    int32
-	lastCtx  AnalysisContext
-	fn       func(dir string, ctx AnalysisContext) (*ProposalResult, error)
+	calls   int32
+	lastCtx AnalysisContext
+	fn      func(dir string, ctx AnalysisContext) (*ProposalResult, error)
 }
 
 func (f *fakeClaude) Analyze(dir string, ctx AnalysisContext) (*ProposalResult, error) {
@@ -133,7 +133,7 @@ func TestProposeRun_NoCacheBypassesCachedEntry(t *testing.T) {
 	// Seed the cache with a sentinel that NoCache must ignore. Cache key owner/name
 	// follow ParseRepoRef(opts.RepoRef) = ("owner", "repo").
 	cacheKey := cache.RepoKey("owner", "repo", "sha-propose-nocache")
-	if err := cache.PutRaw(cacheKey, []byte(`{"repository_overview":"CACHED SENTINEL"}`)); err != nil {
+	if err := cache.PutRaw(cacheKey, cache.CommandPropose, []byte(`{"repository_overview":"CACHED SENTINEL"}`)); err != nil {
 		t.Fatalf("seeding cache: %v", err)
 	}
 
@@ -223,7 +223,7 @@ func TestProposeRun_CacheHitSkipsClone(t *testing.T) {
 	// baseProposeOpts uses RepoRef "owner/repo", so the cache key owner/name
 	// must match ParseRepoRef("owner/repo") = ("owner", "repo").
 	cacheKey := cache.RepoKey("owner", "repo", "sha-skip-clone")
-	if err := cache.PutRaw(cacheKey, []byte(`{"repository_overview":"Cached overview"}`)); err != nil {
+	if err := cache.PutRaw(cacheKey, cache.CommandPropose, []byte(`{"repository_overview":"Cached overview"}`)); err != nil {
 		t.Fatalf("seeding cache: %v", err)
 	}
 
@@ -285,7 +285,9 @@ func TestProposeRun_AnalyzeErrorPropagates(t *testing.T) {
 		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha", nil },
 	}
 	claudeMock := &fakeClaude{
-		fn: func(dir string, _ AnalysisContext) (*ProposalResult, error) { return nil, errors.New("claude exploded") },
+		fn: func(dir string, _ AnalysisContext) (*ProposalResult, error) {
+			return nil, errors.New("claude exploded")
+		},
 	}
 	runner := &Runner{Claude: claudeMock, GitHub: gh}
 
@@ -486,16 +488,19 @@ func TestProposeRun_NoPatternsIsNonFatal(t *testing.T) {
 func TestProposeRun_CorruptedCacheFallsBackToFreshAnalysis(t *testing.T) {
 	// When a cached entry is not valid JSON, Run must log a warning and
 	// re-run the analysis rather than returning an error.
-	restore := cache.SetDir(t.TempDir())
+	cacheDir := t.TempDir()
+	restore := cache.SetDir(cacheDir)
 	t.Cleanup(restore)
 
 	gh := &fakeGitHub{
 		cloneRepo:         func(ref string) (*github.Repo, error) { return fakeRepo(t, "acme", "widgets"), nil },
 		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-corrupt", nil },
 	}
-	// Cache key owner/name follow ParseRepoRef(opts.RepoRef) = ("owner", "repo").
+	// Write a corrupt file directly, bypassing the envelope-writing API so the
+	// stored bytes cannot be unmarshalled. Cache key owner/name follow
+	// ParseRepoRef(opts.RepoRef) = ("owner", "repo").
 	cacheKey := cache.RepoKey("owner", "repo", "sha-corrupt")
-	if err := cache.PutRaw(cacheKey, []byte("not valid json{")); err != nil {
+	if err := os.WriteFile(filepath.Join(cacheDir, cacheKey+".json"), []byte("not valid json{"), 0o600); err != nil {
 		t.Fatalf("seeding cache: %v", err)
 	}
 

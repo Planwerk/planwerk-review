@@ -1,13 +1,18 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"runtime/debug"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -121,6 +126,101 @@ func writeVersion(w io.Writer, bi buildInfo, verbose bool) {
 	_, _ = io.WriteString(w, sb.String())
 }
 
+// validateCacheScope rejects scope strings that don't match a known command.
+// An empty scope means "all commands" and is always valid.
+func validateCacheScope(scope string) error {
+	switch scope {
+	case "", cache.CommandReview, cache.CommandPropose, cache.CommandAudit:
+		return nil
+	default:
+		return fmt.Errorf("unknown cache scope %q, supported: review, propose, audit", scope)
+	}
+}
+
+// runCacheStats renders a human-readable summary of the cache directory.
+func runCacheStats(w io.Writer) error {
+	stats, err := cache.Stats()
+	if err != nil {
+		return err
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "cache dir: %s\n", stats.Dir)
+	fmt.Fprintf(&sb, "entries:   %d\n", stats.Total)
+	fmt.Fprintf(&sb, "size:      %s\n", humanBytes(stats.TotalSize))
+	if stats.Total > 0 {
+		fmt.Fprintln(&sb, "by command:")
+		names := make([]string, 0, len(stats.ByCommand))
+		for name := range stats.ByCommand {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			cs := stats.ByCommand[name]
+			fmt.Fprintf(&sb, "  %-8s %3d entries  %s\n", name, cs.Count, humanBytes(cs.Size))
+		}
+		fmt.Fprintln(&sb, "age distribution:")
+		fmt.Fprintf(&sb, "  <= 1 day:    %d\n", stats.Ages.LessThanDay)
+		fmt.Fprintf(&sb, "  <= 1 week:   %d\n", stats.Ages.LessThanWeek)
+		fmt.Fprintf(&sb, "  <= 1 month:  %d\n", stats.Ages.LessThanMonth)
+		fmt.Fprintf(&sb, "  >  1 month:  %d\n", stats.Ages.OlderThanMonth)
+		if stats.Newest != nil {
+			fmt.Fprintf(&sb, "newest:   %s  %s  (%s ago)\n",
+				stats.Newest.Key, stats.Newest.Command, stats.Newest.Age.Round(time.Second))
+		}
+		if stats.Oldest != nil && (stats.Newest == nil || stats.Newest.Key != stats.Oldest.Key) {
+			fmt.Fprintf(&sb, "oldest:   %s  %s  (%s ago)\n",
+				stats.Oldest.Key, stats.Oldest.Command, stats.Oldest.Age.Round(time.Second))
+		}
+	}
+	_, err = io.WriteString(w, sb.String())
+	return err
+}
+
+// runCacheInspect prints metadata plus the pretty-printed JSON payload for a
+// single cache key.
+func runCacheInspect(w io.Writer, key string) error {
+	meta, payload, err := cache.Inspect(key)
+	if err != nil {
+		if errors.Is(err, cache.ErrNotFound) {
+			return fmt.Errorf("no cache entry for key %q", key)
+		}
+		return err
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "key:       %s\n", meta.Key)
+	fmt.Fprintf(&sb, "command:   %s\n", meta.Command)
+	if !meta.WrittenAt.IsZero() {
+		fmt.Fprintf(&sb, "writtenAt: %s\n", meta.WrittenAt.Format(time.RFC3339))
+		fmt.Fprintf(&sb, "age:       %s\n", meta.Age.Round(time.Second))
+	} else {
+		fmt.Fprintln(&sb, "writtenAt: (unknown — legacy entry)")
+	}
+	fmt.Fprintf(&sb, "size:      %s\n", humanBytes(meta.Size))
+	fmt.Fprintln(&sb, "payload:")
+	var pretty bytes.Buffer
+	if err := json.Indent(&pretty, payload, "  ", "  "); err != nil {
+		fmt.Fprintf(&sb, "  %s\n", string(payload))
+	} else {
+		fmt.Fprintf(&sb, "  %s\n", pretty.String())
+	}
+	_, err = io.WriteString(w, sb.String())
+	return err
+}
+
+// humanBytes formats a byte count using binary units (KiB/MiB/...).
+func humanBytes(n int64) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := int64(unit), 0
+	for v := n / unit; v >= unit; v /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
+}
+
 func main() {
 	var cfg cli.Config
 	var minSeverity string
@@ -165,8 +265,18 @@ or short form (owner/repo#123).`,
 				writeVersion(cmd.OutOrStdout(), resolveBuildInfo(version), verbose)
 				return nil
 			}
-			if cfg.ClearCache {
-				return cache.Clear()
+			if cfg.CacheStats {
+				return runCacheStats(cmd.OutOrStdout())
+			}
+			if cfg.CacheInspect != "" {
+				return runCacheInspect(cmd.OutOrStdout(), cfg.CacheInspect)
+			}
+			if cfg.ClearCache || cfg.ClearCacheScope != "" {
+				scope := cfg.ClearCacheScope
+				if err := validateCacheScope(scope); err != nil {
+					return err
+				}
+				return cache.Clear(scope)
 			}
 
 			if len(args) == 0 {
@@ -225,7 +335,11 @@ or short form (owner/repo#123).`,
 	flags.BoolVar(&cfg.NoRepoPatterns, "no-repo-patterns", false, "Ignore repo-specific patterns")
 	flags.BoolVar(&cfg.NoLocalPatterns, "no-local-patterns", false, "Ignore local patterns from the tool")
 	flags.BoolVar(&cfg.NoCache, "no-cache", false, "Ignore cache, force a fresh review")
-	flags.BoolVar(&cfg.ClearCache, "clear-cache", false, "Clear all cached reviews and exit")
+	flags.BoolVar(&cfg.ClearCache, "clear-cache", false, "Clear cached reviews and exit (honors --clear-cache-scope)")
+	flags.StringVar(&cfg.ClearCacheScope, "clear-cache-scope", "", "Restrict --clear-cache to a single command (review, propose, audit)")
+	flags.BoolVar(&cfg.CacheStats, "cache-stats", false, "Show cache size, age distribution, and per-command breakdown, then exit")
+	flags.StringVar(&cfg.CacheInspect, "cache-inspect", "", "Print the metadata and payload for the given cache key, then exit")
+	flags.DurationVar(&cfg.CacheMaxAge, "cache-max-age", cache.DefaultMaxAge, "Reject cached entries older than this duration (0 disables the TTL)")
 	flags.StringVar(&cfg.Format, "format", "markdown", "Output format (markdown, json)")
 	flags.BoolVar(&cfg.PostReview, "post-review", false, "Post the review as a comment on the PR")
 	flags.BoolVar(&cfg.InlineReview, "inline", false, "Post review with inline comments using GitHub Review API (implies --post-review)")
@@ -274,6 +388,7 @@ or short form (owner/repo).`,
 	proposeFlags.BoolVar(&proposeCfg.NoRepoPatterns, "no-repo-patterns", false, "Ignore repo-specific patterns")
 	proposeFlags.BoolVar(&proposeCfg.NoLocalPatterns, "no-local-patterns", false, "Ignore local patterns from the tool")
 	proposeFlags.BoolVar(&proposeCfg.NoCache, "no-cache", false, "Ignore cache, force a fresh analysis")
+	proposeFlags.DurationVar(&proposeCfg.CacheMaxAge, "cache-max-age", cache.DefaultMaxAge, "Reject cached entries older than this duration (0 disables the TTL)")
 	proposeFlags.StringVar(&proposeCfg.Format, "format", "markdown", "Output format (markdown, json, issues)")
 	proposeFlags.IntVar(&proposeCfg.MaxPatterns, "max-patterns", patterns.DefaultMaxPatternsInPrompt, "Max review patterns injected into the prompt (<=0 disables truncation, env: "+envMaxPatterns+")")
 	proposeFlags.BoolVar(&proposeCfg.CreateIssues, "create-issues", false, "Interactively create GitHub issues from proposals")
@@ -350,6 +465,7 @@ or short form (owner/repo).`,
 	auditFlags.BoolVar(&auditCfg.NoRepoPatterns, "no-repo-patterns", false, "Ignore repo-specific patterns")
 	auditFlags.BoolVar(&auditCfg.NoLocalPatterns, "no-local-patterns", false, "Ignore local patterns from the tool")
 	auditFlags.BoolVar(&auditCfg.NoCache, "no-cache", false, "Ignore cache, force a fresh audit")
+	auditFlags.DurationVar(&auditCfg.CacheMaxAge, "cache-max-age", cache.DefaultMaxAge, "Reject cached entries older than this duration (0 disables the TTL)")
 	auditFlags.StringVar(&auditCfg.Format, "format", "markdown", "Output format (markdown, json)")
 	auditFlags.IntVar(&auditCfg.MaxPatterns, "max-patterns", patterns.DefaultMaxPatternsInPrompt, "Max review patterns injected into the prompt (<=0 disables truncation, env: "+envMaxPatterns+")")
 	auditFlags.IntVar(&auditCfg.MaxFindings, "max-findings", 0, "Cap on findings returned (<=0 disables cap)")

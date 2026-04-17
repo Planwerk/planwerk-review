@@ -40,8 +40,9 @@ type Options struct {
 	InlineReview    bool
 	Thorough        bool
 	CoverageMap     bool
-	MaxPatterns     int // max patterns to inject into prompt; <= 0 disables truncation
-	MaxFindings     int // cap on findings Claude returns; <= 0 disables cap
+	MaxPatterns     int           // max patterns to inject into prompt; <= 0 disables truncation
+	MaxFindings     int           // cap on findings Claude returns; <= 0 disables cap
+	CacheMaxAge     time.Duration // reject cache entries older than this; <= 0 disables the TTL
 }
 
 // Runner executes the review pipeline using injected Claude and GitHub
@@ -91,7 +92,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	}
 	cacheKey := cache.Key(pr.Owner, pr.Repo, pr.Number, pr.HeadSHA, cacheFlags...)
 	if !opts.NoCache {
-		if result, ok := cache.Get(cacheKey); ok {
+		if result, ok := cache.Get(cacheKey, opts.CacheMaxAge); ok {
 			slog.Info("using cached review result")
 			return r.renderResult(w, result, pr, opts, nil)
 		}
@@ -255,7 +256,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 
 	// 12. Cache result
 	if !opts.NoCache {
-		if err := cache.Put(cacheKey, result); err != nil {
+		if err := cache.Put(cacheKey, cache.CommandReview, result); err != nil {
 			slog.Warn("could not cache result", "err", err)
 		}
 	}

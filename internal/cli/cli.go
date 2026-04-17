@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"time"
+
 	"github.com/planwerk/planwerk-review/internal/audit"
 	"github.com/planwerk/planwerk-review/internal/propose"
 	"github.com/planwerk/planwerk-review/internal/report"
@@ -16,6 +18,10 @@ type Config struct {
 	NoLocalPatterns bool
 	NoCache         bool
 	ClearCache      bool
+	ClearCacheScope string // restrict --clear-cache to a single command (review/propose/audit); empty = all
+	CacheStats      bool
+	CacheInspect    string // cache key to print contents + metadata for
+	CacheMaxAge     time.Duration
 	Format          string
 	PostReview      bool
 	InlineReview    bool
@@ -41,6 +47,7 @@ func (c Config) ToReviewOptions(version string) review.Options {
 		CoverageMap:     c.CoverageMap,
 		MaxPatterns:     c.MaxPatterns,
 		MaxFindings:     c.MaxFindings,
+		CacheMaxAge:     c.CacheMaxAge,
 	}
 }
 
@@ -55,6 +62,7 @@ type ProposeConfig struct {
 	MaxPatterns     int
 	CreateIssues    bool
 	NoIssueDedupe   bool
+	CacheMaxAge     time.Duration
 }
 
 func (c ProposeConfig) ToProposeOptions(version string) propose.Options {
@@ -69,6 +77,7 @@ func (c ProposeConfig) ToProposeOptions(version string) propose.Options {
 		MaxPatterns:     c.MaxPatterns,
 		CreateIssues:    c.CreateIssues,
 		NoIssueDedupe:   c.NoIssueDedupe,
+		CacheMaxAge:     c.CacheMaxAge,
 	}
 }
 
@@ -86,6 +95,7 @@ type AuditConfig struct {
 	CreateIssues     bool
 	IssueMinSeverity report.Severity
 	NoIssueDedupe    bool
+	CacheMaxAge      time.Duration
 }
 
 func (c AuditConfig) ToAuditOptions(version string) audit.Options {
@@ -103,5 +113,6 @@ func (c AuditConfig) ToAuditOptions(version string) audit.Options {
 		CreateIssues:     c.CreateIssues,
 		IssueMinSeverity: c.IssueMinSeverity,
 		NoIssueDedupe:    c.NoIssueDedupe,
+		CacheMaxAge:      c.CacheMaxAge,
 	}
 }

@@ -1,6 +1,14 @@
 package cache
 
-import "testing"
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/planwerk/planwerk-review/internal/report"
+)
 
 func TestKey(t *testing.T) {
 	k1 := Key("owner", "repo", 1, "abc123")
@@ -65,5 +73,189 @@ func TestAuditKey_DistinctFromRepoKey(t *testing.T) {
 	proposeK := RepoKey("owner", "repo", "abc123")
 	if auditK == proposeK {
 		t.Error("AuditKey and RepoKey must use distinct namespaces")
+	}
+}
+
+func TestPutGet_RoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	t.Cleanup(SetDir(dir))
+
+	result := &report.ReviewResult{Summary: "hello"}
+	if err := Put("k1", CommandReview, result); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	got, ok := Get("k1", 0)
+	if !ok {
+		t.Fatal("expected cache hit")
+	}
+	if got.Summary != "hello" {
+		t.Errorf("Summary = %q, want %q", got.Summary, "hello")
+	}
+}
+
+func TestGet_RejectsEntriesBeyondMaxAge(t *testing.T) {
+	dir := t.TempDir()
+	t.Cleanup(SetDir(dir))
+
+	// Write entry with a frozen writtenAt 10 days in the past.
+	past := time.Now().Add(-10 * 24 * time.Hour)
+	t.Cleanup(SetNow(func() time.Time { return past }))
+	if err := Put("k1", CommandReview, &report.ReviewResult{Summary: "old"}); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+
+	// Restore real clock; 7-day TTL should reject, 30-day TTL should accept.
+	now = time.Now
+	if _, ok := Get("k1", 7*24*time.Hour); ok {
+		t.Error("entry older than max-age should miss")
+	}
+	if _, ok := Get("k1", 30*24*time.Hour); !ok {
+		t.Error("entry within max-age should hit")
+	}
+	if _, ok := Get("k1", 0); !ok {
+		t.Error("zero max-age should disable TTL")
+	}
+}
+
+func TestGet_LegacyEntryWithoutEnvelopeTreatedAsMiss(t *testing.T) {
+	dir := t.TempDir()
+	t.Cleanup(SetDir(dir))
+
+	// Write a pre-envelope file: just the ReviewResult JSON.
+	legacy, _ := json.Marshal(&report.ReviewResult{Summary: "legacy"})
+	if err := os.WriteFile(filepath.Join(dir, "legacy.json"), legacy, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := Get("legacy", 0); ok {
+		t.Error("legacy entry without envelope must be treated as a cache miss")
+	}
+}
+
+func TestPutRawGetRaw_RoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	t.Cleanup(SetDir(dir))
+
+	payload := []byte(`{"hello":"world"}`)
+	if err := PutRaw("k1", CommandPropose, payload); err != nil {
+		t.Fatalf("PutRaw: %v", err)
+	}
+	got, ok := GetRaw("k1", 0)
+	if !ok {
+		t.Fatal("expected cache hit")
+	}
+	if string(got) != string(payload) {
+		t.Errorf("GetRaw = %q, want %q", got, payload)
+	}
+}
+
+func TestClear_ScopedByCommand(t *testing.T) {
+	dir := t.TempDir()
+	t.Cleanup(SetDir(dir))
+
+	if err := PutRaw("review-key", CommandReview, []byte(`{"a":1}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := PutRaw("propose-key", CommandPropose, []byte(`{"b":2}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := PutRaw("audit-key", CommandAudit, []byte(`{"c":3}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Clear(CommandPropose); err != nil {
+		t.Fatalf("Clear(propose): %v", err)
+	}
+	if _, ok := GetRaw("review-key", 0); !ok {
+		t.Error("review entry should survive a propose-scoped clear")
+	}
+	if _, ok := GetRaw("audit-key", 0); !ok {
+		t.Error("audit entry should survive a propose-scoped clear")
+	}
+	if _, ok := GetRaw("propose-key", 0); ok {
+		t.Error("propose entry should have been cleared")
+	}
+
+	if err := Clear(""); err != nil {
+		t.Fatalf("Clear(all): %v", err)
+	}
+	if _, ok := GetRaw("review-key", 0); ok {
+		t.Error("unscoped clear should remove all entries")
+	}
+}
+
+func TestStats(t *testing.T) {
+	dir := t.TempDir()
+	t.Cleanup(SetDir(dir))
+
+	now := time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC)
+	t.Cleanup(SetNow(func() time.Time { return now }))
+
+	// Fresh propose entry (now).
+	if err := PutRaw("fresh", CommandPropose, []byte(`{"a":1}`)); err != nil {
+		t.Fatal(err)
+	}
+	// Review entry from 3 days ago.
+	SetNow(func() time.Time { return now.Add(-3 * 24 * time.Hour) })
+	if err := PutRaw("review", CommandReview, []byte(`{"b":2}`)); err != nil {
+		t.Fatal(err)
+	}
+	// Audit entry from 40 days ago.
+	SetNow(func() time.Time { return now.Add(-40 * 24 * time.Hour) })
+	if err := PutRaw("audit", CommandAudit, []byte(`{"c":3}`)); err != nil {
+		t.Fatal(err)
+	}
+	SetNow(func() time.Time { return now })
+
+	stats, err := Stats()
+	if err != nil {
+		t.Fatalf("Stats: %v", err)
+	}
+	if stats.Total != 3 {
+		t.Errorf("Total = %d, want 3", stats.Total)
+	}
+	if stats.ByCommand[CommandPropose].Count != 1 || stats.ByCommand[CommandReview].Count != 1 || stats.ByCommand[CommandAudit].Count != 1 {
+		t.Errorf("per-command counts wrong: %+v", stats.ByCommand)
+	}
+	if stats.Ages.LessThanDay != 1 {
+		t.Errorf("LessThanDay = %d, want 1", stats.Ages.LessThanDay)
+	}
+	if stats.Ages.LessThanWeek != 1 {
+		t.Errorf("LessThanWeek = %d, want 1", stats.Ages.LessThanWeek)
+	}
+	if stats.Ages.OlderThanMonth != 1 {
+		t.Errorf("OlderThanMonth = %d, want 1", stats.Ages.OlderThanMonth)
+	}
+	if stats.Newest == nil || stats.Newest.Key != "fresh" {
+		t.Errorf("Newest = %+v, want key=fresh", stats.Newest)
+	}
+	if stats.Oldest == nil || stats.Oldest.Key != "audit" {
+		t.Errorf("Oldest = %+v, want key=audit", stats.Oldest)
+	}
+}
+
+func TestInspect(t *testing.T) {
+	dir := t.TempDir()
+	t.Cleanup(SetDir(dir))
+
+	payload := []byte(`{"ok":true}`)
+	if err := PutRaw("k1", CommandAudit, payload); err != nil {
+		t.Fatal(err)
+	}
+	meta, data, err := Inspect("k1")
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if meta.Command != CommandAudit {
+		t.Errorf("Command = %q, want %q", meta.Command, CommandAudit)
+	}
+	if string(data) != string(payload) {
+		t.Errorf("payload = %q, want %q", data, payload)
+	}
+	if meta.WrittenAt.IsZero() {
+		t.Error("WrittenAt should be populated")
+	}
+
+	if _, _, err := Inspect("missing"); err == nil {
+		t.Error("Inspect(missing) should return an error")
 	}
 }

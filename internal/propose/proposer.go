@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/planwerk/planwerk-review/internal/cache"
 	"github.com/planwerk/planwerk-review/internal/detect"
@@ -24,9 +25,10 @@ type Options struct {
 	NoCache         bool
 	Format          string // "markdown", "json", "issues"
 	Version         string
-	MaxPatterns     int  // max patterns to inject into prompt; <= 0 disables truncation
-	CreateIssues    bool // interactive issue creation after proposal generation
-	NoIssueDedupe   bool // skip filtering proposals against existing GitHub issues
+	MaxPatterns     int           // max patterns to inject into prompt; <= 0 disables truncation
+	CreateIssues    bool          // interactive issue creation after proposal generation
+	NoIssueDedupe   bool          // skip filtering proposals against existing GitHub issues
+	CacheMaxAge     time.Duration // reject cache entries older than this; <= 0 disables the TTL
 }
 
 // Runner executes the propose pipeline using injected Claude and GitHub
@@ -73,7 +75,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 
 	cacheKey := cache.RepoKey(owner, name, headSHA)
 	if !opts.NoCache && headSHA != "" {
-		if data, ok := cache.GetRaw(cacheKey); ok {
+		if data, ok := cache.GetRaw(cacheKey, opts.CacheMaxAge); ok {
 			var result ProposalResult
 			if err := json.Unmarshal(data, &result); err == nil {
 				slog.Info("using cached proposal result — skipping clone", "repo", opts.RepoRef)
@@ -121,7 +123,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 
 	if !opts.NoCache && headSHA != "" {
 		if data, err := json.Marshal(result); err == nil {
-			if err := cache.PutRaw(cacheKey, data); err != nil {
+			if err := cache.PutRaw(cacheKey, cache.CommandPropose, data); err != nil {
 				slog.Warn("could not cache result", "err", err)
 			}
 		}

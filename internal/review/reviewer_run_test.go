@@ -163,7 +163,7 @@ func TestRun_NoCache_SkipsCachedResult(t *testing.T) {
 	// Seed the cache with a sentinel result.
 	pr := fakePR(t, "acme", "widgets", 7, "sha-nocache")
 	cachedResult := &report.ReviewResult{Summary: "CACHED SUMMARY SHOULD BE IGNORED"}
-	if err := cache.Put(cache.Key(pr.Owner, pr.Repo, pr.Number, pr.HeadSHA), cachedResult); err != nil {
+	if err := cache.Put(cache.Key(pr.Owner, pr.Repo, pr.Number, pr.HeadSHA), cache.CommandReview, cachedResult); err != nil {
 		t.Fatalf("seeding cache: %v", err)
 	}
 

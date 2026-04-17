@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/planwerk/planwerk-review/internal/cache"
 	"github.com/planwerk/planwerk-review/internal/detect"
@@ -31,6 +32,7 @@ type Options struct {
 	CreateIssues     bool            // interactively create GitHub issues after audit
 	IssueMinSeverity report.Severity // minimum severity for a finding group to become an issue candidate
 	NoIssueDedupe    bool            // skip filtering findings against existing GitHub issues
+	CacheMaxAge      time.Duration   // reject cache entries older than this; <= 0 disables the TTL
 }
 
 // AuditFn performs the Claude-backed codebase audit for a cloned repo.
@@ -97,7 +99,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	cacheKey := cache.AuditKey(owner, name, headSHA, cacheFlags...)
 
 	if !opts.NoCache && headSHA != "" {
-		if data, ok := cache.GetRaw(cacheKey); ok {
+		if data, ok := cache.GetRaw(cacheKey, opts.CacheMaxAge); ok {
 			var result report.ReviewResult
 			if err := json.Unmarshal(data, &result); err == nil {
 				slog.Info("using cached audit result — skipping clone", "repo", opts.RepoRef)
@@ -145,7 +147,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 
 	if !opts.NoCache && headSHA != "" {
 		if data, err := json.Marshal(result); err == nil {
-			if err := cache.PutRaw(cacheKey, data); err != nil {
+			if err := cache.PutRaw(cacheKey, cache.CommandAudit, data); err != nil {
 				slog.Warn("could not cache result", "err", err)
 			}
 		}
