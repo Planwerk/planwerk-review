@@ -34,7 +34,7 @@ type Options struct {
 
 // AuditFn performs the Claude-backed codebase audit for a cloned repo.
 // It is injected so tests can substitute a fake implementation without
-// invoking the real Claude CLI.
+// invoking the real Claude Code.
 type AuditFn func(dir string, ctx AuditContext) (*report.ReviewResult, error)
 
 // AuditContext holds all context needed to build the audit prompt.

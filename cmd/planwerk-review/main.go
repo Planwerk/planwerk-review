@@ -127,7 +127,7 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:   "planwerk-review <pr-ref>",
 		Short: "AI-powered code review for GitHub Pull Requests",
-		Long: `planwerk-review uses Claude CLI to analyze GitHub PR changes and produces
+		Long: `planwerk-review uses Claude Code to analyze GitHub PR changes and produces
 structured, categorized review results as Markdown or JSON output.
 
 PR reference can be a URL (https://github.com/owner/repo/pull/123)

@@ -51,7 +51,7 @@ type Runner struct {
 	GitHub GitHubClient
 }
 
-// NewRunner returns a Runner wired with the production Claude CLI and
+// NewRunner returns a Runner wired with the production Claude Code and
 // GitHub (gh CLI) backends.
 func NewRunner() *Runner {
 	return &Runner{

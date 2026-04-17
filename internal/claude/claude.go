@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	// claudeTimeout is the maximum time allowed for a Claude CLI invocation.
+	// claudeTimeout is the maximum time allowed for a Claude Code invocation.
 	claudeTimeout = 15 * time.Minute
-	// claudeModel pins every Claude CLI invocation to Opus 4.7. Opus 4.7
+	// claudeModel pins every Claude Code invocation to Opus 4.7. Opus 4.7
 	// follows instructions more literally than earlier models, which matches
 	// the strict MUST/NEVER style used throughout the review prompts.
 	claudeModel = "claude-opus-4-7"

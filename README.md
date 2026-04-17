@@ -3,7 +3,7 @@
 [![CI](https://github.com/planwerk/planwerk-review/actions/workflows/ci.yml/badge.svg)](https://github.com/planwerk/planwerk-review/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/planwerk/planwerk-review/branch/main/graph/badge.svg)](https://codecov.io/gh/planwerk/planwerk-review)
 
-AI-powered code review and codebase analysis tool for GitHub repositories. Uses Claude CLI to automatically analyze PR changes and produce structured review results, to analyze entire repositories and generate actionable feature proposals, or to audit an entire codebase against all known review patterns.
+AI-powered code review and codebase analysis tool for GitHub repositories. Uses Claude Code to automatically analyze PR changes and produce structured review results, to analyze entire repositories and generate actionable feature proposals, or to audit an entire codebase against all known review patterns.
 
 ## Concept
 
@@ -12,7 +12,7 @@ AI-powered code review and codebase analysis tool for GitHub repositories. Uses 
 ```
 Review:
 ┌──────────────┐     ┌──────────────────┐     ┌───────────────┐     ┌──────────────┐
-│  GitHub PR   │────▶│  planwerk-review │────▶│  Claude CLI   │────▶│  Markdown    │
+│  GitHub PR   │────▶│  planwerk-review │────▶│  Claude Code  │────▶│  Markdown    │
 │  (URL/Ref)   │     │                  │     │  /review      │     │  Report      │
 └──────────────┘     └──────────────────┘     └───────────────┘     └──────────────┘
                             │                                              │
@@ -24,7 +24,7 @@ Review:
 
 Propose:
 ┌──────────────┐     ┌──────────────────┐     ┌───────────────┐     ┌──────────────┐
-│  GitHub Repo │────▶│  planwerk-review │────▶│  Claude CLI   │────▶│  Proposals   │
+│  GitHub Repo │────▶│  planwerk-review │────▶│  Claude Code  │────▶│  Proposals   │
 │  (URL/Ref)   │     │  propose         │     │  (analysis)   │     │  (MD/JSON)   │
 └──────────────┘     └──────────────────┘     └───────────────┘     └──────────────┘
                             │                        │                      │
@@ -36,7 +36,7 @@ Propose:
 
 Audit:
 ┌──────────────┐     ┌──────────────────┐     ┌───────────────┐     ┌──────────────┐
-│  GitHub Repo │────▶│  planwerk-review │────▶│  Claude CLI   │────▶│  Findings    │
+│  GitHub Repo │────▶│  planwerk-review │────▶│  Claude Code  │────▶│  Findings    │
 │  (URL/Ref)   │     │  audit           │     │  (full scan)  │     │  (MD/JSON)   │
 └──────────────┘     └──────────────────┘     └───────────────┘     └──────────────┘
                             │                        │
@@ -55,7 +55,7 @@ Audit:
 3. **Load Review Patterns**: Patterns are loaded from two sources:
    - `patterns/` in the planwerk-review repository (general patterns)
    - `.planwerk/review_patterns/` in the target repository (repo-specific patterns)
-4. **Claude CLI Review**: `claude /review` is executed with a structured prompt that includes persona framing, scope analysis, a two-pass checklist, suppression rules, and review patterns.
+4. **Claude Code Review**: `claude /review` is executed with a structured prompt that includes persona framing, scope analysis, a two-pass checklist, suppression rules, and review patterns.
 5. **Result Aggregation**: Review results are collected, deduplicated, categorized by severity, and classified by actionability. Findings are enriched with code snippets, suggested fixes, confidence levels, and cross-references.
 6. **Output**: A structured report is written to `stdout`, optionally posted as a PR comment (`--post-review`), or posted as inline review comments on the PR diff (`--inline`).
 
@@ -297,7 +297,7 @@ The generated Markdown report follows a fixed structure:
 # Review: owner/repo#123
 
 > *Feature: Add user authentication*
-> Reviewed by planwerk-review vX.Y.Z with Claude CLI
+> Reviewed by planwerk-review vX.Y.Z with Claude Code
 
 <!-- planwerk-review: blocking=1 critical=2 warning=3 info=1 recommendation=HOLD -->
 
@@ -503,7 +503,7 @@ planwerk-review/
 │   ├── cli/
 │   │   └── cli.go              # Flag parsing, configuration
 │   ├── claude/
-│   │   ├── claude.go           # Claude CLI invocation + review structuring
+│   │   ├── claude.go           # Claude Code invocation + review structuring
 │   │   ├── claude_test.go
 │   │   ├── adversarial.go      # Adversarial review pass (--thorough)
 │   │   ├── audit.go            # Full-codebase audit against review patterns
@@ -592,14 +592,14 @@ planwerk-review/
 ### Dependencies
 
 - **Go 1.25+**
-- **Claude CLI**: Must be installed and authenticated on the system (`claude` in PATH)
+- **Claude Code**: Must be installed and authenticated on the system (`claude` in PATH)
 - **gh CLI**: Required for fetching PR metadata and checkout (`gh` in PATH)
 - **git**: Required for cloning repositories
 
 ### Prerequisites
 
 1. Go 1.25+ installed (or download a release binary)
-2. Claude CLI installed and authenticated (`claude` in PATH)
+2. Claude Code installed and authenticated (`claude` in PATH)
 3. `gh` CLI installed and authenticated (`gh auth login`)
 4. Access to the target repository (for checkout/clone)
 
@@ -607,7 +607,7 @@ planwerk-review/
 
 | # | Question | Decision | Rationale |
 |---|----------|----------|-----------|
-| 1 | **Claude CLI invocation** | Once for the entire PR | More efficient; Claude sees full context across files |
+| 1 | **Claude Code invocation** | Once for the entire PR | More efficient; Claude sees full context across files |
 | 2 | **Pattern delivery** | Inline in the prompt before `/review` | Patterns are prepended to the `/review` command so Claude considers them during its built-in review |
 | 3 | **Result parsing** | Second Claude call for structuring | `/review` returns unstructured text; a second `claude -p` call converts it to JSON matching the `ReviewResult` schema |
 | 4 | **Authentication** | `gh auth` | Simplest setup; leverages existing developer workflow |

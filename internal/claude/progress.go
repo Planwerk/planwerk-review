@@ -10,7 +10,7 @@ import (
 )
 
 // progressInterval is how often elapsed-time updates are printed while a
-// Claude CLI invocation is in flight.
+// Claude Code invocation is in flight.
 const progressInterval = 15 * time.Second
 
 // progressMu serializes writes to the TTY progress sink so that concurrent
