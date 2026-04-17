@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"runtime/debug"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 	"github.com/planwerk/planwerk-review/internal/cache"
 	"github.com/planwerk/planwerk-review/internal/claude"
 	"github.com/planwerk/planwerk-review/internal/cli"
+	"github.com/planwerk/planwerk-review/internal/logging"
 	"github.com/planwerk/planwerk-review/internal/patterns"
 	"github.com/planwerk/planwerk-review/internal/propose"
 	"github.com/planwerk/planwerk-review/internal/report"
@@ -120,6 +122,7 @@ func main() {
 	var cfg cli.Config
 	var minSeverity string
 	var showVersion, verbose bool
+	var logFormat string
 
 	rootCmd := &cobra.Command{
 		Use:   "planwerk-review <pr-ref>",
@@ -130,6 +133,21 @@ structured, categorized review results as Markdown or JSON output.
 PR reference can be a URL (https://github.com/owner/repo/pull/123)
 or short form (owner/repo#123).`,
 		Args: cobra.RangeArgs(0, 1),
+		// Errors are reported via slog in main() so they honor --log-format;
+		// silencing cobra's own error/usage print avoids duplicate output.
+		SilenceErrors: true,
+		SilenceUsage:  true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			format, err := logging.ParseFormat(logFormat)
+			if err != nil {
+				return err
+			}
+			return logging.Init(logging.Options{
+				Writer:  os.Stderr,
+				Format:  format,
+				Verbose: verbose,
+			})
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if showVersion {
 				writeVersion(cmd.OutOrStdout(), resolveBuildInfo(version), verbose)
@@ -183,6 +201,10 @@ or short form (owner/repo#123).`,
 		},
 	}
 
+	persistent := rootCmd.PersistentFlags()
+	persistent.BoolVarP(&verbose, "verbose", "v", false, "Enable debug-level logging (and verbose build info with --version)")
+	persistent.StringVar(&logFormat, "log-format", "text", "Log output format (text, json)")
+
 	flags := rootCmd.Flags()
 	flags.StringSliceVar(&cfg.PatternDirs, "patterns", nil, "Additional pattern directories")
 	flags.StringVar(&minSeverity, "min-severity", "", "Minimum severity level (info, warning, critical, blocking)")
@@ -197,7 +219,6 @@ or short form (owner/repo#123).`,
 	flags.BoolVar(&cfg.CoverageMap, "coverage-map", false, "Generate test coverage map for changed functions")
 	flags.IntVar(&cfg.MaxPatterns, "max-patterns", patterns.DefaultMaxPatternsInPrompt, "Max review patterns injected into the prompt (<=0 disables truncation, env: "+envMaxPatterns+")")
 	flags.BoolVar(&showVersion, "version", false, "Show version information and exit")
-	flags.BoolVarP(&verbose, "verbose", "v", false, "Show verbose build information (with --version)")
 
 	// propose subcommand
 	var proposeCfg cli.ProposeConfig
@@ -329,7 +350,8 @@ or short form (owner/repo).`,
 	rootCmd.AddCommand(genManCmd)
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		// Route the final error through slog so it honors --log-format.
+		slog.Error(err.Error())
 		os.Exit(1)
 	}
 }

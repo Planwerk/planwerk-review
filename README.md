@@ -180,6 +180,17 @@ planwerk-review owner/repo#123 > review.md
 | `--coverage-map` | Generate test coverage map for changed functions | `false` |
 | `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; overridable via `PLANWERK_MAX_PATTERNS`) | `50` |
 
+##### Global Flags
+
+These flags apply to every `planwerk-review` command (`review`, `propose`, `audit`):
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--verbose`, `-v` | Enable debug-level logging (also shows verbose build info with `--version`) | `false` |
+| `--log-format` | Log output format: `text` (human-friendly, default) or `json` (one JSON object per record, CI-friendly) | `text` |
+
+Logs are written to stderr; when stderr is not a terminal, Claude-invocation heartbeats are still emitted at INFO level so long-running runs are visible in CI log streams.
+
 #### Propose (subcommand)
 
 ```bash

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
+	"log/slog"
 
 	"github.com/planwerk/planwerk-review/internal/cache"
 	"github.com/planwerk/planwerk-review/internal/github"
@@ -23,19 +23,19 @@ type Options struct {
 // clone repo → analyze with Claude → structure proposals → render output.
 func Run(w io.Writer, opts Options, analyzeFn func(dir string) (*ProposalResult, error)) error {
 	// 1. Clone the repository
-	fmt.Fprintf(os.Stderr, "Cloning repository %s...\n", opts.RepoRef)
+	slog.Info("cloning repository", "repo", opts.RepoRef)
 	repo, err := github.CloneRepo(opts.RepoRef)
 	if err != nil {
 		return fmt.Errorf("cloning repo: %w", err)
 	}
 	defer repo.Cleanup()
 
-	fmt.Fprintf(os.Stderr, "Cloned to %s\n", repo.Dir)
+	slog.Info("cloned repository", "dir", repo.Dir)
 
 	// 2. Fetch HEAD SHA for cache key (so cache invalidates when repo changes)
 	headSHA, err := github.DefaultBranchHEAD(repo.Owner, repo.Name)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not fetch HEAD SHA, caching disabled: %v\n", err)
+		slog.Warn("could not fetch HEAD SHA, caching disabled", "err", err)
 		opts.NoCache = true
 		headSHA = ""
 	}
@@ -44,18 +44,18 @@ func Run(w io.Writer, opts Options, analyzeFn func(dir string) (*ProposalResult,
 	cacheKey := cache.RepoKey(repo.Owner, repo.Name, headSHA)
 	if !opts.NoCache {
 		if data, ok := cache.GetRaw(cacheKey); ok {
-			fmt.Fprintln(os.Stderr, "Using cached proposal result.")
+			slog.Info("using cached proposal result")
 			var result ProposalResult
 			if err := json.Unmarshal(data, &result); err == nil {
 				return renderProposals(w, &result, repo, opts)
 			}
 			// If cache is corrupted, continue with fresh analysis
-			fmt.Fprintln(os.Stderr, "Cache corrupted, running fresh analysis.")
+			slog.Warn("cache corrupted, running fresh analysis")
 		}
 	}
 
 	// 4. Run Claude analysis
-	fmt.Fprintln(os.Stderr, "Analyzing codebase with Claude...")
+	slog.Info("analyzing codebase with Claude")
 	result, err := analyzeFn(repo.Dir)
 	if err != nil {
 		return fmt.Errorf("claude analysis: %w", err)
@@ -65,13 +65,13 @@ func Run(w io.Writer, opts Options, analyzeFn func(dir string) (*ProposalResult,
 	if !opts.NoCache {
 		if data, err := json.Marshal(result); err == nil {
 			if err := cache.PutRaw(cacheKey, data); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: could not cache result: %v\n", err)
+				slog.Warn("could not cache result", "err", err)
 			}
 		}
 	}
 
 	// 6. Render output
-	fmt.Fprintln(os.Stderr, "Analysis complete.")
+	slog.Info("analysis complete")
 	return renderProposals(w, result, repo, opts)
 }
 

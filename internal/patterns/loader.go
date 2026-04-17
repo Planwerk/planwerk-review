@@ -3,6 +3,7 @@ package patterns
 import (
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -223,6 +224,6 @@ func truncatePatterns(pats []Pattern, maxPatterns int) []Pattern {
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "Warning: %d patterns loaded, truncated to %d for prompt budget\n", len(pats), maxPatterns)
+	slog.Warn("patterns truncated for prompt budget", "loaded", len(pats), "kept", maxPatterns)
 	return result
 }

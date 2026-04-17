@@ -65,14 +65,51 @@ func TestStartProgressTo_StopIsSynchronousAndSilentAfter(t *testing.T) {
 	}
 }
 
-func TestStartProgress_NoOpWhenStderrNotTerminal(t *testing.T) {
+func TestStartProgress_NonTerminalEmitsSlogHeartbeat(t *testing.T) {
 	prev := stderrIsTerminalFn
 	stderrIsTerminalFn = func() bool { return false }
 	t.Cleanup(func() { stderrIsTerminalFn = prev })
 
-	// The returned stop must be callable and must not block or panic.
+	// The returned stop must be callable and must not block or panic even
+	// when no heartbeat has fired yet.
 	stop := startProgress("review")
 	stop()
+}
+
+func TestStartProgressLogged_EmitsSlogHeartbeat(t *testing.T) {
+	type entry struct {
+		msg  string
+		args []any
+	}
+	var (
+		mu      sync.Mutex
+		entries []entry
+	)
+	prev := slogInfoFn
+	slogInfoFn = func(msg string, args ...any) {
+		mu.Lock()
+		entries = append(entries, entry{msg: msg, args: args})
+		mu.Unlock()
+	}
+	t.Cleanup(func() { slogInfoFn = prev })
+
+	stop := startProgressLogged("review", 10*time.Millisecond)
+	time.Sleep(35 * time.Millisecond)
+	stop()
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(entries) < 2 {
+		t.Fatalf("expected at least two heartbeat log entries, got %d", len(entries))
+	}
+	for _, e := range entries {
+		if e.msg != "claude still running" {
+			t.Errorf("unexpected heartbeat message: %q", e.msg)
+		}
+		if len(e.args) < 4 {
+			t.Errorf("expected label+elapsed attrs, got %v", e.args)
+		}
+	}
 }
 
 // Ensure startProgressTo accepts an io.Writer (compile-time check).

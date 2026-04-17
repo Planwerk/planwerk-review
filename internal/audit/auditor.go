@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,19 +49,19 @@ type AuditContext struct {
 // clone repo → detect technologies → load patterns → Claude audit → render report.
 func Run(w io.Writer, opts Options, auditFn AuditFn) error {
 	// 1. Clone the repository
-	fmt.Fprintf(os.Stderr, "Cloning repository %s...\n", opts.RepoRef)
+	slog.Info("cloning repository", "repo", opts.RepoRef)
 	repo, err := github.CloneRepo(opts.RepoRef)
 	if err != nil {
 		return fmt.Errorf("cloning repo: %w", err)
 	}
 	defer repo.Cleanup()
 
-	fmt.Fprintf(os.Stderr, "Cloned to %s\n", repo.Dir)
+	slog.Info("cloned repository", "dir", repo.Dir)
 
 	// 2. Fetch HEAD SHA for cache key (so cache invalidates when repo changes)
 	headSHA, err := github.DefaultBranchHEAD(repo.Owner, repo.Name)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not fetch HEAD SHA, caching disabled: %v\n", err)
+		slog.Warn("could not fetch HEAD SHA, caching disabled", "err", err)
 		opts.NoCache = true
 		headSHA = ""
 	}
@@ -75,19 +76,19 @@ func Run(w io.Writer, opts Options, auditFn AuditFn) error {
 	// 4. Check cache
 	if !opts.NoCache && headSHA != "" {
 		if data, ok := cache.GetRaw(cacheKey); ok {
-			fmt.Fprintln(os.Stderr, "Using cached audit result.")
+			slog.Info("using cached audit result")
 			var result report.ReviewResult
 			if err := json.Unmarshal(data, &result); err == nil {
 				return renderAudit(w, &result, repo, opts)
 			}
-			fmt.Fprintln(os.Stderr, "Cache corrupted, running fresh audit.")
+			slog.Warn("cache corrupted, running fresh audit")
 		}
 	}
 
 	// 5. Detect technologies in the cloned repo
 	techTags := detect.Technologies(repo.Dir)
 	if len(techTags) > 0 {
-		fmt.Fprintf(os.Stderr, "Detected technologies: %s\n", strings.Join(techTags, ", "))
+		slog.Info("detected technologies", "technologies", strings.Join(techTags, ", "))
 	}
 
 	// 6. Load patterns (filtered by detected technologies)
@@ -99,10 +100,10 @@ func Run(w io.Writer, opts Options, auditFn AuditFn) error {
 	if len(pats) == 0 {
 		return fmt.Errorf("no review patterns loaded — nothing to audit against")
 	}
-	fmt.Fprintf(os.Stderr, "Loaded %d review pattern(s).\n", len(pats))
+	slog.Info("loaded review patterns", "count", len(pats))
 
 	// 7. Run Claude audit
-	fmt.Fprintln(os.Stderr, "Auditing codebase with Claude...")
+	slog.Info("auditing codebase with Claude")
 	result, err := auditFn(repo.Dir, AuditContext{
 		Patterns:    pats,
 		MaxPatterns: opts.MaxPatterns,
@@ -117,13 +118,13 @@ func Run(w io.Writer, opts Options, auditFn AuditFn) error {
 	if !opts.NoCache && headSHA != "" {
 		if data, err := json.Marshal(result); err == nil {
 			if err := cache.PutRaw(cacheKey, data); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: could not cache result: %v\n", err)
+				slog.Warn("could not cache result", "err", err)
 			}
 		}
 	}
 
 	// 9. Render output
-	fmt.Fprintln(os.Stderr, "Audit complete.")
+	slog.Info("audit complete")
 	return renderAudit(w, result, repo, opts)
 }
 

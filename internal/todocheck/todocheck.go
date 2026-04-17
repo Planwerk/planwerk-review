@@ -3,7 +3,7 @@
 package todocheck
 
 import (
-	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,7 +29,8 @@ func Load(repoDir string) string {
 			continue
 		}
 		if info.Size() > maxFileSize {
-			fmt.Fprintf(os.Stderr, "Warning: %s exceeds 64 KB limit (%d bytes), skipping\n", path, info.Size())
+			slog.Warn("TODO file exceeds 64 KB limit, skipping",
+				"path", path, "size", info.Size())
 			continue
 		}
 		data, err := os.ReadFile(path)

@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -110,6 +111,6 @@ func Clear() error {
 			removed++
 		}
 	}
-	fmt.Fprintf(os.Stderr, "Removed %d cached review(s).\n", removed)
+	slog.Info("removed cached reviews", "count", removed)
 	return nil
 }

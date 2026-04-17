@@ -5,7 +5,7 @@ package checklist
 
 import (
 	_ "embed"
-	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 )
@@ -26,7 +26,8 @@ func Load(repoDir string) string {
 		repoChecklist := filepath.Join(repoDir, ".planwerk", "checklist.md")
 		if info, err := os.Stat(repoChecklist); err == nil {
 			if info.Size() > maxFileSize {
-				fmt.Fprintf(os.Stderr, "Warning: %s exceeds 64 KB limit (%d bytes), using default checklist\n", repoChecklist, info.Size())
+				slog.Warn("checklist override exceeds 64 KB limit, using default",
+					"path", repoChecklist, "size", info.Size())
 			} else if data, err := os.ReadFile(repoChecklist); err == nil && len(data) > 0 {
 				return string(data)
 			}

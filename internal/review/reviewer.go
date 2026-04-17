@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -69,14 +70,14 @@ func Run(w io.Writer, opts Options) error {
 // fetch & checkout PR → load patterns → claude /review → structure → render report.
 func (r *Runner) Run(w io.Writer, opts Options) error {
 	// 1. Fetch and checkout PR
-	fmt.Fprintf(os.Stderr, "Fetching and checking out PR %s...\n", opts.PRRef)
+	slog.Info("fetching and checking out PR", "pr", opts.PRRef)
 	pr, err := r.GitHub.FetchAndCheckout(opts.PRRef)
 	if err != nil {
 		return fmt.Errorf("fetching PR: %w", err)
 	}
 	defer pr.Cleanup()
 
-	fmt.Fprintf(os.Stderr, "Checked out to %s\n", pr.Dir)
+	slog.Info("checked out PR", "dir", pr.Dir)
 
 	// 2. Check cache (include flags that affect output in the cache key)
 	var cacheFlags []string
@@ -89,7 +90,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	cacheKey := cache.Key(pr.Owner, pr.Repo, pr.Number, pr.HeadSHA, cacheFlags...)
 	if !opts.NoCache {
 		if result, ok := cache.Get(cacheKey); ok {
-			fmt.Fprintln(os.Stderr, "Using cached review result.")
+			slog.Info("using cached review result")
 			return r.renderResult(w, result, pr, opts, nil)
 		}
 	}
@@ -97,7 +98,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	// 3. Detect technologies in the reviewed repo
 	techTags := detect.Technologies(pr.Dir)
 	if len(techTags) > 0 {
-		fmt.Fprintf(os.Stderr, "Detected technologies: %s\n", strings.Join(techTags, ", "))
+		slog.Info("detected technologies", "technologies", strings.Join(techTags, ", "))
 	}
 
 	// 4. Load patterns (filtered by detected technologies)
@@ -134,7 +135,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	}
 
 	if len(pats) > 0 {
-		fmt.Fprintf(os.Stderr, "Loaded %d review pattern(s).\n", len(pats))
+		slog.Info("loaded review patterns", "count", len(pats))
 	}
 
 	// 5. Load checklist
@@ -155,21 +156,21 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	// 8b. Detect Planwerk feature file for compliance checking
 	feature, _ := planwerk.DetectFeature(pr.Dir, pr.Title, pr.Body, pr.HeadBranch, pr.ChangedFiles)
 	if feature != nil {
-		fmt.Fprintf(os.Stderr, "Detected Planwerk feature file: %s (%s)\n", feature.FeatureID, feature.Title)
+		slog.Info("detected Planwerk feature file", "feature_id", feature.FeatureID, "title", feature.Title)
 	}
 
 	// 9-12. Run Claude /review, adversarial review, coverage map, and feature compliance concurrently.
 	// All calls operate on the same checkout and diff with no data dependencies,
 	// so running them in parallel cuts wall-clock time from sum to max.
-	fmt.Fprintln(os.Stderr, "Running Claude /review...")
+	slog.Info("running Claude /review")
 	if opts.Thorough {
-		fmt.Fprintln(os.Stderr, "Running adversarial review pass...")
+		slog.Info("running adversarial review pass")
 	}
 	if opts.CoverageMap {
-		fmt.Fprintln(os.Stderr, "Generating test coverage map...")
+		slog.Info("generating test coverage map")
 	}
 	if feature != nil {
-		fmt.Fprintln(os.Stderr, "Running feature compliance check...")
+		slog.Info("running feature compliance check")
 	}
 
 	reviewCtx := claude.ReviewContext{
@@ -226,28 +227,28 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	}
 
 	if advErr != nil {
-		fmt.Fprintf(os.Stderr, "Warning: adversarial review failed: %v\n", advErr)
+		slog.Warn("adversarial review failed", "err", advErr)
 	} else if advResult != nil {
 		result = mergeResults(result, advResult)
 	}
 	if complianceErr != nil {
-		fmt.Fprintf(os.Stderr, "Warning: feature compliance check failed: %v\n", complianceErr)
+		slog.Warn("feature compliance check failed", "err", complianceErr)
 	} else if complianceResult != nil {
 		result = mergeResults(result, complianceResult)
 	}
 	if covErr != nil {
-		fmt.Fprintf(os.Stderr, "Warning: coverage map failed: %v\n", covErr)
+		slog.Warn("coverage map failed", "err", covErr)
 	}
 
 	// 12. Cache result
 	if !opts.NoCache {
 		if err := cache.Put(cacheKey, result); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: could not cache result: %v\n", err)
+			slog.Warn("could not cache result", "err", err)
 		}
 	}
 
 	// 13. Render
-	fmt.Fprintln(os.Stderr, "Review complete.")
+	slog.Info("review complete")
 	return r.renderResult(w, result, pr, opts, coverageResult)
 }
 
@@ -283,17 +284,17 @@ func (r *Runner) renderResult(w io.Writer, result *report.ReviewResult, pr *gith
 	}
 
 	if opts.InlineReview {
-		fmt.Fprintln(os.Stderr, "Posting inline review with GitHub Review API...")
+		slog.Info("posting inline review with GitHub Review API")
 		err := r.postInlineReview(result, pr, &buf)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: inline review failed (%v), falling back to PR comment...\n", err)
+			slog.Warn("inline review failed, falling back to PR comment", "err", err)
 			_, err = r.GitHub.PostPRComment(pr.Owner, pr.Repo, pr.Number, buf.String())
 			if err != nil {
 				return fmt.Errorf("posting PR comment (fallback): %w", err)
 			}
 		}
 	} else if opts.PostReview {
-		fmt.Fprintln(os.Stderr, "Posting review as PR comment (will update existing if found)...")
+		slog.Info("posting review as PR comment (will update existing if found)")
 		// Append data block for machine consumption
 		dataBlock := report.RenderDataBlock(*result, pr.HeadSHA)
 		body := buf.String() + dataBlock
@@ -301,7 +302,7 @@ func (r *Runner) renderResult(w io.Writer, result *report.ReviewResult, pr *gith
 		if err != nil {
 			return fmt.Errorf("posting PR comment: %w", err)
 		}
-		fmt.Fprintf(os.Stderr, "Review posted: %s\n", postResult)
+		slog.Info("review posted", "url", postResult)
 	}
 
 	return nil
@@ -355,7 +356,7 @@ func (r *Runner) postInlineReview(result *report.ReviewResult, pr *github.PR, su
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "Inline review posted: %s\n", url)
+	slog.Info("inline review posted", "url", url)
 	return nil
 }
 
