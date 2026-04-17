@@ -3,6 +3,8 @@ package propose
 import (
 	"bytes"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -38,16 +40,18 @@ func (f *fakeGitHub) ListExistingIssues(owner, name string) ([]github.ExistingIs
 // fakeClaude is a test ClaudeAnalyzer tracking call count so cache-hit tests
 // can assert Claude was skipped.
 type fakeClaude struct {
-	calls int32
-	fn    func(dir string) (*ProposalResult, error)
+	calls    int32
+	lastCtx  AnalysisContext
+	fn       func(dir string, ctx AnalysisContext) (*ProposalResult, error)
 }
 
-func (f *fakeClaude) Analyze(dir string) (*ProposalResult, error) {
+func (f *fakeClaude) Analyze(dir string, ctx AnalysisContext) (*ProposalResult, error) {
 	atomic.AddInt32(&f.calls, 1)
+	f.lastCtx = ctx
 	if f.fn == nil {
 		return &ProposalResult{RepositoryOverview: "ok"}, nil
 	}
-	return f.fn(dir)
+	return f.fn(dir, ctx)
 }
 
 func fakeRepo(t *testing.T, owner, name string) *github.Repo {
@@ -78,7 +82,7 @@ func TestProposeRun_CacheMissThenHit(t *testing.T) {
 		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-propose-1", nil },
 	}
 	claudeMock := &fakeClaude{
-		fn: func(dir string) (*ProposalResult, error) {
+		fn: func(dir string, _ AnalysisContext) (*ProposalResult, error) {
 			return &ProposalResult{
 				RepositoryOverview: "Proposal overview",
 				Proposals: []Proposal{
@@ -102,7 +106,7 @@ func TestProposeRun_CacheMissThenHit(t *testing.T) {
 
 	// Second run: cache should short-circuit Claude entirely.
 	claudeMock2 := &fakeClaude{
-		fn: func(dir string) (*ProposalResult, error) {
+		fn: func(dir string, _ AnalysisContext) (*ProposalResult, error) {
 			t.Fatal("Analyze must not be called on cache hit")
 			return nil, nil
 		},
@@ -134,7 +138,7 @@ func TestProposeRun_NoCacheBypassesCachedEntry(t *testing.T) {
 	}
 
 	claudeMock := &fakeClaude{
-		fn: func(dir string) (*ProposalResult, error) {
+		fn: func(dir string, _ AnalysisContext) (*ProposalResult, error) {
 			return &ProposalResult{RepositoryOverview: "Fresh overview"}, nil
 		},
 	}
@@ -231,7 +235,7 @@ func TestProposeRun_CacheHitSkipsClone(t *testing.T) {
 		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-skip-clone", nil },
 	}
 	claudeMock := &fakeClaude{
-		fn: func(dir string) (*ProposalResult, error) {
+		fn: func(dir string, _ AnalysisContext) (*ProposalResult, error) {
 			t.Fatal("Analyze must not be called on cache hit")
 			return nil, nil
 		},
@@ -281,7 +285,7 @@ func TestProposeRun_AnalyzeErrorPropagates(t *testing.T) {
 		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha", nil },
 	}
 	claudeMock := &fakeClaude{
-		fn: func(dir string) (*ProposalResult, error) { return nil, errors.New("claude exploded") },
+		fn: func(dir string, _ AnalysisContext) (*ProposalResult, error) { return nil, errors.New("claude exploded") },
 	}
 	runner := &Runner{Claude: claudeMock, GitHub: gh}
 
@@ -310,7 +314,7 @@ func TestProposeRun_FiltersProposalsMatchingExistingIssues(t *testing.T) {
 		},
 	}
 	claudeMock := &fakeClaude{
-		fn: func(dir string) (*ProposalResult, error) {
+		fn: func(dir string, _ AnalysisContext) (*ProposalResult, error) {
 			return &ProposalResult{
 				RepositoryOverview: "overview",
 				Proposals: []Proposal{
@@ -350,7 +354,7 @@ func TestProposeRun_DedupeDisabledByFlag(t *testing.T) {
 		},
 	}
 	claudeMock := &fakeClaude{
-		fn: func(dir string) (*ProposalResult, error) {
+		fn: func(dir string, _ AnalysisContext) (*ProposalResult, error) {
 			return &ProposalResult{Proposals: []Proposal{
 				{ID: "P-1", Priority: "HIGH", Title: "Add logging", Description: "d", Motivation: "m"},
 			}}, nil
@@ -385,7 +389,7 @@ func TestProposeRun_DedupeListerErrorIsNonFatal(t *testing.T) {
 		},
 	}
 	claudeMock := &fakeClaude{
-		fn: func(dir string) (*ProposalResult, error) {
+		fn: func(dir string, _ AnalysisContext) (*ProposalResult, error) {
 			return &ProposalResult{Proposals: []Proposal{
 				{ID: "P-1", Priority: "HIGH", Title: "Add logging", Description: "d", Motivation: "m"},
 			}}, nil
@@ -399,6 +403,83 @@ func TestProposeRun_DedupeListerErrorIsNonFatal(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Add logging") {
 		t.Errorf("proposal must survive dedupe-lister failure:\n%s", out.String())
+	}
+}
+
+func TestProposeRun_LoadsPatternsIntoAnalysisContext(t *testing.T) {
+	// Proposer.Run must load patterns from the pattern directories and forward
+	// them into AnalysisContext so Claude's analysis prompt can ground
+	// proposals in the pattern catalog.
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	patternDir := t.TempDir()
+	patternFile := filepath.Join(patternDir, "sample.md")
+	patternMD := "# Review Pattern: Sample Pattern\n" +
+		"\n" +
+		"**Review-Area**: testing\n" +
+		"**Detection-Hint**: sample\n" +
+		"**Severity**: INFO\n" +
+		"**Category**: design-principle\n" +
+		"\n" +
+		"## Rule\nBe sampled.\n"
+	if err := os.WriteFile(patternFile, []byte(patternMD), 0o644); err != nil {
+		t.Fatalf("writing pattern file: %v", err)
+	}
+
+	gh := &fakeGitHub{
+		cloneRepo:         func(ref string) (*github.Repo, error) { return fakeRepo(t, "acme", "widgets"), nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-patterns", nil },
+	}
+	claudeMock := &fakeClaude{}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	opts := baseProposeOpts()
+	opts.PatternDirs = []string{patternDir}
+	opts.NoLocalPatterns = true
+	opts.NoRepoPatterns = true
+
+	var out bytes.Buffer
+	if err := runner.Run(&out, opts); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if len(claudeMock.lastCtx.Patterns) != 1 {
+		t.Fatalf("AnalysisContext.Patterns len = %d, want 1", len(claudeMock.lastCtx.Patterns))
+	}
+	if got := claudeMock.lastCtx.Patterns[0].Name; got != "Sample Pattern" {
+		t.Errorf("AnalysisContext.Patterns[0].Name = %q, want %q", got, "Sample Pattern")
+	}
+	if claudeMock.lastCtx.RepoName != "acme/widgets" {
+		t.Errorf("AnalysisContext.RepoName = %q, want acme/widgets", claudeMock.lastCtx.RepoName)
+	}
+}
+
+func TestProposeRun_NoPatternsIsNonFatal(t *testing.T) {
+	// Missing patterns must not fail the pipeline — propose should still run
+	// with an empty Patterns slice, logging a warning.
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	gh := &fakeGitHub{
+		cloneRepo:         func(ref string) (*github.Repo, error) { return fakeRepo(t, "acme", "widgets"), nil },
+		defaultBranchHEAD: func(owner, name string) (string, error) { return "sha-nopat", nil },
+	}
+	claudeMock := &fakeClaude{}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	opts := baseProposeOpts()
+	opts.NoLocalPatterns = true
+	opts.NoRepoPatterns = true
+
+	var out bytes.Buffer
+	if err := runner.Run(&out, opts); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if len(claudeMock.lastCtx.Patterns) != 0 {
+		t.Errorf("expected no patterns loaded, got %d", len(claudeMock.lastCtx.Patterns))
+	}
+	if claudeMock.calls != 1 {
+		t.Errorf("Analyze calls = %d, want 1", claudeMock.calls)
 	}
 }
 
@@ -419,7 +500,7 @@ func TestProposeRun_CorruptedCacheFallsBackToFreshAnalysis(t *testing.T) {
 	}
 
 	claudeMock := &fakeClaude{
-		fn: func(dir string) (*ProposalResult, error) {
+		fn: func(dir string, _ AnalysisContext) (*ProposalResult, error) {
 			return &ProposalResult{RepositoryOverview: "Recovered overview"}, nil
 		},
 	}

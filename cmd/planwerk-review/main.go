@@ -236,6 +236,12 @@ or short form (owner/repo).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			proposeCfg.RepoRef = args[0]
 
+			maxPatterns, err := resolveMaxPatterns(proposeCfg.MaxPatterns, cmd.Flags().Changed("max-patterns"))
+			if err != nil {
+				return err
+			}
+			proposeCfg.MaxPatterns = maxPatterns
+
 			switch proposeCfg.Format {
 			case formatMarkdown, formatJSON, formatIssues:
 			default:
@@ -248,8 +254,12 @@ or short form (owner/repo).`,
 	}
 
 	proposeFlags := proposeCmd.Flags()
+	proposeFlags.StringSliceVar(&proposeCfg.PatternDirs, "patterns", nil, "Additional pattern directories")
+	proposeFlags.BoolVar(&proposeCfg.NoRepoPatterns, "no-repo-patterns", false, "Ignore repo-specific patterns")
+	proposeFlags.BoolVar(&proposeCfg.NoLocalPatterns, "no-local-patterns", false, "Ignore local patterns from the tool")
 	proposeFlags.BoolVar(&proposeCfg.NoCache, "no-cache", false, "Ignore cache, force a fresh analysis")
 	proposeFlags.StringVar(&proposeCfg.Format, "format", "markdown", "Output format (markdown, json, issues)")
+	proposeFlags.IntVar(&proposeCfg.MaxPatterns, "max-patterns", patterns.DefaultMaxPatternsInPrompt, "Max review patterns injected into the prompt (<=0 disables truncation, env: "+envMaxPatterns+")")
 	proposeFlags.BoolVar(&proposeCfg.CreateIssues, "create-issues", false, "Interactively create GitHub issues from proposals")
 	proposeFlags.BoolVar(&proposeCfg.NoIssueDedupe, "no-issue-dedupe", false, "Do not filter proposals whose title matches an existing GitHub issue")
 

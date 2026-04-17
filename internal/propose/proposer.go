@@ -5,19 +5,28 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/planwerk/planwerk-review/internal/cache"
+	"github.com/planwerk/planwerk-review/internal/detect"
 	"github.com/planwerk/planwerk-review/internal/github"
+	"github.com/planwerk/planwerk-review/internal/patterns"
 )
 
 // Options configures the proposal pipeline.
 type Options struct {
-	RepoRef       string
-	NoCache       bool
-	Format        string // "markdown", "json", "issues"
-	Version       string
-	CreateIssues  bool // interactive issue creation after proposal generation
-	NoIssueDedupe bool // skip filtering proposals against existing GitHub issues
+	RepoRef         string
+	PatternDirs     []string
+	NoRepoPatterns  bool
+	NoLocalPatterns bool
+	NoCache         bool
+	Format          string // "markdown", "json", "issues"
+	Version         string
+	MaxPatterns     int  // max patterns to inject into prompt; <= 0 disables truncation
+	CreateIssues    bool // interactive issue creation after proposal generation
+	NoIssueDedupe   bool // skip filtering proposals against existing GitHub issues
 }
 
 // Runner executes the propose pipeline using injected Claude and GitHub
@@ -84,8 +93,28 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 
 	slog.Info("cloned repository", "dir", repo.Dir)
 
+	techTags := detect.Technologies(repo.Dir)
+	if len(techTags) > 0 {
+		slog.Info("detected technologies", "technologies", strings.Join(techTags, ", "))
+	}
+
+	patternDirs := collectPatternDirs(opts, repo.Dir)
+	pats, err := patterns.LoadFiltered(techTags, patternDirs...)
+	if err != nil {
+		return fmt.Errorf("loading patterns: %w", err)
+	}
+	if len(pats) > 0 {
+		slog.Info("loaded review patterns", "count", len(pats))
+	} else {
+		slog.Warn("no review patterns loaded — proposals will not be grounded in the pattern catalog")
+	}
+
 	slog.Info("analyzing codebase with Claude")
-	result, err := r.Claude.Analyze(repo.Dir)
+	result, err := r.Claude.Analyze(repo.Dir, AnalysisContext{
+		Patterns:    pats,
+		MaxPatterns: opts.MaxPatterns,
+		RepoName:    repo.FullName(),
+	})
 	if err != nil {
 		return fmt.Errorf("claude analysis: %w", err)
 	}
@@ -136,6 +165,36 @@ func (r *Runner) applyIssueDedupe(result *ProposalResult, owner, name string, op
 		slog.Info("filtered proposals with existing issues",
 			"filtered", filtered, "kept", len(kept))
 	}
+}
+
+// collectPatternDirs assembles the list of pattern directories to load from,
+// honoring the --no-local-patterns and --no-repo-patterns flags and appending
+// any explicit --patterns directories supplied by the caller. Mirrors the
+// audit pipeline's helper of the same name.
+func collectPatternDirs(opts Options, repoDir string) []string {
+	var patternDirs []string
+
+	if !opts.NoLocalPatterns {
+		if exe, err := os.Executable(); err == nil {
+			localPatterns := filepath.Join(filepath.Dir(exe), "..", "patterns")
+			if info, err := os.Stat(localPatterns); err == nil && info.IsDir() {
+				patternDirs = append(patternDirs, localPatterns)
+			}
+		}
+		if info, err := os.Stat("patterns"); err == nil && info.IsDir() {
+			patternDirs = append(patternDirs, "patterns")
+		}
+	}
+
+	if !opts.NoRepoPatterns {
+		repoPatterns := filepath.Join(repoDir, ".planwerk", "review_patterns")
+		if info, err := os.Stat(repoPatterns); err == nil && info.IsDir() {
+			patternDirs = append(patternDirs, repoPatterns)
+		}
+	}
+
+	patternDirs = append(patternDirs, opts.PatternDirs...)
+	return patternDirs
 }
 
 func renderProposals(w io.Writer, result *ProposalResult, repo *github.Repo, opts Options) error {

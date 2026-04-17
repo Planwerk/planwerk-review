@@ -10,6 +10,7 @@ import (
 	"github.com/planwerk/planwerk-review/internal/doccheck"
 	"github.com/planwerk/planwerk-review/internal/patterns"
 	"github.com/planwerk/planwerk-review/internal/planwerk"
+	"github.com/planwerk/planwerk-review/internal/propose"
 )
 
 // updateGolden regenerates the prompt golden files under testdata/prompts/.
@@ -90,6 +91,14 @@ func goldenAuditContext() audit.AuditContext {
 	}
 }
 
+func goldenAnalysisContext() propose.AnalysisContext {
+	return propose.AnalysisContext{
+		Patterns:    goldenPatterns(),
+		MaxPatterns: 0,
+		RepoName:    "planwerk/planwerk-review",
+	}
+}
+
 func goldenFeature() *planwerk.Feature {
 	return &planwerk.Feature{
 		FeatureID:   "CC-0042",
@@ -146,7 +155,14 @@ func TestBuildAuditPrompt_Golden(t *testing.T) {
 }
 
 func TestBuildAnalysisPrompt_Golden(t *testing.T) {
-	assertGoldenPrompt(t, "analysis", buildAnalysisPrompt())
+	assertGoldenPrompt(t, "analysis", buildAnalysisPrompt(goldenAnalysisContext()))
+}
+
+// TestBuildAnalysisPrompt_NoPatterns locks the fallback shape used when no
+// patterns are loaded: the prompt MUST still render, without the
+// pattern-injection blocks.
+func TestBuildAnalysisPrompt_NoPatterns(t *testing.T) {
+	assertGoldenPrompt(t, "analysis_no_patterns", buildAnalysisPrompt(propose.AnalysisContext{}))
 }
 
 func TestBuildAdversarialPrompt_Golden(t *testing.T) {

@@ -46,21 +46,29 @@ func (c Config) ToReviewOptions(version string) review.Options {
 
 // ProposeConfig holds configuration for the propose command.
 type ProposeConfig struct {
-	RepoRef       string
-	NoCache       bool
-	Format        string // "markdown", "json", "issues"
-	CreateIssues  bool
-	NoIssueDedupe bool
+	RepoRef         string
+	PatternDirs     []string
+	NoRepoPatterns  bool
+	NoLocalPatterns bool
+	NoCache         bool
+	Format          string // "markdown", "json", "issues"
+	MaxPatterns     int
+	CreateIssues    bool
+	NoIssueDedupe   bool
 }
 
 func (c ProposeConfig) ToProposeOptions(version string) propose.Options {
 	return propose.Options{
-		RepoRef:       c.RepoRef,
-		NoCache:       c.NoCache,
-		Format:        c.Format,
-		Version:       version,
-		CreateIssues:  c.CreateIssues,
-		NoIssueDedupe: c.NoIssueDedupe,
+		RepoRef:         c.RepoRef,
+		PatternDirs:     c.PatternDirs,
+		NoRepoPatterns:  c.NoRepoPatterns,
+		NoLocalPatterns: c.NoLocalPatterns,
+		NoCache:         c.NoCache,
+		Format:          c.Format,
+		Version:         version,
+		MaxPatterns:     c.MaxPatterns,
+		CreateIssues:    c.CreateIssues,
+		NoIssueDedupe:   c.NoIssueDedupe,
 	}
 }
 

@@ -224,10 +224,21 @@ planwerk-review propose owner/repo > proposals.md
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `--patterns` | Additional pattern directory | - |
+| `--no-repo-patterns` | Ignore repo-specific patterns | `false` |
+| `--no-local-patterns` | Ignore local patterns from the tool | `false` |
 | `--no-cache` | Ignore cache, force a fresh analysis | `false` |
 | `--format` | Output format (`markdown`, `json`, `issues`) | `markdown` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; overridable via `PLANWERK_MAX_PATTERNS`) | `50` |
 | `--create-issues` | Interactively create GitHub issues from proposals | `false` |
 | `--no-issue-dedupe` | Do not filter proposals whose title matches an existing GitHub issue | `false` |
+
+Proposals are grounded in the same review-pattern catalog used by `review` and
+`audit`. Patterns load from the tool's bundled `patterns/` directory, any
+`--patterns` directories you supply, and the target repo's
+`.planwerk/review_patterns/`. When a proposal addresses a pattern (closes a
+gap, hardens against a violation, or extends coverage) Claude references the
+pattern by name so reviewers can trace the rationale back to the catalog.
 
 #### Audit (subcommand)
 

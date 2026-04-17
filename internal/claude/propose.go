@@ -5,21 +5,20 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/planwerk/planwerk-review/internal/patterns"
 	"github.com/planwerk/planwerk-review/internal/propose"
 )
 
 // Propose invokes Claude to analyze the codebase and generate feature proposals.
 // It runs two Claude calls:
-//  1. Deep analysis of the codebase
-//  2. Structuring the analysis into JSON proposals
-func Propose(dir string) (*propose.ProposalResult, error) {
-	// Step 1: Deep analysis
-	rawAnalysis, err := runAnalysis(dir)
+//  1. Deep analysis of the codebase, grounded in the loaded review patterns.
+//  2. Structuring the analysis into JSON proposals.
+func Propose(dir string, ctx propose.AnalysisContext) (*propose.ProposalResult, error) {
+	rawAnalysis, err := runAnalysis(dir, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("running analysis: %w", err)
 	}
 
-	// Step 2: Structure into JSON proposals
 	result, err := structureProposals(rawAnalysis)
 	if err != nil {
 		return nil, fmt.Errorf("structuring proposals: %w", err)
@@ -29,14 +28,34 @@ func Propose(dir string) (*propose.ProposalResult, error) {
 	return result, nil
 }
 
-func runAnalysis(dir string) (string, error) {
-	return runClaude(dir, buildAnalysisPrompt(), "analysis")
+func runAnalysis(dir string, ctx propose.AnalysisContext) (string, error) {
+	return runClaude(dir, buildAnalysisPrompt(ctx), "analysis")
 }
 
-func buildAnalysisPrompt() string {
-	return `You are a senior software architect performing a comprehensive codebase analysis. Your goal is to deeply understand this project and generate concrete, actionable feature proposals.
+// buildAnalysisPrompt constructs the deep-analysis prompt. When patterns are
+// supplied it injects the grouped pattern catalog so proposals are grounded in
+// the same rules audit and review apply, matching buildAuditPrompt /
+// buildReviewPrompt.
+func buildAnalysisPrompt(ctx propose.AnalysisContext) string {
+	var sb strings.Builder
 
-Analyze the entire codebase systematically:
+	sb.WriteString(`You are a senior software architect performing a comprehensive codebase analysis. Your goal is to deeply understand this project and generate concrete, actionable feature proposals.
+
+`)
+
+	if ctx.RepoName != "" {
+		fmt.Fprintf(&sb, "Repository: %s\n\n", ctx.RepoName)
+	}
+
+	if len(ctx.Patterns) > 0 {
+		sb.WriteString("## Review Patterns to Ground Proposals In\n\n")
+		sb.WriteString("The patterns below are the same catalog used by /review and /audit. Use them as a lens when proposing features or improvements: when a proposal addresses a pattern (closes a gap, hardens against a violation, or extends coverage) reference the pattern by name in the proposal description so reviewers can trace the rationale back to the catalog.\n\n")
+		sb.WriteString("<review-patterns>\n")
+		sb.WriteString(patterns.FormatGroupedForPrompt(ctx.Patterns, ctx.MaxPatterns))
+		sb.WriteString("</review-patterns>\n\n")
+	}
+
+	sb.WriteString(`Analyze the entire codebase systematically:
 
 1. **Architecture & Structure**: Understand the overall architecture, module structure, dependencies, and design patterns used.
 2. **Code Quality**: Identify areas where code quality could be improved — missing tests, error handling gaps, inconsistencies.
@@ -56,7 +75,13 @@ For each area, think about:
 Be specific and concrete in your analysis. Reference actual files, functions, and code patterns you observe.
 Provide a detailed, structured analysis covering all the areas above.
 
-IMPORTANT: Do NOT just list generic software improvements. Your proposals must be specific to THIS codebase and grounded in what you actually observe in the code.`
+IMPORTANT: Do NOT just list generic software improvements. Your proposals must be specific to THIS codebase and grounded in what you actually observe in the code.`)
+
+	if len(ctx.Patterns) > 0 {
+		sb.WriteString("\n\nWhen a proposal is motivated by a review pattern above, name that pattern in the proposal's description or motivation so the trail from pattern catalog to proposed work is explicit.")
+	}
+
+	return sb.String()
 }
 
 func structureProposals(rawAnalysis string) (*propose.ProposalResult, error) {

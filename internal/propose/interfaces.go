@@ -2,13 +2,23 @@ package propose
 
 import (
 	"github.com/planwerk/planwerk-review/internal/github"
+	"github.com/planwerk/planwerk-review/internal/patterns"
 )
+
+// AnalysisContext carries the inputs the analysis prompt grounds itself in.
+// Patterns let the proposer reference the project's pattern catalog so
+// suggestions stay specific instead of reverting to generic software advice.
+type AnalysisContext struct {
+	Patterns    []patterns.Pattern
+	MaxPatterns int
+	RepoName    string // "owner/repo" for context in the prompt
+}
 
 // ClaudeAnalyzer performs the Claude-backed codebase analysis that produces
 // feature proposals. The propose package depends on this interface rather
 // than the concrete claude package so tests can inject fakes.
 type ClaudeAnalyzer interface {
-	Analyze(dir string) (*ProposalResult, error)
+	Analyze(dir string, ctx AnalysisContext) (*ProposalResult, error)
 }
 
 // GitHubClient wraps the GitHub operations the propose pipeline needs:
@@ -23,14 +33,14 @@ type GitHubClient interface {
 
 // AnalyzeFn is the bare-function form of ClaudeAnalyzer that existing callers
 // (the CLI) pass in. It is adapted to the interface via analyzeFnAdapter.
-type AnalyzeFn func(dir string) (*ProposalResult, error)
+type AnalyzeFn func(dir string, ctx AnalysisContext) (*ProposalResult, error)
 
 type analyzeFnAdapter struct {
 	fn AnalyzeFn
 }
 
-func (a analyzeFnAdapter) Analyze(dir string) (*ProposalResult, error) {
-	return a.fn(dir)
+func (a analyzeFnAdapter) Analyze(dir string, ctx AnalysisContext) (*ProposalResult, error) {
+	return a.fn(dir, ctx)
 }
 
 // defaultGitHubClient is the production GitHubClient backed by the github package.
