@@ -133,15 +133,14 @@ func checkoutPR(repo string, number int) (string, error) {
 		return "", fmt.Errorf("creating temp dir: %w", err)
 	}
 
-	// Clone the repo
-	cloneURL := fmt.Sprintf("https://github.com/%s.git", repo)
+	// Clone via gh so private repos work using the user's gh authentication.
 	cloneCtx, cloneCancel := context.WithTimeout(context.Background(), gitCloneTimeout)
 	defer cloneCancel()
-	clone := exec.CommandContext(cloneCtx, "git", "clone", "--filter=blob:none", cloneURL, dir)
+	clone := exec.CommandContext(cloneCtx, "gh", "repo", "clone", repo, dir, "--", "--filter=blob:none")
 	clone.Stderr = os.Stderr
 	if err := clone.Run(); err != nil {
 		_ = os.RemoveAll(dir)
-		return "", fmt.Errorf("git clone: %w", err)
+		return "", fmt.Errorf("gh repo clone: %w", err)
 	}
 
 	// Checkout the PR using gh

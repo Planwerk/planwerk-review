@@ -698,7 +698,7 @@ planwerk-review/
 │   │   ├── issues.go           # Create/search GitHub issues (gh CLI)
 │   │   ├── pr.go               # Fetch PR data, checkout (gh CLI)
 │   │   ├── pr_test.go
-│   │   ├── repo.go             # Clone repo, fetch HEAD SHA
+│   │   ├── repo.go             # Clone repo (gh CLI), fetch default-branch HEAD SHA (gh API)
 │   │   ├── repo_test.go
 │   │   ├── review.go           # Submit PR reviews via GitHub Review API
 │   │   └── review_test.go
@@ -769,8 +769,8 @@ planwerk-review/
 
 - **Go 1.25+**
 - **Claude Code**: Must be installed and authenticated on the system (`claude` in PATH)
-- **gh CLI**: Required for fetching PR metadata and checkout (`gh` in PATH)
-- **git**: Required for cloning repositories
+- **gh CLI**: Required for cloning repos (incl. private), fetching PR metadata, checkout, and default-branch HEAD lookup (`gh` in PATH)
+- **git**: Required as the underlying VCS for `gh repo clone` and local git operations
 
 ### Prerequisites
 
@@ -789,7 +789,7 @@ planwerk-review/
 | 4 | **Authentication** | `gh auth` | Simplest setup; leverages existing developer workflow |
 | 5 | **Review caching** | Based on PR HEAD SHA | Avoids repeated reviews of unchanged PR state |
 | 6 | **Propose: two-step Claude** | Analysis → Structure | First call explores codebase freely; second call converts to strict JSON schema |
-| 7 | **Propose: cache invalidation** | Based on default branch HEAD SHA | Cache key includes `git ls-remote` HEAD, so proposals refresh when the repo changes |
+| 7 | **Propose: cache invalidation** | Based on default branch HEAD SHA | Cache key includes the default-branch HEAD (resolved via `gh api graphql` so private repos work), so proposals refresh when the repo changes |
 | 8 | **Propose: output formats** | Markdown, JSON, Issues, Interactive | Markdown for reading, JSON for automation, Issues for templates, `--create-issues` for interactive `gh issue create` |
 | 9 | **Review prompt structure** | Multi-section structured prompt | Persona framing, scope analysis, two-pass checklist, suppressions, and anti-sycophancy rules produce higher-quality, more consistent reviews (inspired by [gstack](https://github.com/garrytan/gstack)) |
 | 10 | **Actionability classification** | auto-fix / needs-discussion / architectural | Helps teams prioritize which findings to address immediately vs. discuss first |

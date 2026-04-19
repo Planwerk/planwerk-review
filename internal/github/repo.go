@@ -47,22 +47,26 @@ func (r *Repo) FullName() string {
 	return fmt.Sprintf("%s/%s", r.Owner, r.Name)
 }
 
-// DefaultBranchHEAD returns the HEAD SHA of the default branch via git ls-remote.
-// This is used for cache invalidation so proposals are refreshed when the repo changes.
+// DefaultBranchHEAD returns the HEAD SHA of the default branch via the gh API.
+// Used via gh so authentication works for private repos. This is used for
+// cache invalidation so proposals are refreshed when the repo changes.
 func DefaultBranchHEAD(owner, repo string) (string, error) {
-	url := fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
 	ctx, cancel := context.WithTimeout(context.Background(), gitRemoteTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "git", "ls-remote", url, "HEAD")
+	cmd := exec.CommandContext(ctx, "gh", "api", "graphql",
+		"-F", "owner="+owner,
+		"-F", "name="+repo,
+		"-f", `query=query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { defaultBranchRef { target { oid } } } }`,
+		"--jq", ".data.repository.defaultBranchRef.target.oid")
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("git ls-remote: %w", err)
+		return "", fmt.Errorf("gh api graphql: %w", err)
 	}
-	fields := strings.Fields(strings.TrimSpace(string(out)))
-	if len(fields) == 0 {
-		return "", fmt.Errorf("git ls-remote returned no output for %s/%s", owner, repo)
+	sha := strings.TrimSpace(string(out))
+	if sha == "" {
+		return "", fmt.Errorf("gh api returned no default branch SHA for %s/%s", owner, repo)
 	}
-	return fields[0], nil
+	return sha, nil
 }
 
 func cloneRepo(owner, name string) (string, error) {
@@ -71,14 +75,15 @@ func cloneRepo(owner, name string) (string, error) {
 		return "", fmt.Errorf("creating temp dir: %w", err)
 	}
 
-	cloneURL := fmt.Sprintf("https://github.com/%s/%s.git", owner, name)
 	ctx, cancel := context.WithTimeout(context.Background(), gitCloneTimeout)
 	defer cancel()
-	clone := exec.CommandContext(ctx, "git", "clone", "--filter=blob:none", cloneURL, dir)
+	clone := exec.CommandContext(ctx, "gh", "repo", "clone",
+		fmt.Sprintf("%s/%s", owner, name), dir,
+		"--", "--filter=blob:none")
 	clone.Stderr = os.Stderr
 	if err := clone.Run(); err != nil {
 		_ = os.RemoveAll(dir)
-		return "", fmt.Errorf("git clone: %w", err)
+		return "", fmt.Errorf("gh repo clone: %w", err)
 	}
 
 	return dir, nil
