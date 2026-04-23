@@ -2,6 +2,7 @@ package detect
 
 import (
 	"bufio"
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -51,7 +52,10 @@ func Technologies(dir string) []string {
 
 		if d.IsDir() {
 			base := d.Name()
-			if base == "vendor" || base == "node_modules" || base == ".git" {
+			// .github is handled separately for the github-actions tag; its
+			// YAMLs (workflows, composite actions) would otherwise exhaust
+			// the k8s-YAML scan budget before real manifests are reached.
+			if base == "vendor" || base == "node_modules" || base == ".git" || base == ".github" {
 				return fs.SkipDir
 			}
 			return nil
@@ -71,7 +75,9 @@ func Technologies(dir string) []string {
 		case "pom.xml", "build.gradle", "build.gradle.kts":
 			hasJava = true
 		case "package.json":
-			hasPackageJSON = true
+			if !isDocsOnlyPackageJSON(path) {
+				hasPackageJSON = true
+			}
 		case "tsconfig.json":
 			hasTSConfig = true
 		case "Chart.yaml":
@@ -165,4 +171,42 @@ func looksLikeKubernetes(path string) bool {
 func dirExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.IsDir()
+}
+
+// isDocsOnlyPackageJSON returns true if a package.json has no runtime
+// dependencies and every devDependency is a known documentation tool
+// (VitePress, VuePress, Docusaurus, docsify, Nextra, ...). Such files
+// exist purely to drive a docs build and should not trigger a JS/TS tag.
+func isDocsOnlyPackageJSON(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	var pkg struct {
+		Dependencies    map[string]string `json:"dependencies"`
+		DevDependencies map[string]string `json:"devDependencies"`
+	}
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return false
+	}
+	if len(pkg.Dependencies) > 0 {
+		return false
+	}
+	if len(pkg.DevDependencies) == 0 {
+		return false
+	}
+	for dep := range pkg.DevDependencies {
+		if !isDocsDep(dep) {
+			return false
+		}
+	}
+	return true
+}
+
+func isDocsDep(name string) bool {
+	switch name {
+	case "vitepress", "vuepress", "docusaurus", "docsify", "docsify-cli", "nextra":
+		return true
+	}
+	return strings.HasPrefix(name, "@docusaurus/") || strings.HasPrefix(name, "@vuepress/")
 }

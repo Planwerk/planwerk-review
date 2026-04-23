@@ -1,6 +1,7 @@
 package detect
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -169,6 +170,61 @@ func TestTechnologies_KubernetesNotPlainYAML(t *testing.T) {
 
 	tags := Technologies(dir)
 	assertNotContains(t, tags, "kubernetes")
+}
+
+func TestTechnologies_KubernetesSkipsGitHubWorkflows(t *testing.T) {
+	dir := t.TempDir()
+	wfDir := filepath.Join(dir, ".github", "workflows")
+	if err := os.MkdirAll(wfDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Enough workflow YAMLs to exhaust a naive scan budget.
+	for i := 0; i < 25; i++ {
+		writeFile(t, wfDir, fmt.Sprintf("wf%02d.yaml", i), "name: CI\non: push\n")
+	}
+	deployDir := filepath.Join(dir, "deploy")
+	if err := os.MkdirAll(deployDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, deployDir, "manifest.yaml", "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: foo\n")
+
+	tags := Technologies(dir)
+	assertContains(t, tags, "kubernetes")
+	assertContains(t, tags, "github-actions")
+}
+
+func TestTechnologies_DocsOnlyPackageJSON_VitePress(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "package.json", `{"name":"docs","devDependencies":{"vitepress":"^1.6.3"}}`)
+
+	tags := Technologies(dir)
+	assertNotContains(t, tags, "javascript")
+	assertNotContains(t, tags, "typescript")
+}
+
+func TestTechnologies_DocsOnlyPackageJSON_Docusaurus(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "package.json", `{"devDependencies":{"@docusaurus/core":"^3.0.0","@docusaurus/preset-classic":"^3.0.0"}}`)
+
+	tags := Technologies(dir)
+	assertNotContains(t, tags, "javascript")
+}
+
+func TestTechnologies_PackageJSONWithRuntimeDeps(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "package.json", `{"dependencies":{"react":"^18.0.0"}}`)
+
+	tags := Technologies(dir)
+	assertContains(t, tags, "javascript")
+}
+
+func TestTechnologies_PackageJSONMixedDevDeps(t *testing.T) {
+	// VitePress plus a non-docs dev dependency (e.g. a real build tool) → still a JS project.
+	dir := t.TempDir()
+	writeFile(t, dir, "package.json", `{"devDependencies":{"vitepress":"^1.6.3","vite":"^5.0.0"}}`)
+
+	tags := Technologies(dir)
+	assertContains(t, tags, "javascript")
 }
 
 func TestTechnologies_Multiple(t *testing.T) {
