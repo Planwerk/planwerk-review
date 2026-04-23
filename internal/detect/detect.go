@@ -23,58 +23,18 @@ const maxYAMLLines = 50
 func Technologies(dir string) []string {
 	tags := make(map[string]bool)
 
-	// Simple file-existence checks
-	fileChecks := []struct {
-		tag   string
-		paths []string
-	}{
-		{"go", []string{"go.mod"}},
-		{"python", []string{"pyproject.toml", "setup.py", "requirements.txt", "Pipfile"}},
-		{"rust", []string{"Cargo.toml"}},
-		{"docker", []string{"Dockerfile", "docker-compose.yml", "docker-compose.yaml"}},
-	}
+	var (
+		hasGo          bool
+		hasPython      bool
+		hasRust        bool
+		hasDocker      bool
+		hasJava        bool
+		hasPackageJSON bool
+		hasTSConfig    bool
+	)
 
-	for _, fc := range fileChecks {
-		for _, p := range fc.paths {
-			if fileExists(filepath.Join(dir, p)) {
-				tags[fc.tag] = true
-				break
-			}
-		}
-	}
-
-	// TypeScript vs JavaScript
-	hasTSConfig := fileExists(filepath.Join(dir, "tsconfig.json"))
-	hasPackageJSON := fileExists(filepath.Join(dir, "package.json"))
-	if hasTSConfig {
-		tags["typescript"] = true
-	} else if hasPackageJSON {
-		tags["javascript"] = true
-	}
-
-	// Java/JVM
-	for _, p := range []string{"pom.xml", "build.gradle", "build.gradle.kts"} {
-		if fileExists(filepath.Join(dir, p)) {
-			tags["java"] = true
-			break
-		}
-	}
-
-	// GitHub Actions
-	if dirExists(filepath.Join(dir, ".github", "workflows")) {
-		entries, err := os.ReadDir(filepath.Join(dir, ".github", "workflows"))
-		if err == nil {
-			for _, e := range entries {
-				if strings.HasSuffix(e.Name(), ".yml") || strings.HasSuffix(e.Name(), ".yaml") {
-					tags["github-actions"] = true
-					break
-				}
-			}
-		}
-	}
-
-	// Walk-based detection: Helm, Terraform, Kubernetes
 	yamlScanned := 0
+
 	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -89,7 +49,6 @@ func Technologies(dir string) []string {
 			return nil
 		}
 
-		// Skip vendor and node_modules
 		if d.IsDir() {
 			base := d.Name()
 			if base == "vendor" || base == "node_modules" || base == ".git" {
@@ -100,12 +59,25 @@ func Technologies(dir string) []string {
 
 		name := d.Name()
 
-		// Helm: Chart.yaml
-		if name == "Chart.yaml" {
+		switch name {
+		case "go.mod", "go.work":
+			hasGo = true
+		case "pyproject.toml", "setup.py", "requirements.txt", "Pipfile":
+			hasPython = true
+		case "Cargo.toml":
+			hasRust = true
+		case "Dockerfile", "docker-compose.yml", "docker-compose.yaml":
+			hasDocker = true
+		case "pom.xml", "build.gradle", "build.gradle.kts":
+			hasJava = true
+		case "package.json":
+			hasPackageJSON = true
+		case "tsconfig.json":
+			hasTSConfig = true
+		case "Chart.yaml":
 			tags["helm"] = true
 		}
 
-		// Kubernetes: YAML with apiVersion + kind
 		if !tags["kubernetes"] && yamlScanned < maxYAMLScan {
 			if strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml") {
 				if looksLikeKubernetes(path) {
@@ -117,6 +89,40 @@ func Technologies(dir string) []string {
 
 		return nil
 	})
+
+	if hasGo {
+		tags["go"] = true
+	}
+	if hasPython {
+		tags["python"] = true
+	}
+	if hasRust {
+		tags["rust"] = true
+	}
+	if hasDocker {
+		tags["docker"] = true
+	}
+	if hasJava {
+		tags["java"] = true
+	}
+	if hasTSConfig {
+		tags["typescript"] = true
+	} else if hasPackageJSON {
+		tags["javascript"] = true
+	}
+
+	// GitHub Actions workflows live at a fixed repo-root path.
+	if dirExists(filepath.Join(dir, ".github", "workflows")) {
+		entries, err := os.ReadDir(filepath.Join(dir, ".github", "workflows"))
+		if err == nil {
+			for _, e := range entries {
+				if strings.HasSuffix(e.Name(), ".yml") || strings.HasSuffix(e.Name(), ".yaml") {
+					tags["github-actions"] = true
+					break
+				}
+			}
+		}
+	}
 
 	result := make([]string, 0, len(tags))
 	for tag := range tags {
@@ -154,11 +160,6 @@ func looksLikeKubernetes(path string) bool {
 		lines++
 	}
 	return false
-}
-
-func fileExists(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
 }
 
 func dirExists(path string) bool {

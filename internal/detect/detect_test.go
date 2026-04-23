@@ -15,6 +15,55 @@ func TestTechnologies_Go(t *testing.T) {
 	assertContains(t, tags, "go")
 }
 
+func TestTechnologies_GoWorkspace(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "go.work", "go 1.21\n\nuse ./service\n")
+	sub := filepath.Join(dir, "service")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, sub, "go.mod", "module example.com/service\n\ngo 1.21\n")
+
+	tags := Technologies(dir)
+	assertContains(t, tags, "go")
+}
+
+func TestTechnologies_GoModInSubdir(t *testing.T) {
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "operators", "keystone")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, sub, "go.mod", "module example.com/op\n\ngo 1.21\n")
+
+	tags := Technologies(dir)
+	assertContains(t, tags, "go")
+}
+
+func TestTechnologies_DockerInSubdir(t *testing.T) {
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "images", "api")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, sub, "Dockerfile", "FROM alpine\n")
+
+	tags := Technologies(dir)
+	assertContains(t, tags, "docker")
+}
+
+func TestTechnologies_PythonInSubdir(t *testing.T) {
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "services", "api")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, sub, "pyproject.toml", "[project]\nname = \"foo\"\n")
+
+	tags := Technologies(dir)
+	assertContains(t, tags, "python")
+}
+
 func TestTechnologies_Python(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, "pyproject.toml", "[project]\nname = \"foo\"\n")
