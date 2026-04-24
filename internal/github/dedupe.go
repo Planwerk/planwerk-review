@@ -69,10 +69,6 @@ func ListAllIssuesWithLimit(owner, name string, limit int) ([]ExistingIssue, err
 //   - internal runs of whitespace collapsed to single spaces
 //   - ASCII letters lowercased
 //   - trailing ASCII punctuation (. ! ? , ; :) stripped
-//
-// Titles that differ in their bracketed severity prefix (e.g. "[BLOCKING] Foo"
-// vs "[WARNING] Foo") intentionally stay distinct — the severity is part of
-// the issue's identity.
 func NormalizeIssueTitle(s string) string {
 	s = strings.TrimSpace(s)
 	// Collapse internal whitespace.

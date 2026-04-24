@@ -82,11 +82,17 @@ func TestRenderProposals_Issues(t *testing.T) {
 	renderer.RenderIssues(*result, "owner/repo")
 
 	out := buf.String()
-	if !strings.Contains(out, "`[HIGH]` Fix auth") {
+	if !strings.Contains(out, "## Fix auth") {
 		t.Error("missing issue header")
 	}
-	if !strings.Contains(out, "security, high, scope:medium") {
-		t.Error("missing labels")
+	if strings.Contains(out, "[HIGH]") {
+		t.Error("issue header must not carry a [PRIORITY] prefix")
+	}
+	if !strings.Contains(out, "**Priority**: HIGH") {
+		t.Error("priority should still appear in the body metadata")
+	}
+	if !strings.Contains(out, "**Labels**: security, scope:medium") {
+		t.Error("labels should list category and scope only (no priority)")
 	}
 	if !strings.Contains(out, "`internal/auth`") {
 		t.Error("missing affected areas")

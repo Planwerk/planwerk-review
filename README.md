@@ -68,7 +68,7 @@ Prompt:
                             ▼
                      ┌──────────────────┐
                      │ Auto-mode by     │
-                     │ severity prefix  │
+                     │ severity marker  │
                      └──────────────────┘
 ```
 
@@ -181,7 +181,7 @@ Each finding is classified by actionability:
 
 1. **Issue Input**: A GitHub issue reference (URL or `owner/repo#number`).
 2. **Fetch Issue**: Title, body, URL, and state are fetched via `gh issue view`.
-3. **Mode Selection**: `auto` (default) inspects the issue title — audit findings carry an `[BLOCKING]` / `[CRITICAL]` / `[WARNING]` / `[INFO]` prefix and get the "fix" prompt; everything else gets the "implement" prompt. Override with `--mode fix` or `--mode implement`.
+3. **Mode Selection**: `auto` (default) inspects the issue body — audit findings carry a `**Severity**:` marker and get the "fix" prompt; everything else gets the "implement" prompt. Override with `--mode fix` or `--mode implement`.
 4. **Prompt Assembly**: The runner deterministically assembles a prompt containing the agent workflow, rules (no scope creep, no `--no-verify`, run tests, update docs), and the issue metadata + body. No Claude call is made — the output is reproducible so it can be piped into other tools or diffed over time.
 5. **Output**: The prompt is written to stdout, ready to paste into Claude Code or any other AI coding agent.
 
@@ -390,9 +390,9 @@ planwerk-review prompt --mode implement owner/repo#42
 planwerk-review prompt owner/repo#42 | pbcopy
 ```
 
-Mode auto-detection looks at the issue title: titles starting with an audit
-severity prefix (`[BLOCKING]`, `[CRITICAL]`, `[WARNING]`, `[INFO]`) get the
-"fix" prompt, everything else gets the "implement" prompt.
+Mode auto-detection looks at the issue body: audit-generated issues carry a
+`**Severity**:` marker and get the "fix" prompt, everything else gets the
+"implement" prompt.
 
 ##### Flags
 
@@ -429,10 +429,9 @@ output format — Markdown, JSON, `--format=issues`, and the interactive
 
 Matching is case-insensitive, trims surrounding whitespace, collapses internal
 whitespace, and ignores trailing punctuation (`.`, `!`, `?`, `,`, `;`, `:`).
-Severity prefixes like `[BLOCKING] …` are treated as part of the title, so a
-finding escalated from `WARNING` to `CRITICAL` still surfaces as a new item.
-If `gh issue list` fails, dedupe is skipped with a warning and the pipeline
-continues.
+Audit-issue titles no longer carry a `[SEVERITY]` prefix, so severity drift
+between runs does not split a finding into a new duplicate. If `gh issue list`
+fails, dedupe is skipped with a warning and the pipeline continues.
 
 Pass `--no-issue-dedupe` (on either subcommand) to disable the filter for
 debugging or when you want to see the full candidate list regardless of

@@ -93,10 +93,13 @@ func (r *Renderer) renderProposal(p Proposal) {
 }
 
 func (r *Renderer) renderIssue(p Proposal) {
-	_, _ = fmt.Fprintf(r.w, "## `[%s]` %s\n\n", p.Priority, p.Title)
+	_, _ = fmt.Fprintf(r.w, "## %s\n\n", p.Title)
 
-	// Labels line
-	labels := []string{p.Category, strings.ToLower(p.Priority), "scope:" + strings.ToLower(p.Scope)}
+	// Priority is surfaced in the body, not as part of the title or a
+	// tag-like label.
+	_, _ = fmt.Fprintf(r.w, "**Priority**: %s | **Category**: %s | **Scope**: %s\n\n", p.Priority, p.Category, p.Scope)
+
+	labels := []string{p.Category, "scope:" + strings.ToLower(p.Scope)}
 	_, _ = fmt.Fprintf(r.w, "**Labels**: %s\n\n", strings.Join(labels, ", "))
 
 	_, _ = fmt.Fprint(r.w, "### Description\n\n")

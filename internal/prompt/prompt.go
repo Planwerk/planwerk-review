@@ -22,8 +22,8 @@ type Options struct {
 type Mode int
 
 const (
-	// ModeAuto picks ModeFix when the issue title carries a severity prefix
-	// (`[BLOCKING] …`, `[CRITICAL] …`, etc.), and ModeImplement otherwise.
+	// ModeAuto picks ModeFix when the issue body carries the audit
+	// severity marker ("**Severity**:"), and ModeImplement otherwise.
 	ModeAuto Mode = iota
 	// ModeFix asks the agent to apply the audit finding's suggested fix.
 	ModeFix
@@ -182,18 +182,14 @@ func writeImplementFooter(sb *strings.Builder, _ *github.Issue) {
 	sb.WriteString("Implement the issue end-to-end (code + tests + docs), keep commits reviewable, and open a draft PR linked to the issue. Summarise the work and any scope deviations in a comment on the issue.\n")
 }
 
-// inferMode picks ModeFix for issues whose title carries an audit severity
-// prefix (`[BLOCKING] …`, `[CRITICAL] …`, `[WARNING] …`, `[INFO] …`) and
-// ModeImplement otherwise. Audit-generated issues always carry that prefix
-// (see audit.buildGroupTitle), so this gives the right default in practice
+// inferMode picks ModeFix for issues whose body carries the audit severity
+// marker ("**Severity**:") and ModeImplement otherwise. Audit-generated
+// issues always include that marker in the body (see
+// audit.renderGroupMarkdown), so this gives the right default in practice
 // without requiring the user to know which subcommand produced the issue.
 func inferMode(issue *github.Issue) Mode {
-	t := strings.TrimSpace(issue.Title)
-	prefixes := []string{"[BLOCKING]", "[CRITICAL]", "[WARNING]", "[INFO]"}
-	for _, p := range prefixes {
-		if strings.HasPrefix(t, p) {
-			return ModeFix
-		}
+	if strings.Contains(issue.Body, "**Severity**:") {
+		return ModeFix
 	}
 	return ModeImplement
 }
