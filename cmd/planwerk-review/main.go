@@ -541,9 +541,9 @@ or short form (owner/repo#123).`,
 		Long: `Fetch a GitHub issue and emit a copy-paste-ready prompt for Claude
 Code (or another AI agent) to fix or implement it.
 
-Mode is auto-detected from the issue title: titles starting with an audit
-severity prefix ([BLOCKING], [CRITICAL], [WARNING], [INFO]) get the "fix"
-prompt; everything else gets the "implement" prompt. Override with --mode.
+Mode is auto-detected from the issue body: issues whose body carries the
+audit severity marker ("**Severity**:") get the "fix" prompt; everything
+else gets the "implement" prompt. Override with --mode.
 
 Issue reference can be a URL (https://github.com/owner/repo/issues/123)
 or short form (owner/repo#123).`,

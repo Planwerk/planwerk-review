@@ -21,8 +21,8 @@ func TestRun_AutoModePicksFixForAuditTitles(t *testing.T) {
 	gh := &fakeGH{get: func(owner, name string, number int) (*github.Issue, error) {
 		return &github.Issue{
 			Owner: owner, Name: name, Number: number,
-			Title: "[BLOCKING] SQL Injection (db/users.go:42)",
-			Body:  "Body.",
+			Title: "SQL Injection (db/users.go:42)",
+			Body:  "**Severity**: BLOCKING | **Pattern**: `sql-injection`\n\nBody.",
 		}, nil
 	}}
 	r := &Runner{GitHub: gh}
@@ -61,8 +61,8 @@ func TestRun_ExplicitModeOverridesAuto(t *testing.T) {
 	gh := &fakeGH{get: func(owner, name string, number int) (*github.Issue, error) {
 		return &github.Issue{
 			Owner: owner, Name: name, Number: number,
-			Title: "[BLOCKING] really an audit",
-			Body:  "B",
+			Title: "really an audit",
+			Body:  "**Severity**: BLOCKING\n\nB",
 		}, nil
 	}}
 	r := &Runner{GitHub: gh}
@@ -117,14 +117,17 @@ func TestRun_InvalidRefFailsBeforeFetch(t *testing.T) {
 	}
 }
 
-func TestInferModeAllAuditPrefixes(t *testing.T) {
-	for _, p := range []string{"[BLOCKING]", "[CRITICAL]", "[WARNING]", "[INFO]"} {
-		iss := &github.Issue{Title: p + " whatever"}
+func TestInferModeDetectsAuditBySeverityMarker(t *testing.T) {
+	for _, sev := range []string{"BLOCKING", "CRITICAL", "WARNING", "INFO"} {
+		iss := &github.Issue{
+			Title: "whatever",
+			Body:  "**Severity**: " + sev + " | **Pattern**: `x`\n\n...",
+		}
 		if got := inferMode(iss); got != ModeFix {
-			t.Errorf("inferMode(%q) = %v, want ModeFix", iss.Title, got)
+			t.Errorf("inferMode(body with %s marker) = %v, want ModeFix", sev, got)
 		}
 	}
-	if got := inferMode(&github.Issue{Title: "Add new feature"}); got != ModeImplement {
-		t.Errorf("inferMode for plain title = %v, want ModeImplement", got)
+	if got := inferMode(&github.Issue{Title: "Add new feature", Body: "Proposal without severity marker."}); got != ModeImplement {
+		t.Errorf("inferMode for body without severity marker = %v, want ModeImplement", got)
 	}
 }

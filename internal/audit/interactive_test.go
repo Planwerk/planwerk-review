@@ -18,7 +18,7 @@ func TestBuildGroupTitle_SingleOccurrence(t *testing.T) {
 		},
 	}
 	got := buildGroupTitle(g)
-	want := "[WARNING] Missing error wrap (internal/foo/bar.go:42)"
+	want := "Missing error wrap (internal/foo/bar.go:42)"
 	if got != want {
 		t.Errorf("title = %q, want %q", got, want)
 	}
@@ -54,7 +54,7 @@ func TestBuildGroupTitle_MultipleOccurrences(t *testing.T) {
 		},
 	}
 	got := buildGroupTitle(g)
-	want := "[CRITICAL] err-wrap: internal/foo/bar.go (3 occurrences)"
+	want := "err-wrap: internal/foo/bar.go (3 occurrences)"
 	if got != want {
 		t.Errorf("title = %q, want %q", got, want)
 	}

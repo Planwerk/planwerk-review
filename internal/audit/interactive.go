@@ -64,7 +64,9 @@ func printFindingsSummaryTable(w io.Writer, groups []FindingGroup) {
 
 // buildGroupTitle returns the title used both on-screen and as the GitHub
 // issue title. Single-occurrence groups use the finding's own title; multi-
-// occurrence groups summarize the pattern and file with a count.
+// occurrence groups summarize the pattern and file with a count. The
+// severity stays in the issue body only — titles carry no [SEVERITY]
+// prefix so they don't double as ad-hoc labels.
 func buildGroupTitle(g FindingGroup) string {
 	if len(g.Findings) == 1 {
 		f := g.Findings[0]
@@ -76,9 +78,9 @@ func buildGroupTitle(g FindingGroup) string {
 		if title == "" {
 			title = g.Pattern
 		}
-		return fmt.Sprintf("[%s] %s (%s)", g.MaxSeverity, title, loc)
+		return fmt.Sprintf("%s (%s)", title, loc)
 	}
-	return fmt.Sprintf("[%s] %s: %s (%d occurrences)", g.MaxSeverity, g.Pattern, g.File, len(g.Findings))
+	return fmt.Sprintf("%s: %s (%d occurrences)", g.Pattern, g.File, len(g.Findings))
 }
 
 func buildGroupPreview(g FindingGroup) string {
