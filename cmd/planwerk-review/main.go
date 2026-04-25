@@ -22,6 +22,7 @@ import (
 	"github.com/planwerk/planwerk-review/internal/claude"
 	"github.com/planwerk/planwerk-review/internal/cli"
 	"github.com/planwerk/planwerk-review/internal/elaborate"
+	"github.com/planwerk/planwerk-review/internal/fix"
 	"github.com/planwerk/planwerk-review/internal/logging"
 	"github.com/planwerk/planwerk-review/internal/patterns"
 	"github.com/planwerk/planwerk-review/internal/prompt"
@@ -562,6 +563,48 @@ or short form (owner/repo#123).`,
 	promptCmd.Flags().StringVar(&promptCfg.Mode, "mode", "auto", "Prompt variant (auto, fix, implement)")
 
 	rootCmd.AddCommand(promptCmd)
+
+	// fix subcommand: drive a self-healing loop that watches a PR's checks,
+	// dispatches a fresh Claude session to repair failures, then waits for
+	// the new commit's checks to come back. The loop continues until every
+	// check is green or --max-iterations is exhausted.
+	var fixCfg cli.FixConfig
+
+	fixCmd := &cobra.Command{
+		Use:   "fix <pr-ref>",
+		Short: "Loop on a PR's failing CI checks until they all pass",
+		Long: `Watch a GitHub pull request's CI checks and, when one fails, dispatch a
+fresh Claude Code session to apply a minimal-invasive fix and push it as a
+follow-up commit. After each push the loop waits for the new commit's checks
+to complete; if any still fail the loop starts over. Continues until every
+check is green or --max-iterations is hit.
+
+Status checks are queried directly via the GitHub API (gh CLI) — Claude is
+only invoked when an actual fix is needed.
+
+PR reference can be a URL (https://github.com/owner/repo/pull/123)
+or short form (owner/repo#123).`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fixCfg.PRRef = args[0]
+			if fixCfg.PollInterval <= 0 {
+				return fmt.Errorf("--interval must be > 0, got %s", fixCfg.PollInterval)
+			}
+			if fixCfg.MaxIterations <= 0 {
+				return fmt.Errorf("--max-iterations must be > 0, got %d", fixCfg.MaxIterations)
+			}
+			opts := fixCfg.ToFixOptions(version)
+			return fix.Run(cmd.OutOrStdout(), opts, claude.Fix)
+		},
+	}
+
+	fixFlags := fixCmd.Flags()
+	fixFlags.DurationVar(&fixCfg.PollInterval, "interval", fix.DefaultPollInterval, "Polling interval between check-status queries")
+	fixFlags.IntVar(&fixCfg.MaxIterations, "max-iterations", fix.DefaultMaxIterations, "Maximum number of fix attempts before giving up")
+	fixFlags.BoolVar(&fixCfg.Interactive, "interactive", false, "Ask before starting each new fix iteration (after the first)")
+	fixFlags.BoolVar(&fixCfg.DryRun, "dry-run", false, "Report failing checks but do not invoke Claude or commit")
+
+	rootCmd.AddCommand(fixCmd)
 
 	// cache subcommand group: visibility into the on-disk cache. The existing
 	// top-level --cache-stats / --cache-inspect flags remain for compatibility;

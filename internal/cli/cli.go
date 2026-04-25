@@ -5,6 +5,7 @@ import (
 
 	"github.com/planwerk/planwerk-review/internal/audit"
 	"github.com/planwerk/planwerk-review/internal/elaborate"
+	"github.com/planwerk/planwerk-review/internal/fix"
 	"github.com/planwerk/planwerk-review/internal/prompt"
 	"github.com/planwerk/planwerk-review/internal/propose"
 	"github.com/planwerk/planwerk-review/internal/report"
@@ -133,6 +134,26 @@ func (c ElaborateConfig) ToElaborateOptions(version string) elaborate.Options {
 		MaxPatterns:     c.MaxPatterns,
 		UpdateMode:      mode,
 		CacheMaxAge:     c.CacheMaxAge,
+	}
+}
+
+// FixConfig holds configuration for the fix command.
+type FixConfig struct {
+	PRRef         string
+	PollInterval  time.Duration
+	MaxIterations int
+	Interactive   bool
+	DryRun        bool
+}
+
+func (c FixConfig) ToFixOptions(version string) fix.Options {
+	return fix.Options{
+		PRRef:         c.PRRef,
+		PollInterval:  c.PollInterval,
+		MaxIterations: c.MaxIterations,
+		Interactive:   c.Interactive,
+		DryRun:        c.DryRun,
+		Version:       version,
 	}
 }
 
