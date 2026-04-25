@@ -47,6 +47,26 @@ func (r *Repo) FullName() string {
 	return fmt.Sprintf("%s/%s", r.Owner, r.Name)
 }
 
+// BranchHeadSHA returns the HEAD commit SHA of the named branch on the
+// remote repository via the gh API. Used by the fix loop to detect when CI
+// has run against a new commit (i.e. our follow-up push has landed).
+func BranchHeadSHA(owner, repo, branch string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), gitRemoteTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "gh", "api",
+		fmt.Sprintf("repos/%s/%s/branches/%s", owner, repo, branch),
+		"--jq", ".commit.sha")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("gh api branches/%s: %w", branch, err)
+	}
+	sha := strings.TrimSpace(string(out))
+	if sha == "" {
+		return "", fmt.Errorf("gh api returned no SHA for branch %s of %s/%s", branch, owner, repo)
+	}
+	return sha, nil
+}
+
 // DefaultBranchHEAD returns the HEAD SHA of the default branch via the gh API.
 // Used via gh so authentication works for private repos. This is used for
 // cache invalidation so proposals are refreshed when the repo changes.
