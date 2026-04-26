@@ -139,12 +139,13 @@ func (c ElaborateConfig) ToElaborateOptions(version string) elaborate.Options {
 
 // FixConfig holds configuration for the fix command.
 type FixConfig struct {
-	PRRef         string
-	PollInterval  time.Duration
-	MaxIterations int
-	Interactive   bool
-	DryRun        bool
-	PrintPrompt   bool
+	PRRef           string
+	PollInterval    time.Duration
+	MaxIterations   int
+	Interactive     bool
+	DryRun          bool
+	PrintPrompt     bool
+	PrintBarePrompt bool
 }
 
 func (c FixConfig) ToFixOptions(version string) fix.Options {

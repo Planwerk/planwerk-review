@@ -39,6 +39,12 @@ type FixFn func(dir string, ctx Context) (string, error)
 // mode while keeping the import direction claude -> fix.
 type PromptBuildFn func(ctx Context) string
 
+// BarePromptBuildFn renders a self-contained fix prompt from the PR
+// reference alone — no failing-check analysis, no log retrieval. Wired in
+// by the CLI for --print-bare-prompt mode while keeping the import
+// direction claude -> fix.
+type BarePromptBuildFn func(repoFullName string, prNumber int) string
+
 // ClaudeFixer is the injected dependency the orchestrator uses to run a
 // single fix iteration. The production implementation is claude.Fix; tests
 // substitute a fake that returns scripted summaries without invoking the

@@ -622,8 +622,21 @@ or short form (owner/repo#123).`,
 			if fixCfg.MaxIterations <= 0 {
 				return fmt.Errorf("--max-iterations must be > 0, got %d", fixCfg.MaxIterations)
 			}
-			if fixCfg.DryRun && fixCfg.PrintPrompt {
-				return fmt.Errorf("--dry-run and --print-prompt are mutually exclusive")
+			modes := 0
+			if fixCfg.DryRun {
+				modes++
+			}
+			if fixCfg.PrintPrompt {
+				modes++
+			}
+			if fixCfg.PrintBarePrompt {
+				modes++
+			}
+			if modes > 1 {
+				return fmt.Errorf("--dry-run, --print-prompt, and --print-bare-prompt are mutually exclusive")
+			}
+			if fixCfg.PrintBarePrompt {
+				return fix.PrintBarePrompt(cmd.OutOrStdout(), fixCfg.PRRef, claude.BuildBareFixPrompt)
 			}
 			opts := fixCfg.ToFixOptions(version)
 			return fix.Run(cmd.OutOrStdout(), opts, claude.Fix, claude.BuildFixPrompt)
@@ -636,6 +649,7 @@ or short form (owner/repo#123).`,
 	fixFlags.BoolVar(&fixCfg.Interactive, "interactive", false, "Ask before starting each new fix iteration (after the first)")
 	fixFlags.BoolVar(&fixCfg.DryRun, "dry-run", false, "Report failing checks but do not invoke Claude or commit")
 	fixFlags.BoolVar(&fixCfg.PrintPrompt, "print-prompt", false, "Render the fix prompt for the current failing checks to stdout and exit; do not invoke Claude or commit")
+	fixFlags.BoolVar(&fixCfg.PrintBarePrompt, "print-bare-prompt", false, "Render a self-contained fix prompt (no check analysis) to stdout and exit; meant to be pasted into a manual Claude session already running inside a checkout of the PR")
 
 	rootCmd.AddCommand(fixCmd)
 
