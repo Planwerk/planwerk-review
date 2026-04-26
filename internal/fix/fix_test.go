@@ -320,6 +320,54 @@ func TestRun_PrintPromptAllGreenStillExits(t *testing.T) {
 	}
 }
 
+func TestPrintBarePrompt_WritesPromptForRef(t *testing.T) {
+	build := func(repo string, n int) string {
+		return fmt.Sprintf("BARE repo=%s pr=%d", repo, n)
+	}
+	var buf bytes.Buffer
+	if err := PrintBarePrompt(&buf, "https://github.com/owner/repo/pull/42", build); err != nil {
+		t.Fatalf("PrintBarePrompt returned %v, want nil", err)
+	}
+	out := buf.String()
+	if !strings.HasPrefix(out, "BARE repo=owner/repo pr=42") {
+		t.Errorf("expected rendered bare prompt with parsed ref, got: %q", out)
+	}
+	if !strings.HasSuffix(out, "\n") {
+		t.Errorf("output should end with a newline, got: %q", out)
+	}
+}
+
+func TestPrintBarePrompt_AcceptsShortForm(t *testing.T) {
+	var got struct {
+		repo string
+		num  int
+	}
+	build := func(repo string, n int) string {
+		got.repo, got.num = repo, n
+		return "ok"
+	}
+	if err := PrintBarePrompt(io.Discard, "owner/repo#7", build); err != nil {
+		t.Fatalf("PrintBarePrompt returned %v, want nil", err)
+	}
+	if got.repo != "owner/repo" || got.num != 7 {
+		t.Errorf("builder got repo=%q pr=%d, want owner/repo / 7", got.repo, got.num)
+	}
+}
+
+func TestPrintBarePrompt_RejectsBadRef(t *testing.T) {
+	err := PrintBarePrompt(io.Discard, "not-a-ref", func(string, int) string { return "" })
+	if err == nil || !strings.Contains(err.Error(), "parsing PR ref") {
+		t.Fatalf("expected parsing error, got %v", err)
+	}
+}
+
+func TestPrintBarePrompt_RequiresBuilder(t *testing.T) {
+	err := PrintBarePrompt(io.Discard, "owner/repo#1", nil)
+	if err == nil || !strings.Contains(err.Error(), "prompt builder") {
+		t.Fatalf("expected builder-required error, got %v", err)
+	}
+}
+
 func TestRun_DryRunSkipsClaude(t *testing.T) {
 	gh := &fakeGitHub{
 		prTitle:        "demo",

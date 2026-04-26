@@ -71,6 +71,32 @@ func Run(w io.Writer, opts Options, fn FixFn, build PromptBuildFn) error {
 	return NewRunner(fn, build).Run(w, opts)
 }
 
+// PrintBarePrompt parses prRef and writes a self-contained fix prompt to w
+// — no PR fetch, no check polling, no log retrieval. The rendered prompt
+// instructs a manual Claude Code session (already running inside a checkout
+// of the PR) to discover and fix the failing checks itself.
+//
+// Lives in this package so the github.ParseRef call stays out of the CLI
+// entry point; the actual prompt body is supplied by the claude package via
+// the build callback to preserve the claude -> fix import direction.
+func PrintBarePrompt(w io.Writer, prRef string, build BarePromptBuildFn) error {
+	if build == nil {
+		return errors.New("--print-bare-prompt requires a prompt builder; wire claude.BuildBareFixPrompt")
+	}
+	owner, repo, number, err := github.ParseRef(prRef)
+	if err != nil {
+		return fmt.Errorf("parsing PR ref: %w", err)
+	}
+	prompt := build(fmt.Sprintf("%s/%s", owner, repo), number)
+	if _, err := io.WriteString(w, prompt); err != nil {
+		return fmt.Errorf("writing prompt: %w", err)
+	}
+	if !strings.HasSuffix(prompt, "\n") {
+		_, _ = fmt.Fprintln(w)
+	}
+	return nil
+}
+
 // ErrMaxIterations is returned when the loop exhausts its iteration budget
 // before all checks turn green. It is exported so the CLI can distinguish
 // "Claude bailed" from "we ran out of attempts".
