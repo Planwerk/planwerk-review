@@ -251,7 +251,7 @@ func TestFormatGroupedForPrompt_Empty(t *testing.T) {
 
 func TestTruncatePatterns(t *testing.T) {
 	// Create more than the limit: 5 BLOCKING, 10 CRITICAL, rest INFO
-	limit := DefaultMaxPatternsInPrompt
+	const limit = 50
 	var pats []Pattern
 	for i := 0; i < limit+10; i++ {
 		sev := "INFO"

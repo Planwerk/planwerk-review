@@ -10,10 +10,11 @@ import (
 )
 
 // DefaultMaxPatternsInPrompt is the default cap on patterns injected into the
-// prompt when no explicit limit is configured. It can be overridden via the
+// prompt when no explicit limit is configured. The default is 0, meaning all
+// loaded patterns are injected without truncation. Override via the
 // --max-patterns flag or PLANWERK_MAX_PATTERNS environment variable.
 // A value <= 0 disables truncation.
-const DefaultMaxPatternsInPrompt = 50
+const DefaultMaxPatternsInPrompt = 0
 
 // severityOrder maps severity strings to priority (lower = higher priority for truncation).
 var severityOrder = map[string]int{
