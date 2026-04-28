@@ -224,7 +224,7 @@ planwerk-review owner/repo#123 > review.md
 | `--inline` | Post review with inline comments using GitHub Review API (implies `--post-review`) | `false` |
 | `--thorough` | Run additional adversarial review pass for security and failure modes | `false` |
 | `--coverage-map` | Generate test coverage map for changed functions | `false` |
-| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; see [Configuration File](#configuration-file) for precedence with `PLANWERK_MAX_PATTERNS`) | `50` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; see [Configuration File](#configuration-file) for precedence with `PLANWERK_MAX_PATTERNS`) | `0` (unlimited) |
 | `--max-findings` | Cap on findings returned (`<=0` disables cap) | `0` |
 
 ##### Global Flags
@@ -273,7 +273,7 @@ planwerk-review propose owner/repo > proposals.md
 | `--no-local-patterns` | Ignore local patterns from the tool | `false` |
 | `--no-cache` | Ignore cache, force a fresh analysis | `false` |
 | `--format` | Output format (`markdown`, `json`, `issues`) | `markdown` |
-| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; see [Configuration File](#configuration-file) for precedence with `PLANWERK_MAX_PATTERNS`) | `50` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; see [Configuration File](#configuration-file) for precedence with `PLANWERK_MAX_PATTERNS`) | `0` (unlimited) |
 | `--create-issues` | Interactively create GitHub issues from proposals | `false` |
 | `--no-issue-dedupe` | Do not filter proposals whose title matches an existing GitHub issue | `false` |
 
@@ -319,7 +319,7 @@ planwerk-review audit owner/repo > audit.md
 | `--no-local-patterns` | Ignore local patterns from the tool | `false` |
 | `--no-cache` | Ignore cache, force a fresh audit | `false` |
 | `--format` | Output format (`markdown`, `json`) | `markdown` |
-| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; see [Configuration File](#configuration-file) for precedence with `PLANWERK_MAX_PATTERNS`) | `50` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; see [Configuration File](#configuration-file) for precedence with `PLANWERK_MAX_PATTERNS`) | `0` (unlimited) |
 | `--max-findings` | Cap on findings returned (`<=0` disables cap) | `0` |
 | `--create-issues` | Interactively create GitHub issues from findings | `false` |
 | `--issue-min-severity` | Minimum severity for issue creation | `warning` |
@@ -362,7 +362,7 @@ planwerk-review elaborate --post-comment owner/repo#123
 | `--no-cache` | Ignore cache, force a fresh elaboration | `false` |
 | `--cache-max-age` | Reject cached entries older than this duration (`0` disables the TTL) | `720h` |
 | `--format` | Output format (`markdown`, `json`) | `markdown` |
-| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation) | `50` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation) | `0` (unlimited) |
 | `--update-issue` | Replace the issue body with the elaborated body via `gh issue edit` | `false` |
 | `--post-comment` | Post the elaborated body as a new issue comment via `gh issue comment` | `false` |
 
@@ -764,7 +764,7 @@ Anything that doesn't match `github:` or `git+http(s)://` is treated as a local 
 
 #### Prompt Budget
 
-To keep review prompts within Claude's context window, patterns are capped at `--max-patterns` (default: `50`, env: `PLANWERK_MAX_PATTERNS`). When more patterns are loaded than the budget allows, the tool keeps the highest-priority patterns by severity (`BLOCKING` > `CRITICAL` > `WARNING` > `INFO`) and prints a warning to stderr. Set `--max-patterns 0` to disable truncation and inject all loaded patterns.
+By default, all loaded patterns are injected into the prompt without truncation (`--max-patterns 0`, env: `PLANWERK_MAX_PATTERNS`). To cap pattern injection — e.g. to keep prompts within Claude's context window — set `--max-patterns` to a positive integer. When more patterns are loaded than the budget allows, the tool keeps the highest-priority patterns by severity (`BLOCKING` > `CRITICAL` > `WARNING` > `INFO`) and prints a warning to stderr.
 
 #### Pattern Format
 

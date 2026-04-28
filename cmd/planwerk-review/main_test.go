@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/planwerk/planwerk-review/internal/cache"
+	"github.com/planwerk/planwerk-review/internal/patterns"
 )
 
 func TestResolveBuildInfoUsesLdflagsVersion(t *testing.T) {
@@ -117,8 +118,11 @@ func TestResolveMaxPatternsDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got <= 0 {
-		t.Fatalf("expected positive default, got %d", got)
+	if got != patterns.DefaultMaxPatternsInPrompt {
+		t.Fatalf("got %d, want default %d", got, patterns.DefaultMaxPatternsInPrompt)
+	}
+	if got > 0 {
+		t.Fatalf("default must disable truncation (<=0), got %d", got)
 	}
 }
 
