@@ -35,7 +35,9 @@ func BuildImplementPrompt(ctx implement.Context) string {
 
 	sb.WriteString(`You are a Staff Engineer implementing an elaborated GitHub issue end-to-end inside a fresh checkout of the target repository. The issue body below is the definition of done — treat its Acceptance Criteria as a contract.
 
-Apply these thinking patterns:
+`)
+	sb.WriteString(baselineBehavioralPrinciples)
+	sb.WriteString(`Apply these task-specific thinking patterns on top of the baseline above:
 - "Read the issue first, in full." — Acceptance Criteria, Non-Goals, Affected Areas, References. Do NOT start editing before you have read every section.
 - "Verify the ground truth." — For every file, symbol, package, or migration the issue cites, open the file and confirm it exists and matches the description. If it does not, STOP and report — do not invent code on top of a stale spec.
 - "Smallest change that satisfies every Acceptance Criterion." — No speculative scope, no drive-by refactors, no renames the issue did not ask for.
@@ -140,7 +142,9 @@ func BuildBareImplementPrompt(repoFullName string, issueNumber int) string {
 
 	sb.WriteString(`You are a Staff Engineer implementing an elaborated GitHub issue end-to-end inside a checkout of the target repository. The issue is the definition of done — treat its Acceptance Criteria as a contract.
 
-Apply these thinking patterns:
+`)
+	sb.WriteString(baselineBehavioralPrinciples)
+	sb.WriteString(`Apply these task-specific thinking patterns on top of the baseline above:
 - "Read the issue first, in full." — Acceptance Criteria, Non-Goals, Affected Areas, References. Do NOT start editing before you have read every section.
 - "Verify the ground truth." — For every file, symbol, package, or migration the issue cites, open the file and confirm it exists and matches the description. If it does not, STOP and report — do not invent code on top of a stale spec.
 - "Smallest change that satisfies every Acceptance Criterion." — No speculative scope, no drive-by refactors, no renames the issue did not ask for.

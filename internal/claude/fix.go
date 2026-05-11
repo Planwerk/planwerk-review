@@ -33,7 +33,9 @@ func BuildFixPrompt(ctx fix.Context) string {
 
 	sb.WriteString(`You are a Staff Engineer fixing failing CI checks on a GitHub pull request.
 
-Apply these thinking patterns:
+`)
+	sb.WriteString(baselineBehavioralPrinciples)
+	sb.WriteString(`Apply these task-specific thinking patterns on top of the baseline above:
 - "Diagnose before patching." — Read every failing log to the bottom. Classify the failure category (build/compile, test, lint/format, type-check, dependency/security scan, infra/flake) BEFORE editing any file.
 - "Find the root cause." — A failing assertion is a symptom; the broken invariant in the code under test is the cause. Fix the cause, not the symptom.
 - "Reproduce, then verify." — When the failing command can be re-run in this checkout (test, lint, build, type-check), run it locally to reproduce the failure FIRST, then run it again after your edits to confirm the fix BEFORE pushing.
@@ -165,7 +167,9 @@ func BuildBareFixPrompt(repoFullName string, prNumber int) string {
 
 	sb.WriteString(`You are a Staff Engineer fixing failing CI checks on a GitHub pull request.
 
-Apply these thinking patterns:
+`)
+	sb.WriteString(baselineBehavioralPrinciples)
+	sb.WriteString(`Apply these task-specific thinking patterns on top of the baseline above:
 - "Diagnose before patching." — Read every failing log to the bottom. Classify the failure category (build/compile, test, lint/format, type-check, dependency/security scan, infra/flake) BEFORE editing any file.
 - "Find the root cause." — A failing assertion is a symptom; the broken invariant in the code under test is the cause. Fix the cause, not the symptom.
 - "Reproduce, then verify." — When the failing command can be re-run in this checkout (test, lint, build, type-check), run it locally to reproduce the failure FIRST, then run it again after your edits to confirm the fix BEFORE pushing.
