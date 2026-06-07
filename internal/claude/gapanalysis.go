@@ -109,7 +109,11 @@ For EVERY gap, propose a GitHub issue:
 
 Severity must NEVER appear in the title or as a label — keep it inside the body only (this matches the project's existing convention).
 
-## Output format
+`)
+
+	sb.WriteString(proseStyleBlock())
+
+	sb.WriteString(`## Output format
 
 When you are done, emit a comprehensive gap report grouped by feature_id, with each gap's gap_type, severity, title, source (the verbatim spec snippet), description (what is missing), evidence (where you looked), confidence, and a suggested_issue with title and body.
 
