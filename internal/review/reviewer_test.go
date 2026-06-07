@@ -16,10 +16,11 @@ import (
 // test that uses an unexpected code path fails loudly rather than hitting the
 // real gh CLI.
 type mockGitHub struct {
-	postPRComment   func(owner, repo string, number int, body string) (string, error)
-	submitPRReview  func(owner, repo string, number int, commitSHA, body string, comments []github.ReviewComment) (string, error)
-	fetchDiff       func(owner, repo string, number int) (string, error)
-	fetchAndCheckout func(ref string) (*github.PR, error)
+	postPRComment      func(owner, repo string, number int, body string) (string, error)
+	submitPRReview     func(owner, repo string, number int, commitSHA, body string, comments []github.ReviewComment) (string, error)
+	fetchDiff          func(owner, repo string, number int) (string, error)
+	fetchAndCheckout   func(ref string) (*github.PR, error)
+	fetchReviewComment func(owner, repo string, number int) (string, bool, error)
 }
 
 func (m *mockGitHub) PostPRComment(owner, repo string, number int, body string) (string, error) {
@@ -36,6 +37,13 @@ func (m *mockGitHub) FetchDiff(owner, repo string, number int) (string, error) {
 
 func (m *mockGitHub) FetchAndCheckout(ref string) (*github.PR, error) {
 	return m.fetchAndCheckout(ref)
+}
+
+func (m *mockGitHub) FetchReviewComment(owner, repo string, number int) (string, bool, error) {
+	if m.fetchReviewComment == nil {
+		return "", false, nil
+	}
+	return m.fetchReviewComment(owner, repo, number)
 }
 
 // mockClaude is a placeholder ClaudeRunner for tests that only exercise

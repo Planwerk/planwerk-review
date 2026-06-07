@@ -316,6 +316,22 @@ func (r *Runner) renderResult(w io.Writer, result *report.ReviewResult, pr *gith
 		slog.Warn("review recommendation is generic — the model did not name a specific finding", "recommendation", result.Recommendation)
 	}
 
+	// Persistent skip-suppression: when re-reviewing a PR, drop findings the user
+	// already saw last time and did not act on, as long as their file is
+	// unchanged since that review. The rendered sections use the filtered set;
+	// the data block keeps the full set so the next re-review can compare again.
+	displayResult := result
+	var suppressed []report.Finding
+	if opts.PostReview || opts.InlineReview {
+		if kept, supp := r.skipSuppressed(result, pr); len(supp) > 0 {
+			filtered := *result
+			filtered.Findings = kept
+			displayResult = &filtered
+			suppressed = supp
+			slog.Info("suppressed previously-reported findings on unchanged files", "count", len(supp))
+		}
+	}
+
 	prInfo := report.PRInfo{
 		Owner:  pr.Owner,
 		Repo:   pr.Repo,
@@ -334,11 +350,11 @@ func (r *Runner) renderResult(w io.Writer, result *report.ReviewResult, pr *gith
 
 	switch opts.Format {
 	case "json":
-		if err := renderer.RenderJSON(*result, opts.MinSeverity, opts.MinConfidence); err != nil {
+		if err := renderer.RenderJSON(*displayResult, opts.MinSeverity, opts.MinConfidence); err != nil {
 			return err
 		}
 	default:
-		renderer.RenderMarkdown(*result, prInfo, opts.MinSeverity, opts.MinConfidence, opts.Version)
+		renderer.RenderMarkdown(*displayResult, prInfo, opts.MinSeverity, opts.MinConfidence, opts.Version)
 	}
 
 	// Append coverage map if available
@@ -346,9 +362,15 @@ func (r *Runner) renderResult(w io.Writer, result *report.ReviewResult, pr *gith
 		report.RenderCoverageMap(output, *coverage)
 	}
 
+	if len(suppressed) > 0 {
+		writeSuppressionNote(output, suppressed)
+	}
+
 	if opts.InlineReview {
 		slog.Info("posting inline review with GitHub Review API")
-		err := r.postInlineReview(result, pr, &buf)
+		// Inline comments come from the display set (no new comments for
+		// suppressed findings); the data block carries the full result.
+		err := r.postInlineReview(displayResult, result, pr, &buf)
 		if err != nil {
 			slog.Warn("inline review failed, falling back to PR comment", "err", err)
 			_, err = r.GitHub.PostPRComment(pr.Owner, pr.Repo, pr.Number, buf.String())
@@ -358,7 +380,8 @@ func (r *Runner) renderResult(w io.Writer, result *report.ReviewResult, pr *gith
 		}
 	} else if opts.PostReview {
 		slog.Info("posting review as PR comment (will update existing if found)")
-		// Append data block for machine consumption
+		// Append data block for machine consumption — always the FULL result so
+		// the next re-review sees every finding, including the suppressed ones.
 		dataBlock := report.RenderDataBlock(*result, pr.HeadSHA)
 		body := buf.String() + dataBlock
 		postResult, err := r.GitHub.PostPRComment(pr.Owner, pr.Repo, pr.Number, body)
@@ -374,7 +397,7 @@ func (r *Runner) renderResult(w io.Writer, result *report.ReviewResult, pr *gith
 // maxInlineComments is the conservative limit for inline comments per review.
 const maxInlineComments = 50
 
-func (r *Runner) postInlineReview(result *report.ReviewResult, pr *github.PR, summaryBuf *bytes.Buffer) error {
+func (r *Runner) postInlineReview(displayResult, fullResult *report.ReviewResult, pr *github.PR, summaryBuf *bytes.Buffer) error {
 	// 1. Fetch the diff
 	rawDiff, err := r.GitHub.FetchDiff(pr.Owner, pr.Repo, pr.Number)
 	if err != nil {
@@ -384,9 +407,11 @@ func (r *Runner) postInlineReview(result *report.ReviewResult, pr *github.PR, su
 	// 2. Parse the diff into a map
 	diffMap := github.ParseDiff(rawDiff)
 
-	// 3. Partition findings into inline-eligible and body-only
+	// 3. Partition findings into inline-eligible and body-only. Suppressed
+	// findings are excluded from inline comments (displayResult), but the data
+	// block below is built from the full result.
 	var inlineComments []github.ReviewComment
-	for _, f := range result.Findings {
+	for _, f := range displayResult.Findings {
 		if f.File == "" || f.Line <= 0 || !diffMap.Contains(f.File, f.Line) {
 			continue
 		}
@@ -409,8 +434,8 @@ func (r *Runner) postInlineReview(result *report.ReviewResult, pr *github.PR, su
 		inlineComments = append(inlineComments, comment)
 	}
 
-	// 4. Build the review summary body with data block
-	dataBlock := report.RenderDataBlock(*result, pr.HeadSHA)
+	// 4. Build the review summary body with data block (full result).
+	dataBlock := report.RenderDataBlock(*fullResult, pr.HeadSHA)
 	summaryBody := summaryBuf.String() + dataBlock
 
 	// 5. Submit the review
@@ -438,6 +463,69 @@ func warnRedaction(source string, r redact.Result) {
 		attrs = append(attrs, name, r.Counts[name])
 	}
 	slog.Warn("redacted secrets before sending to Claude", attrs...)
+}
+
+// skipSuppressed loads the prior review comment's data block and suppresses the
+// current findings the user already saw on a file that has not changed since.
+// On any failure (no prior comment, unparseable data block, uncomputable diff)
+// it suppresses nothing — the full set is returned.
+func (r *Runner) skipSuppressed(result *report.ReviewResult, pr *github.PR) (kept, suppressed []report.Finding) {
+	body, found, err := r.GitHub.FetchReviewComment(pr.Owner, pr.Repo, pr.Number)
+	if err != nil {
+		slog.Warn("could not fetch prior review comment; skipping suppression", "err", err)
+		return result.Findings, nil
+	}
+	if !found {
+		return result.Findings, nil
+	}
+	priorSHA, priorFindings, ok := report.ParseDataBlock(body)
+	if !ok || priorSHA == "" || len(priorFindings) == 0 {
+		return result.Findings, nil
+	}
+	changed, ok := changedFilesSince(pr.Dir, priorSHA)
+	if !ok {
+		// Without a reliable diff we cannot tell skipped from regressed; do not
+		// suppress, so nothing is hidden on a bad signal.
+		return result.Findings, nil
+	}
+	return report.FilterPreviouslyReported(result.Findings, priorFindings, func(file string) bool {
+		return !changed[file]
+	})
+}
+
+// changedFilesSince returns the set of files changed between sha and HEAD. ok is
+// false when the diff cannot be computed (e.g. the prior SHA is not in this
+// checkout), in which case the caller must not suppress anything.
+func changedFilesSince(dir, sha string) (map[string]bool, bool) {
+	ctx, cancel := context.WithTimeout(context.Background(), gitLogTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "diff", "--name-only", sha, "HEAD")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, false
+	}
+	changed := make(map[string]bool)
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			changed[line] = true
+		}
+	}
+	return changed, true
+}
+
+// writeSuppressionNote renders a collapsed note listing findings suppressed as
+// previously-reported, so nothing is hidden silently.
+func writeSuppressionNote(w io.Writer, suppressed []report.Finding) {
+	_, _ = fmt.Fprintf(w, "> [!NOTE]\n> %d finding(s) suppressed as previously reported on unchanged files since the last review:\n", len(suppressed))
+	for _, f := range suppressed {
+		_, _ = fmt.Fprintf(w, "> - %s", f.Title)
+		if f.File != "" {
+			_, _ = fmt.Fprintf(w, " (%s)", f.File)
+		}
+		_, _ = fmt.Fprintln(w)
+	}
+	_, _ = fmt.Fprintln(w)
 }
 
 // getCommitLog returns the one-line commit log between the base branch and HEAD.

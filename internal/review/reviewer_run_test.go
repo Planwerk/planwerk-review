@@ -3,6 +3,9 @@ package review
 import (
 	"bytes"
 	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -13,6 +16,41 @@ import (
 	"github.com/planwerk/planwerk-review/internal/planwerk"
 	"github.com/planwerk/planwerk-review/internal/report"
 )
+
+// initGitRepoTwoCommits creates a git repo with two commits: the first adds
+// unchanged.go and changed.go; the second modifies only changed.go. It returns
+// the repo dir and the first commit's SHA, so a diff from that SHA to HEAD lists
+// exactly changed.go.
+func initGitRepoTwoCommits(t *testing.T) (dir, firstSHA string) {
+	t.Helper()
+	dir = t.TempDir()
+	run := func(args ...string) string {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	write := func(name, content string) {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	run("init", "-q")
+	run("config", "user.email", "t@example.com")
+	run("config", "user.name", "tester")
+	write("unchanged.go", "package x\n")
+	write("changed.go", "package x\n// v1\n")
+	run("add", "-A")
+	run("commit", "-q", "-m", "first")
+	firstSHA = run("rev-parse", "HEAD")
+	write("changed.go", "package x\n// v2\n")
+	run("add", "-A")
+	run("commit", "-q", "-m", "second")
+	return dir, firstSHA
+}
 
 // configurableClaude is a ClaudeRunner whose behavior is set per-test via
 // closures. Each closure is also wrapped in a call-counter so the test can
@@ -321,6 +359,72 @@ func TestRun_SpecialistsDisabledByDefault(t *testing.T) {
 	}
 	if claudeMock.specialistCalls != 0 {
 		t.Errorf("specialist calls = %d, want 0 without --specialists", claudeMock.specialistCalls)
+	}
+}
+
+func TestRun_SkipSuppressionDropsUnchangedRepeats(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	dir, firstSHA := initGitRepoTwoCommits(t)
+	pr := &github.PR{
+		Owner: "acme", Repo: "widgets", Number: 40, Title: "PR",
+		BaseBranch: "main", HeadBranch: "feature", HeadSHA: "headsha", Dir: dir,
+	}
+
+	// Prior review (posted at firstSHA) reported a nit on unchanged.go and a bug
+	// on changed.go.
+	prior := report.ReviewResult{Findings: []report.Finding{
+		{Title: "Nit A", File: "unchanged.go", Line: 5, Severity: report.SeverityWarning},
+		{Title: "Bug B", File: "changed.go", Line: 9, Severity: report.SeverityWarning},
+	}}
+	priorComment := "## Previous review\n" + report.RenderDataBlock(prior, firstSHA)
+
+	claudeMock := &configurableClaude{review: func(dir string, ctx claude.ReviewContext) (*report.ReviewResult, error) {
+		return &report.ReviewResult{Summary: "S", Findings: []report.Finding{
+			{ID: "W-001", Title: "Nit A", File: "unchanged.go", Line: 5, Severity: report.SeverityWarning, Confidence: report.ConfidenceVerified, Problem: "p", Action: "a"},
+			{ID: "W-002", Title: "Bug B", File: "changed.go", Line: 9, Severity: report.SeverityWarning, Confidence: report.ConfidenceVerified, Problem: "p", Action: "a"},
+			{ID: "W-003", Title: "New finding", File: "new.go", Line: 1, Severity: report.SeverityWarning, Confidence: report.ConfidenceVerified, Problem: "p", Action: "a"},
+		}}, nil
+	}}
+	var postedBody string
+	gh := &mockGitHub{
+		fetchAndCheckout:   func(ref string) (*github.PR, error) { return pr, nil },
+		fetchReviewComment: func(owner, repo string, number int) (string, bool, error) { return priorComment, true, nil },
+		postPRComment: func(owner, repo string, number int, body string) (string, error) {
+			postedBody = body
+			return "url", nil
+		},
+	}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	opts := baseOpts()
+	opts.PostReview = true
+
+	var out bytes.Buffer
+	if err := runner.Run(&out, opts); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	body := out.String()
+	// Nit A: previously reported, file unchanged → suppressed from sections.
+	if strings.Contains(body, ": Nit A") {
+		t.Error("Nit A on an unchanged file should be suppressed from the rendered sections")
+	}
+	// Bug B: previously reported but its file changed → kept (possible regression).
+	if !strings.Contains(body, ": Bug B") {
+		t.Error("Bug B on a changed file should be kept")
+	}
+	// New finding: never seen before → kept.
+	if !strings.Contains(body, ": New finding") {
+		t.Error("a new finding should be kept")
+	}
+	if !strings.Contains(body, "suppressed as previously reported") {
+		t.Error("expected a suppression note surfacing the dropped finding")
+	}
+	// The posted comment's data block still carries the full set so the next
+	// re-review can compare again.
+	if !strings.Contains(postedBody, "planwerk-review-data") {
+		t.Error("posted comment must include the machine-readable data block")
 	}
 }
 

@@ -78,8 +78,33 @@ type ghComment struct {
 	Body string `json:"body"`
 }
 
-// findExistingComment searches for a prior planwerk-review comment on the PR.
+// findExistingComment returns the node ID of the prior planwerk-review comment
+// on the PR, or "" when none exists.
 func findExistingComment(repo string, number int) (string, error) {
+	c, err := fetchExistingComment(repo, number)
+	if err != nil {
+		return "", err
+	}
+	return c.ID, nil
+}
+
+// FetchReviewComment returns the body of the most recent planwerk-review
+// comment on the PR. found is false when no such comment exists. It lets the
+// review pipeline read the data block from the previous review.
+func FetchReviewComment(owner, repo string, number int) (body string, found bool, err error) {
+	c, err := fetchExistingComment(fmt.Sprintf("%s/%s", owner, repo), number)
+	if err != nil {
+		return "", false, err
+	}
+	if c.ID == "" {
+		return "", false, nil
+	}
+	return c.Body, true, nil
+}
+
+// fetchExistingComment returns the most recent planwerk-review comment (id and
+// body) on the PR, or a zero ghComment when none is found.
+func fetchExistingComment(repo string, number int) (ghComment, error) {
 	args := []string{"pr", "view", strconv.Itoa(number),
 		"--repo", repo,
 		"--json", "comments",
@@ -91,18 +116,17 @@ func findExistingComment(repo string, number int) (string, error) {
 	cmd := exec.CommandContext(ctx, "gh", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("gh pr view comments: %s: %w", strings.TrimSpace(string(out)), err)
+		return ghComment{}, fmt.Errorf("gh pr view comments: %s: %w", strings.TrimSpace(string(out)), err)
 	}
 
 	output := strings.TrimSpace(string(out))
 	if output == "" {
-		return "", nil
+		return ghComment{}, nil
 	}
 
 	// Take the last matching comment (most recent).
-	lines := strings.Split(output, "\n")
 	var last ghComment
-	for _, line := range lines {
+	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -114,7 +138,7 @@ func findExistingComment(repo string, number int) (string, error) {
 		last = c
 	}
 
-	return last.ID, nil
+	return last, nil
 }
 
 // editComment updates an existing comment by its node ID.
