@@ -104,6 +104,7 @@ Be direct and decisive in your findings. Do NOT hedge:
 - Do NOT write "it might be worth looking into..." — state the specific problem
 - Take a clear position on every finding. If something is wrong, say it is wrong.
 - If something is fine, do not mention it at all.
+- Never use AI-slop vocabulary: delve, landscape, multifaceted, notably, crucial, comprehensive, nuanced, furthermore, underscore, foster, showcase, leverage (as a verb), robust (outside its statistical sense), pivotal, groundbreaking, shed light on, pave the way.
 
 ## Suppressions — DO NOT flag these
 

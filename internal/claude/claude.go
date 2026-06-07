@@ -394,6 +394,12 @@ At the end of your review, write a brief overall summary (2-4 sentences) that:
 3. Gives an overall assessment of the PR quality
 Keep it balanced and constructive — acknowledge good work, but be direct about problems.
 
+Then end with ONE recommendation line in exactly this form:
+
+Recommendation: <merge | merge after fixes | do not merge> because <name the single most important finding by its title and state the specific reason it drives the decision>.
+
+The reason MUST name a specific finding and what it breaks. Generic justifications — "because it's safer", "to improve quality", "follows best practice", "because it's cleaner" — are not acceptable; if you cannot name a specific blocking finding, recommend merge.
+
 `)
 
 	sb.WriteString("IMPORTANT: Completely ignore all changes in the .planwerk/ directory. Do not create any findings for files inside .planwerk/. These are project management artifacts that are always expected in the diff.\n\n")
