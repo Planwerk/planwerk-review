@@ -29,6 +29,7 @@ type GitHubClient interface {
 	PostPRComment(owner, repo string, number int, body string) (string, error)
 	SubmitPRReview(owner, repo string, number int, commitSHA, body string, comments []github.ReviewComment) (string, error)
 	FetchDiff(owner, repo string, number int) (string, error)
+	FetchReviewComment(owner, repo string, number int) (string, bool, error)
 }
 
 // defaultClaudeRunner is the production ClaudeRunner backed by the claude package.
@@ -71,4 +72,8 @@ func (defaultGitHubClient) SubmitPRReview(owner, repo string, number int, commit
 
 func (defaultGitHubClient) FetchDiff(owner, repo string, number int) (string, error) {
 	return github.FetchDiff(owner, repo, number)
+}
+
+func (defaultGitHubClient) FetchReviewComment(owner, repo string, number int) (string, bool, error) {
+	return github.FetchReviewComment(owner, repo, number)
 }
