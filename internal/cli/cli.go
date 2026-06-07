@@ -109,16 +109,18 @@ type AuditConfig struct {
 
 // ElaborateConfig holds configuration for the elaborate command.
 type ElaborateConfig struct {
-	IssueRef        string
-	PatternDirs     []string
-	NoRepoPatterns  bool
-	NoLocalPatterns bool
-	NoCache         bool
-	Format          string // "markdown" or "json"
-	MaxPatterns     int
-	UpdateIssue     bool // overwrite the issue body with the elaboration
-	PostComment     bool // post the elaboration as a new issue comment
-	CacheMaxAge     time.Duration
+	IssueRef            string
+	PatternDirs         []string
+	NoRepoPatterns      bool
+	NoLocalPatterns     bool
+	NoCache             bool
+	Format              string // "markdown" or "json"
+	MaxPatterns         int
+	UpdateIssue         bool // overwrite the issue body with the elaboration
+	PostComment         bool // post the elaboration as a new issue comment
+	Review              bool // run the reviewer gate + refine loop before output
+	MaxReviewIterations int  // cap on refine iterations (<=0 uses the package default)
+	CacheMaxAge         time.Duration
 }
 
 func (c ElaborateConfig) ToElaborateOptions(version string) elaborate.Options {
@@ -130,16 +132,18 @@ func (c ElaborateConfig) ToElaborateOptions(version string) elaborate.Options {
 		mode = elaborate.UpdateComment
 	}
 	return elaborate.Options{
-		IssueRef:        c.IssueRef,
-		PatternDirs:     c.PatternDirs,
-		NoRepoPatterns:  c.NoRepoPatterns,
-		NoLocalPatterns: c.NoLocalPatterns,
-		NoCache:         c.NoCache,
-		Format:          c.Format,
-		Version:         version,
-		MaxPatterns:     c.MaxPatterns,
-		UpdateMode:      mode,
-		CacheMaxAge:     c.CacheMaxAge,
+		IssueRef:            c.IssueRef,
+		PatternDirs:         c.PatternDirs,
+		NoRepoPatterns:      c.NoRepoPatterns,
+		NoLocalPatterns:     c.NoLocalPatterns,
+		NoCache:             c.NoCache,
+		Format:              c.Format,
+		Version:             version,
+		MaxPatterns:         c.MaxPatterns,
+		UpdateMode:          mode,
+		Review:              c.Review,
+		MaxReviewIterations: c.MaxReviewIterations,
+		CacheMaxAge:         c.CacheMaxAge,
 	}
 }
 

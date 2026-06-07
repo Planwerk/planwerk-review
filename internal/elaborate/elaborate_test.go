@@ -68,6 +68,121 @@ func (f *fakeClaude) Elaborate(dir string, ctx Context) (*Result, error) {
 	return f.fn(dir, ctx)
 }
 
+type fakeReviewer struct {
+	calls int32
+	fn    func(dir string, ctx Context, draft string) (*ReviewResult, error)
+}
+
+func (f *fakeReviewer) ReviewElaboration(dir string, ctx Context, draft string) (*ReviewResult, error) {
+	atomic.AddInt32(&f.calls, 1)
+	return f.fn(dir, ctx, draft)
+}
+
+func reviewLoopGitHub(t *testing.T, repo *github.Repo) *fakeGitHub {
+	t.Helper()
+	return &fakeGitHub{
+		getIssue: func(owner, name string, number int) (*github.Issue, error) {
+			return &github.Issue{Owner: owner, Name: name, Number: number, Title: "Title", Body: "Body"}, nil
+		},
+		cloneRepo: func(ref string) (*github.Repo, error) { return repo, nil },
+	}
+}
+
+func TestRun_ReviewLoop_RefinesUntilApproved(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+	patternDir := seedPatternDir(t)
+	gh := reviewLoopGitHub(t, fakeRepo(t, "acme", "widgets"))
+
+	var elabCalls int32
+	cl := &fakeClaude{fn: func(dir string, ctx Context) (*Result, error) {
+		if atomic.AddInt32(&elabCalls, 1) == 1 {
+			return &Result{Title: "Title", Description: "first draft"}, nil
+		}
+		if ctx.PriorDraft == "" || len(ctx.ReviewGaps) == 0 {
+			t.Errorf("refine pass missing prior draft/gaps: %+v", ctx)
+		}
+		return &Result{Title: "Title", Description: "refined draft"}, nil
+	}}
+	rv := &fakeReviewer{}
+	rv.fn = func(dir string, ctx Context, draft string) (*ReviewResult, error) {
+		if atomic.LoadInt32(&rv.calls) == 1 {
+			return &ReviewResult{Approved: false, Gaps: []string{"close gap X"}}, nil
+		}
+		return &ReviewResult{Approved: true}, nil
+	}
+	r := &Runner{Claude: cl, GitHub: gh, Reviewer: rv}
+
+	opts := baseOpts(patternDir)
+	opts.Review = true
+	var out bytes.Buffer
+	if err := r.Run(&out, opts); err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if got := atomic.LoadInt32(&elabCalls); got != 2 {
+		t.Errorf("elaborate calls = %d, want 2 (initial + one refine)", got)
+	}
+	if got := atomic.LoadInt32(&rv.calls); got != 2 {
+		t.Errorf("reviewer calls = %d, want 2", got)
+	}
+	if s := out.String(); !strings.Contains(s, "refined draft") || strings.Contains(s, "Reviewer Notes") {
+		t.Errorf("expected refined draft and no unresolved-gap note, got:\n%s", s)
+	}
+}
+
+func TestRun_ReviewLoop_SurfacesUnresolvedGaps(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+	patternDir := seedPatternDir(t)
+	gh := reviewLoopGitHub(t, fakeRepo(t, "acme", "widgets"))
+
+	cl := &fakeClaude{fn: func(dir string, ctx Context) (*Result, error) {
+		return &Result{Title: "Title", Description: "draft"}, nil
+	}}
+	rv := &fakeReviewer{fn: func(dir string, ctx Context, draft string) (*ReviewResult, error) {
+		return &ReviewResult{Approved: false, Gaps: []string{"persistent gap Y"}}, nil
+	}}
+	r := &Runner{Claude: cl, GitHub: gh, Reviewer: rv}
+
+	opts := baseOpts(patternDir)
+	opts.Review = true
+	opts.MaxReviewIterations = 2
+	var out bytes.Buffer
+	if err := r.Run(&out, opts); err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if got := atomic.LoadInt32(&rv.calls); got != 2 {
+		t.Errorf("reviewer calls = %d, want 2 (bounded by MaxReviewIterations)", got)
+	}
+	s := out.String()
+	if !strings.Contains(s, "Reviewer Notes (unresolved)") || !strings.Contains(s, "persistent gap Y") {
+		t.Errorf("expected unresolved-gap note in output, got:\n%s", s)
+	}
+}
+
+func TestRun_ReviewLoop_DisabledByDefault(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+	patternDir := seedPatternDir(t)
+	gh := reviewLoopGitHub(t, fakeRepo(t, "acme", "widgets"))
+
+	cl := &fakeClaude{fn: func(dir string, ctx Context) (*Result, error) {
+		return &Result{Title: "Title", Description: "draft"}, nil
+	}}
+	rv := &fakeReviewer{fn: func(dir string, ctx Context, draft string) (*ReviewResult, error) {
+		t.Fatal("reviewer must not run when opts.Review is false")
+		return nil, nil
+	}}
+	r := &Runner{Claude: cl, GitHub: gh, Reviewer: rv}
+
+	if err := r.Run(&bytes.Buffer{}, baseOpts(patternDir)); err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if got := atomic.LoadInt32(&rv.calls); got != 0 {
+		t.Errorf("reviewer calls = %d, want 0 when --review is off", got)
+	}
+}
+
 func seedPatternDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()

@@ -66,6 +66,21 @@ Apply these thinking patterns:
 		sb.WriteString("</review-patterns>\n\n")
 	}
 
+	if ctx.PriorDraft != "" {
+		sb.WriteString("## Revising a Prior Draft\n\n")
+		sb.WriteString("A previous draft of this elaboration was reviewed and found to have gaps. Produce a REVISED elaboration that keeps everything already correct and closes every gap below. Do not start from scratch and do not regress sections that were fine.\n\n")
+		if len(ctx.ReviewGaps) > 0 {
+			sb.WriteString("Gaps to close:\n")
+			for _, g := range ctx.ReviewGaps {
+				fmt.Fprintf(&sb, "- %s\n", strings.TrimSpace(g))
+			}
+			sb.WriteString("\n")
+		}
+		sb.WriteString("<prior-draft>\n")
+		sb.WriteString(strings.TrimSpace(ctx.PriorDraft))
+		sb.WriteString("\n</prior-draft>\n\n")
+	}
+
 	sb.WriteString(`## Methodology
 
 1. **Walk the repository first.** Open README, top-level layout, the package(s) the issue mentions, the migration directory if present, the test conventions (unit / integration / E2E), the documentation structure. Do NOT skip this — the elaboration must be grounded in concrete files and symbols, not generic advice.
@@ -177,6 +192,87 @@ Field rules:
 <elaboration-output>
 ` + rawElaboration + `
 </elaboration-output>`
+}
+
+// ReviewElaboration runs the optional reviewer gate: it judges a rendered
+// elaboration draft for executability against the repository and returns either
+// approval or a list of concrete gaps the next revision must close. It is a
+// single structured Claude call with the same malformed-JSON repair fallback as
+// the other structurers.
+func ReviewElaboration(dir string, ctx elaborate.Context, draftBody string) (*elaborate.ReviewResult, error) {
+	text, err := runClaude(dir, buildElaborateReviewPrompt(ctx, draftBody), "elaborate-review")
+	if err != nil {
+		return nil, fmt.Errorf("running elaboration review: %w", err)
+	}
+	text = stripMarkdownFences(text)
+
+	var rr elaborate.ReviewResult
+	if err := json.Unmarshal([]byte(text), &rr); err != nil {
+		retry, retryErr := runClaude("", buildRepairPrompt(text, err), "elaborate-review-repair")
+		if retryErr != nil {
+			return nil, fmt.Errorf("parsing elaboration review as JSON: %w\nraw output:\n%s", err, text)
+		}
+		retry = stripMarkdownFences(retry)
+		if err2 := json.Unmarshal([]byte(retry), &rr); err2 != nil {
+			return nil, fmt.Errorf("parsing elaboration review as JSON (after retry): %w\nraw output:\n%s", err2, retry)
+		}
+	}
+	// A non-empty gap list always means "not approved", regardless of what the
+	// model put in the boolean.
+	if len(rr.Gaps) > 0 {
+		rr.Approved = false
+	}
+	return &rr, nil
+}
+
+func buildElaborateReviewPrompt(ctx elaborate.Context, draftBody string) string {
+	var sb strings.Builder
+
+	sb.WriteString(`You are a Senior Engineer reviewing a draft engineering plan BEFORE it is handed to an implementer. Decide whether the plan is executable as written; if not, list the concrete gaps that must be closed.
+
+Do NOT rewrite the plan. Do NOT assume it is correct because it looks thorough — verify its claims against the repository. Judge it the way an implementer with zero prior context would experience it.
+
+`)
+
+	if ctx.Issue != nil {
+		fmt.Fprintf(&sb, "## Source Issue #%d: %s\n\n", ctx.Issue.Number, ctx.Issue.Title)
+		if body := strings.TrimSpace(ctx.Issue.Body); body != "" {
+			sb.WriteString("<issue-body>\n")
+			sb.WriteString(body)
+			sb.WriteString("\n</issue-body>\n\n")
+		}
+	}
+
+	sb.WriteString("<draft-plan>\n")
+	sb.WriteString(strings.TrimSpace(draftBody))
+	sb.WriteString("\n</draft-plan>\n\n")
+
+	sb.WriteString(`## What to check
+
+1. Spec coverage — every Acceptance Criterion maps to a concrete, named change in Description or Affected Areas. A criterion with no corresponding change is a gap.
+2. No placeholders — flag "TBD", "add error handling", "handle edge cases", "see Task N", or any reference to a type/function/file/migration the plan never defines or cites by its real name.
+3. Ground truth — every cited file path, symbol, or migration must exist in the repository. Walk the repo to confirm; a citation that does not exist is a gap unless the plan explicitly marks it as an assumption.
+4. Name consistency — a symbol must be named identically throughout. Two names for one thing is a gap.
+5. Executable acceptance criteria — each criterion is an observable check, not a vague goal.
+
+## Calibration
+
+Only flag gaps that would make an implementer build the wrong thing or get stuck. Minor wording and stylistic preferences are NOT gaps. Approve the plan unless there are real executability problems.
+
+## Output
+
+Output ONLY valid JSON (no markdown fences, no surrounding text):
+
+{
+  "approved": true,
+  "gaps": []
+}
+
+- "approved": true ONLY when the plan is executable as written with no blocking gaps. If you list any gap, "approved" MUST be false.
+- "gaps": each entry is one concrete, actionable problem the next revision must fix, referencing the exact section or criterion. Empty array when approved.
+`)
+
+	return sb.String()
 }
 
 // jsonString quotes s as a JSON string literal so it can be embedded inline
