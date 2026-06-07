@@ -776,7 +776,7 @@ or short form (owner/repo#123).`,
 			}
 
 			opts := elaborateCfg.ToElaborateOptions(version)
-			return elaborate.Run(os.Stdout, opts, claude.Elaborate)
+			return elaborate.Run(os.Stdout, opts, claude.Elaborate, claude.ReviewElaboration)
 		},
 	}
 
@@ -790,6 +790,8 @@ or short form (owner/repo#123).`,
 	elaborateFlags.IntVar(&elaborateCfg.MaxPatterns, "max-patterns", patterns.DefaultMaxPatternsInPrompt, "Max review patterns injected into the prompt (<=0 disables truncation, env: "+envMaxPatterns+")")
 	elaborateFlags.BoolVar(&elaborateCfg.UpdateIssue, "update-issue", false, "Replace the issue body with the elaborated body via gh issue edit")
 	elaborateFlags.BoolVar(&elaborateCfg.PostComment, "post-comment", false, "Post the elaborated body as a new issue comment via gh issue comment")
+	elaborateFlags.BoolVar(&elaborateCfg.Review, "review", false, "Run a reviewer pass that checks the draft for executability and refines it to close gaps before output")
+	elaborateFlags.IntVar(&elaborateCfg.MaxReviewIterations, "max-review-iterations", 0, "Cap on reviewer refine iterations when --review is set (<=0 uses the default of 3)")
 
 	rootCmd.AddCommand(elaborateCmd)
 

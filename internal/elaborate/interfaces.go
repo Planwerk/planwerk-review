@@ -13,6 +13,19 @@ type Context struct {
 	MaxPatterns int
 	RepoName    string
 	Issue       *github.Issue
+	// PriorDraft and ReviewGaps drive the reviewer refine loop. When set, the
+	// elaboration prompt revises the prior draft to close the listed gaps
+	// instead of starting from scratch. Both empty on the first pass.
+	PriorDraft string
+	ReviewGaps []string
+}
+
+// ReviewResult is the verdict of the optional reviewer pass over an
+// elaboration draft. Approved short-circuits the refine loop; Gaps lists the
+// concrete executability problems the next iteration must close.
+type ReviewResult struct {
+	Approved bool     `json:"approved"`
+	Gaps     []string `json:"gaps"`
 }
 
 // ClaudeElaborator turns a high-level issue into a detailed engineering
@@ -22,9 +35,20 @@ type ClaudeElaborator interface {
 	Elaborate(dir string, ctx Context) (*Result, error)
 }
 
+// ElaborationReviewer evaluates a rendered elaboration draft for
+// executability and returns either approval or a list of gaps to close. It is
+// a separate interface so the reviewer pass is opt-in and independently
+// fakeable.
+type ElaborationReviewer interface {
+	ReviewElaboration(dir string, ctx Context, draftBody string) (*ReviewResult, error)
+}
+
 // ElaborateFn is the bare-function form of ClaudeElaborator that the CLI
 // passes in. It is adapted to the interface via elaborateFnAdapter.
 type ElaborateFn func(dir string, ctx Context) (*Result, error)
+
+// ReviewFn is the bare-function form of ElaborationReviewer.
+type ReviewFn func(dir string, ctx Context, draftBody string) (*ReviewResult, error)
 
 type elaborateFnAdapter struct {
 	fn ElaborateFn
@@ -32,6 +56,14 @@ type elaborateFnAdapter struct {
 
 func (a elaborateFnAdapter) Elaborate(dir string, ctx Context) (*Result, error) {
 	return a.fn(dir, ctx)
+}
+
+type reviewFnAdapter struct {
+	fn ReviewFn
+}
+
+func (a reviewFnAdapter) ReviewElaboration(dir string, ctx Context, draftBody string) (*ReviewResult, error) {
+	return a.fn(dir, ctx, draftBody)
 }
 
 // GitHubClient wraps the GitHub operations the elaborate pipeline needs:

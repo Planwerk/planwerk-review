@@ -88,6 +88,19 @@ func BuildIssueBody(r *Result) string {
 		fmt.Fprintln(&b)
 	}
 
+	if len(r.UnresolvedGaps) > 0 {
+		fmt.Fprint(&b, "**Reviewer Notes (unresolved):**\n\n")
+		fmt.Fprint(&b, "The reviewer pass flagged these gaps that the refine loop could not close. Address them before implementing:\n\n")
+		for _, g := range r.UnresolvedGaps {
+			g = strings.TrimSpace(g)
+			if g == "" {
+				continue
+			}
+			fmt.Fprintf(&b, "- %s\n", g)
+		}
+		fmt.Fprintln(&b)
+	}
+
 	fmt.Fprint(&b, "---\n\n_Elaborated by [planwerk-review](https://github.com/planwerk/planwerk-review) with Claude Code_\n")
 	return b.String()
 }

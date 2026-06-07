@@ -13,4 +13,9 @@ type Result struct {
 	NonGoals           []string `json:"non_goals"`
 	References         []string `json:"references"`
 	Body               string   `json:"body"`
+	// UnresolvedGaps holds reviewer gaps that the refine loop could not close
+	// within the iteration budget. Empty when the elaboration was approved or
+	// the optional reviewer pass was not run. Surfaced in the issue body so the
+	// gaps are never silently published.
+	UnresolvedGaps []string `json:"unresolved_gaps,omitempty"`
 }

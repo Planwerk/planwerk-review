@@ -43,27 +43,45 @@ type Options struct {
 	MaxPatterns     int
 	UpdateMode      UpdateMode
 	CacheMaxAge     time.Duration
+	// Review enables the optional reviewer gate: after the draft is produced,
+	// a reviewer pass checks it for executability and a bounded refine loop
+	// closes any gaps before the elaboration is rendered or published.
+	Review              bool
+	MaxReviewIterations int
 }
+
+// defaultMaxReviewIterations bounds the reviewer refine loop so a reviewer and
+// elaborator that keep disagreeing cannot spin forever. Unresolved gaps after
+// this many rounds are surfaced in the output instead.
+const defaultMaxReviewIterations = 3
 
 // Runner executes the elaborate pipeline using injected Claude and GitHub
 // clients.
 type Runner struct {
 	Claude ClaudeElaborator
 	GitHub GitHubClient
+	// Reviewer is the optional elaboration reviewer. When nil (or opts.Review
+	// is false) the reviewer gate is skipped entirely.
+	Reviewer ElaborationReviewer
 }
 
-// NewRunner returns a Runner wired with the production GitHub backend and
-// the given Claude elaborate function.
-func NewRunner(fn ElaborateFn) *Runner {
-	return &Runner{
+// NewRunner returns a Runner wired with the production GitHub backend, the
+// given Claude elaborate function, and an optional reviewer function. A nil
+// reviewFn leaves the reviewer gate disabled.
+func NewRunner(fn ElaborateFn, reviewFn ReviewFn) *Runner {
+	r := &Runner{
 		Claude: elaborateFnAdapter{fn: fn},
 		GitHub: defaultGitHubClient{},
 	}
+	if reviewFn != nil {
+		r.Reviewer = reviewFnAdapter{fn: reviewFn}
+	}
+	return r
 }
 
-// Run is a package-level convenience that delegates to NewRunner(fn).Run.
-func Run(w io.Writer, opts Options, fn ElaborateFn) error {
-	return NewRunner(fn).Run(w, opts)
+// Run is a package-level convenience that delegates to NewRunner(fn, reviewFn).Run.
+func Run(w io.Writer, opts Options, fn ElaborateFn, reviewFn ReviewFn) error {
+	return NewRunner(fn, reviewFn).Run(w, opts)
 }
 
 // Run executes the full elaboration pipeline: parse the issue ref, fetch
@@ -89,7 +107,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 		headSHA = ""
 	}
 
-	cacheKey := elaborateCacheKey(owner, name, number, issue, headSHA)
+	cacheKey := elaborateCacheKey(owner, name, number, issue, headSHA, opts.Review)
 
 	if !opts.NoCache && headSHA != "" {
 		if data, ok := cache.GetRaw(cacheKey, opts.CacheMaxAge); ok {
@@ -127,12 +145,13 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	}
 
 	slog.Info("elaborating issue with Claude")
-	result, err := r.Claude.Elaborate(repo.Dir, Context{
+	baseCtx := Context{
 		Patterns:    pats,
 		MaxPatterns: opts.MaxPatterns,
 		RepoName:    repo.FullName(),
 		Issue:       issue,
-	})
+	}
+	result, err := r.Claude.Elaborate(repo.Dir, baseCtx)
 	if err != nil {
 		return fmt.Errorf("claude elaborate: %w", err)
 	}
@@ -140,6 +159,10 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 		result.Title = issue.Title
 	}
 	result.Body = BuildIssueBody(result)
+
+	if opts.Review && r.Reviewer != nil {
+		result = r.runReviewLoop(repo.Dir, baseCtx, result, opts)
+	}
 
 	if !opts.NoCache && headSHA != "" {
 		if data, err := json.Marshal(result); err == nil {
@@ -186,12 +209,63 @@ func (r *Runner) finish(w io.Writer, result *Result, owner, name string, number 
 // elaborateCacheKey scopes the cache by repo, issue number, head SHA, and a
 // short fingerprint of the issue body so the cache invalidates whenever the
 // upstream issue is edited or the repo head moves.
-func elaborateCacheKey(owner, name string, number int, issue *github.Issue, headSHA string) string {
+func elaborateCacheKey(owner, name string, number int, issue *github.Issue, headSHA string, review bool) string {
 	flags := []string{
 		fmt.Sprintf("issue=%d", number),
 		"body=" + issueFingerprint(issue),
 	}
+	if review {
+		flags = append(flags, "review")
+	}
 	return cache.AuditKey(owner, name, "elaborate@"+headSHA, flags...)
+}
+
+// runReviewLoop runs the optional reviewer gate: it asks the reviewer to judge
+// the current draft for executability and, while gaps remain, refines the draft
+// to close them — bounded by opts.MaxReviewIterations. Gaps that survive the
+// budget are attached to the result so they are surfaced rather than silently
+// published. Any reviewer or refinement error keeps the best draft so far.
+func (r *Runner) runReviewLoop(dir string, baseCtx Context, result *Result, opts Options) *Result {
+	maxIter := opts.MaxReviewIterations
+	if maxIter <= 0 {
+		maxIter = defaultMaxReviewIterations
+	}
+
+	for i := 1; i <= maxIter; i++ {
+		review, err := r.Reviewer.ReviewElaboration(dir, baseCtx, result.Body)
+		if err != nil {
+			slog.Warn("elaboration review failed; keeping current draft", "iteration", i, "err", err)
+			return result
+		}
+		if review.Approved || len(review.Gaps) == 0 {
+			slog.Info("elaboration approved by reviewer", "iteration", i)
+			return result
+		}
+		slog.Info("reviewer found gaps; refining elaboration", "iteration", i, "gaps", len(review.Gaps))
+
+		if i == maxIter {
+			// Out of budget — surface the surviving gaps instead of looping.
+			slog.Warn("elaboration still has unresolved reviewer gaps after max iterations", "gaps", len(review.Gaps))
+			result.UnresolvedGaps = review.Gaps
+			result.Body = BuildIssueBody(result)
+			return result
+		}
+
+		refineCtx := baseCtx
+		refineCtx.PriorDraft = result.Body
+		refineCtx.ReviewGaps = review.Gaps
+		refined, err := r.Claude.Elaborate(dir, refineCtx)
+		if err != nil {
+			slog.Warn("elaboration refinement failed; keeping current draft", "iteration", i, "err", err)
+			return result
+		}
+		if refined.Title == "" {
+			refined.Title = result.Title
+		}
+		refined.Body = BuildIssueBody(refined)
+		result = refined
+	}
+	return result
 }
 
 // issueFingerprint returns a stable short hash of the issue's title+body so
