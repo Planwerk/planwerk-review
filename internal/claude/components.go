@@ -69,6 +69,32 @@ func suppressionsBlock(scope promptScope) string {
 	return b.String()
 }
 
+// proseStyleBlock returns the "## Prose Style" section applied to builders that
+// generate narrative text a human reads — elaborate, propose, gap analysis,
+// review-prepared. The rules raise writing quality (lead-first, concrete,
+// active voice, no AI-slop vocabulary) and are adapted from the
+// econ-writing-skill reference.
+//
+// The concreteness rule is deliberately subordinated to accuracy: a model told
+// only to "be concrete" will fabricate file paths and numbers to sound
+// specific. The block states that genuine unknowns are marked as assumptions,
+// never invented — so it cooperates with, rather than fights, each builder's
+// anti-hallucination rules.
+func proseStyleBlock() string {
+	return `## Prose Style
+
+Apply these rules to all prose you write (descriptions, motivations, summaries, issue bodies):
+
+- Lead with the most important information; never bury it. State the one core point in the first sentence.
+- Be concrete: name the actual behavior, component, file, or change — not "improve the system" or "various aspects". This rule is subordinate to accuracy: NEVER invent a specific (a file path, symbol, or number) just to sound concrete. When a specific is genuinely unknown, mark it as an assumption rather than fabricating it.
+- Active voice, present tense. Short, common words ("use", not "utilize"). One idea per paragraph, topic sentence first.
+- Cut ruthlessly. Delete throat-clearing openers ("It should be noted that", "It is worth noting that", "In other words", "This contributes by"). If a sentence adds nothing, remove it.
+- Never use: delve, landscape, multifaceted, notably, crucial, comprehensive, furthermore, leverage (as a verb), robust (outside its statistical sense), pivotal, groundbreaking, shed light on, pave the way.
+- Vary sentence length. Do not dress up your own work with adjectives ("critical fix", "powerful feature"). Write "This change…", not a bare "This…".
+
+`
+}
+
 // communicationStyleBlock returns the anti-sycophancy "## Communication Style"
 // section. Directness is universal across every review type, so the same
 // block is shared verbatim by review, audit, adversarial, and compliance.

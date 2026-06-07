@@ -81,6 +81,9 @@ IMPORTANT: Do NOT just list generic software improvements. Your proposals must b
 		sb.WriteString("\n\nWhen a proposal is motivated by a review pattern above, name that pattern in the proposal's description or motivation so the trail from pattern catalog to proposed work is explicit.")
 	}
 
+	sb.WriteString("\n\n")
+	sb.WriteString(proseStyleBlock())
+
 	return sb.String()
 }
 

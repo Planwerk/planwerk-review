@@ -97,6 +97,9 @@ These are MANDATORY:
 Be direct. State what IS, not what "could be considered". Match the density and precision of a senior engineer's design doc, not a marketing brief.
 `)
 
+	sb.WriteString("\n")
+	sb.WriteString(proseStyleBlock())
+
 	sb.WriteString("\nNow walk the repository, then produce the elaborated issue. Use the section headings above (**Description**, **Motivation**, **Affected Areas**, **Acceptance Criteria**, **Non-Goals**, **References**) so the structuring step can extract them reliably.\n")
 
 	return sb.String()

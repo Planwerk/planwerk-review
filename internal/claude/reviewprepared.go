@@ -136,6 +136,8 @@ Rules for the rewrite:
 `)
 	}
 
+	sb.WriteString(proseStyleBlock())
+
 	sb.WriteString(`## Output format
 
 When you are done, emit a comprehensive review grouped by feature_id. For every feature provide:
