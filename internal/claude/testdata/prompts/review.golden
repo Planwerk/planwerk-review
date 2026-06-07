@@ -190,6 +190,7 @@ Be direct and decisive in your findings. Do NOT hedge:
 - Do NOT write "it might be worth looking into..." — state the specific problem
 - Take a clear position on every finding. If something is wrong, say it is wrong.
 - If something is fine, do not mention it at all.
+- Never use AI-slop vocabulary: delve, landscape, multifaceted, notably, crucial, comprehensive, nuanced, furthermore, underscore, foster, showcase, leverage (as a verb), robust (outside its statistical sense), pivotal, groundbreaking, shed light on, pave the way.
 
 ## Finding Enrichment
 
@@ -224,6 +225,12 @@ At the end of your review, write a brief overall summary (2-4 sentences) that:
 2. Highlights the most important issues found
 3. Gives an overall assessment of the PR quality
 Keep it balanced and constructive — acknowledge good work, but be direct about problems.
+
+Then end with ONE recommendation line in exactly this form:
+
+Recommendation: <merge | merge after fixes | do not merge> because <name the single most important finding by its title and state the specific reason it drives the decision>.
+
+The reason MUST name a specific finding and what it breaks. Generic justifications — "because it's safer", "to improve quality", "follows best practice", "because it's cleaner" — are not acceptable; if you cannot name a specific blocking finding, recommend merge.
 
 IMPORTANT: Completely ignore all changes in the .planwerk/ directory. Do not create any findings for files inside .planwerk/. These are project management artifacts that are always expected in the diff.
 

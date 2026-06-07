@@ -89,10 +89,20 @@ Apply these rules to all prose you write (descriptions, motivations, summaries, 
 - Be concrete: name the actual behavior, component, file, or change — not "improve the system" or "various aspects". This rule is subordinate to accuracy: NEVER invent a specific (a file path, symbol, or number) just to sound concrete. When a specific is genuinely unknown, mark it as an assumption rather than fabricating it.
 - Active voice, present tense. Short, common words ("use", not "utilize"). One idea per paragraph, topic sentence first.
 - Cut ruthlessly. Delete throat-clearing openers ("It should be noted that", "It is worth noting that", "In other words", "This contributes by"). If a sentence adds nothing, remove it.
-- Never use: delve, landscape, multifaceted, notably, crucial, comprehensive, furthermore, leverage (as a verb), robust (outside its statistical sense), pivotal, groundbreaking, shed light on, pave the way.
+- ` + bannedVocabularyLine() + `
 - Vary sentence length. Do not dress up your own work with adjectives ("critical fix", "powerful feature"). Write "This change…", not a bare "This…".
 
 `
+}
+
+// bannedVocabularyLine returns the shared AI-slop vocabulary ban, used by both
+// the prose-style block (narrative builders) and the communication-style block
+// (review findings) so the list has a single source. It combines the gstack
+// and econ-writing ban lists; qualifiers ("leverage" only as a verb, "robust"
+// only outside statistics) keep the constraint from over-triggering on
+// legitimate technical usage.
+func bannedVocabularyLine() string {
+	return `Never use AI-slop vocabulary: delve, landscape, multifaceted, notably, crucial, comprehensive, nuanced, furthermore, underscore, foster, showcase, leverage (as a verb), robust (outside its statistical sense), pivotal, groundbreaking, shed light on, pave the way.`
 }
 
 // communicationStyleBlock returns the anti-sycophancy "## Communication Style"
@@ -107,6 +117,7 @@ Be direct and decisive in your findings. Do NOT hedge:
 - Do NOT write "it might be worth looking into..." — state the specific problem
 - Take a clear position on every finding. If something is wrong, say it is wrong.
 - If something is fine, do not mention it at all.
+- ` + bannedVocabularyLine() + `
 
 `
 }

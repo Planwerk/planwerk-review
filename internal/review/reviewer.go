@@ -280,6 +280,12 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 }
 
 func (r *Runner) renderResult(w io.Writer, result *report.ReviewResult, pr *github.PR, opts Options, coverage *report.CoverageResult) error {
+	// Surface a generic, content-free verdict — the forced-recommendation prompt
+	// rule should make the model name the specific blocking finding instead.
+	if len(result.Findings) > 0 && report.IsBoilerplateRecommendation(result.Recommendation) {
+		slog.Warn("review recommendation is generic — the model did not name a specific finding", "recommendation", result.Recommendation)
+	}
+
 	prInfo := report.PRInfo{
 		Owner:  pr.Owner,
 		Repo:   pr.Repo,
