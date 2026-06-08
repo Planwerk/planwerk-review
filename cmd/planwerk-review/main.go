@@ -1,16 +1,9 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
-	"sort"
-	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -23,115 +16,12 @@ import (
 	"github.com/planwerk/planwerk-review/internal/fix"
 	"github.com/planwerk/planwerk-review/internal/gapanalysis"
 	"github.com/planwerk/planwerk-review/internal/implement"
-	"github.com/planwerk/planwerk-review/internal/logging"
 	"github.com/planwerk/planwerk-review/internal/patterns"
 	"github.com/planwerk/planwerk-review/internal/prompt"
 	"github.com/planwerk/planwerk-review/internal/propose"
 	"github.com/planwerk/planwerk-review/internal/report"
-	"github.com/planwerk/planwerk-review/internal/review"
 	"github.com/planwerk/planwerk-review/internal/reviewprepared"
 )
-
-// validateCacheScope rejects scope strings that don't match a known command.
-// An empty scope means "all commands" and is always valid.
-func validateCacheScope(scope string) error {
-	switch scope {
-	case "",
-		cache.CommandReview,
-		cache.CommandPropose,
-		cache.CommandAudit,
-		elaborate.CommandElaborate,
-		gapanalysis.CommandGapAnalysis,
-		reviewprepared.CommandReviewPrepared:
-		return nil
-	default:
-		return fmt.Errorf("unknown cache scope %q, supported: review, propose, audit, elaborate, gap-analysis, review-prepared", scope)
-	}
-}
-
-// runCacheStats renders a human-readable summary of the cache directory.
-func runCacheStats(w io.Writer) error {
-	stats, err := cache.Stats()
-	if err != nil {
-		return err
-	}
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "cache dir: %s\n", stats.Dir)
-	fmt.Fprintf(&sb, "entries:   %d\n", stats.Total)
-	fmt.Fprintf(&sb, "size:      %s\n", humanBytes(stats.TotalSize))
-	if stats.Total > 0 {
-		fmt.Fprintln(&sb, "by command:")
-		names := make([]string, 0, len(stats.ByCommand))
-		for name := range stats.ByCommand {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		for _, name := range names {
-			cs := stats.ByCommand[name]
-			fmt.Fprintf(&sb, "  %-8s %3d entries  %s\n", name, cs.Count, humanBytes(cs.Size))
-		}
-		fmt.Fprintln(&sb, "age distribution:")
-		fmt.Fprintf(&sb, "  <= 1 day:    %d\n", stats.Ages.LessThanDay)
-		fmt.Fprintf(&sb, "  <= 1 week:   %d\n", stats.Ages.LessThanWeek)
-		fmt.Fprintf(&sb, "  <= 1 month:  %d\n", stats.Ages.LessThanMonth)
-		fmt.Fprintf(&sb, "  >  1 month:  %d\n", stats.Ages.OlderThanMonth)
-		if stats.Newest != nil {
-			fmt.Fprintf(&sb, "newest:   %s  %s  (%s ago)\n",
-				stats.Newest.Key, stats.Newest.Command, stats.Newest.Age.Round(time.Second))
-		}
-		if stats.Oldest != nil && (stats.Newest == nil || stats.Newest.Key != stats.Oldest.Key) {
-			fmt.Fprintf(&sb, "oldest:   %s  %s  (%s ago)\n",
-				stats.Oldest.Key, stats.Oldest.Command, stats.Oldest.Age.Round(time.Second))
-		}
-	}
-	_, err = io.WriteString(w, sb.String())
-	return err
-}
-
-// runCacheInspect prints metadata plus the pretty-printed JSON payload for a
-// single cache key.
-func runCacheInspect(w io.Writer, key string) error {
-	meta, payload, err := cache.Inspect(key)
-	if err != nil {
-		if errors.Is(err, cache.ErrNotFound) {
-			return fmt.Errorf("no cache entry for key %q", key)
-		}
-		return err
-	}
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "key:       %s\n", meta.Key)
-	fmt.Fprintf(&sb, "command:   %s\n", meta.Command)
-	if !meta.WrittenAt.IsZero() {
-		fmt.Fprintf(&sb, "writtenAt: %s\n", meta.WrittenAt.Format(time.RFC3339))
-		fmt.Fprintf(&sb, "age:       %s\n", meta.Age.Round(time.Second))
-	} else {
-		fmt.Fprintln(&sb, "writtenAt: (unknown — legacy entry)")
-	}
-	fmt.Fprintf(&sb, "size:      %s\n", humanBytes(meta.Size))
-	fmt.Fprintln(&sb, "payload:")
-	var pretty bytes.Buffer
-	if err := json.Indent(&pretty, payload, "  ", "  "); err != nil {
-		fmt.Fprintf(&sb, "  %s\n", string(payload))
-	} else {
-		fmt.Fprintf(&sb, "  %s\n", pretty.String())
-	}
-	_, err = io.WriteString(w, sb.String())
-	return err
-}
-
-// humanBytes formats a byte count using binary units (KiB/MiB/...).
-func humanBytes(n int64) string {
-	const unit = 1024
-	if n < unit {
-		return fmt.Sprintf("%d B", n)
-	}
-	div, exp := int64(unit), 0
-	for v := n / unit; v >= unit; v /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
-}
 
 // runtimeDeps carries the process-wide values every subcommand constructor
 // needs: the resolved build version and the parsed .planwerk/config.yaml.
@@ -144,167 +34,9 @@ type runtimeDeps struct {
 }
 
 func main() {
-	var cfg cli.Config
-	var minSeverity string
-	var minConfidence string
-	var showVersion, verbose bool
-	var showClaudeOutput bool
-	var logFormat string
-	var remotePatternsTTL time.Duration
-	var claudeTimeout time.Duration
-
 	deps := &runtimeDeps{version: version}
 
-	rootCmd := &cobra.Command{
-		Use:   "planwerk-review <pr-ref>",
-		Short: "AI-powered code review for GitHub Pull Requests",
-		Long: `planwerk-review uses Claude Code to analyze GitHub PR changes and produces
-structured, categorized review results as Markdown or JSON output.
-
-PR reference can be a URL (https://github.com/owner/repo/pull/123)
-or short form (owner/repo#123).`,
-		Args: cobra.RangeArgs(0, 1),
-		// Errors are reported via slog in main() so they honor --log-format;
-		// silencing cobra's own error/usage print avoids duplicate output.
-		SilenceErrors: true,
-		SilenceUsage:  true,
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			format, err := logging.ParseFormat(logFormat)
-			if err != nil {
-				return err
-			}
-			if err := logging.Init(logging.Options{
-				Writer:  os.Stderr,
-				Format:  format,
-				Verbose: verbose,
-			}); err != nil {
-				return err
-			}
-			loaded, _, err := cli.LoadFileConfig(cli.DefaultConfigPath)
-			if err != nil {
-				return err
-			}
-			deps.fileCfg = loaded
-
-			ttl, err := resolveRemotePatternsTTL(remotePatternsTTL, cmd.Flags().Changed("remote-patterns-ttl"))
-			if err != nil {
-				return err
-			}
-			patterns.SetRemoteOptions(patterns.RemoteOptions{TTL: ttl})
-
-			timeout, err := resolveClaudeTimeout(claudeTimeout, cmd.Flags().Changed("claude-timeout"))
-			if err != nil {
-				return err
-			}
-			claude.SetTimeout(timeout)
-
-			claude.SetShowOutput(resolveShowClaudeOutput(showClaudeOutput, cmd.Flags().Changed("show-claude-output")))
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if showVersion {
-				writeVersion(cmd.OutOrStdout(), resolveBuildInfo(deps.version), verbose)
-				return nil
-			}
-			if cfg.CacheStats {
-				return runCacheStats(cmd.OutOrStdout())
-			}
-			if cfg.CacheInspect != "" {
-				return runCacheInspect(cmd.OutOrStdout(), cfg.CacheInspect)
-			}
-			if cfg.ClearCache || cfg.ClearCacheScope != "" {
-				scope := cfg.ClearCacheScope
-				if err := validateCacheScope(scope); err != nil {
-					return err
-				}
-				return cache.Clear(scope)
-			}
-
-			if len(args) == 1 {
-				cfg.PRRef = args[0]
-			} else if !cfg.Local {
-				return fmt.Errorf("requires a PR reference argument (or use --local)")
-			}
-
-			deps.fileCfg.ApplyReview(&cfg, &minSeverity, cmd.Flags().Changed)
-
-			maxPatterns, err := resolveMaxPatterns(cfg.MaxPatterns, cmd.Flags().Changed("max-patterns"), deps.fileCfg.Review.MaxPatterns)
-			if err != nil {
-				return err
-			}
-			cfg.MaxPatterns = maxPatterns
-
-			if minSeverity != "" {
-				sev, err := report.ParseSeverity(minSeverity)
-				if err != nil {
-					return err
-				}
-				cfg.MinSeverity = sev
-			} else {
-				cfg.MinSeverity = report.SeverityInfo
-			}
-
-			if minConfidence != "" {
-				conf, err := report.ParseConfidence(minConfidence)
-				if err != nil {
-					return err
-				}
-				cfg.MinConfidence = conf
-			}
-
-			switch cfg.Format {
-			case formatMarkdown, formatJSON:
-			default:
-				return fmt.Errorf("unknown format %q, supported: markdown, json", cfg.Format)
-			}
-
-			if cfg.PostReview && cfg.Format == formatJSON {
-				return fmt.Errorf("--post-review cannot be used with --format json")
-			}
-
-			// --inline implies --post-review
-			if cfg.InlineReview {
-				cfg.PostReview = true
-			}
-			if cfg.InlineReview && cfg.Format == formatJSON {
-				return fmt.Errorf("--inline cannot be used with --format json")
-			}
-
-			opts := cfg.ToReviewOptions(deps.version)
-			return review.Run(os.Stdout, opts)
-		},
-	}
-
-	persistent := rootCmd.PersistentFlags()
-	persistent.BoolVarP(&verbose, "verbose", "v", false, "Enable debug-level logging (and verbose build info with --version)")
-	persistent.StringVar(&logFormat, "log-format", "text", "Log output format (text, json)")
-	persistent.DurationVar(&remotePatternsTTL, "remote-patterns-ttl", patterns.DefaultRemoteTTL, "Refresh interval for remote pattern sources (env: "+envRemotePatternsTTL+"; <=0 disables refresh once cached)")
-	persistent.DurationVar(&claudeTimeout, "claude-timeout", claude.DefaultClaudeTimeout, "Maximum duration for a single Claude Code invocation (env: "+envClaudeTimeout+"; must be > 0)")
-	persistent.BoolVar(&showClaudeOutput, "show-claude-output", false, "Stream Claude Code's live output to stderr while running (env: "+envShowClaudeOutput+")")
-
-	flags := rootCmd.Flags()
-	flags.StringSliceVar(&cfg.PatternDirs, "patterns", nil, "Additional pattern sources: local dirs, github:owner/repo[/sub][@ref], or git+https://...[#ref[:sub]]")
-	flags.StringVar(&minSeverity, "min-severity", "", "Minimum severity level (info, warning, critical, blocking)")
-	flags.StringVar(&minConfidence, "min-confidence", "", "Minimum confidence shown in the main report (verified, likely, uncertain); findings below the threshold are filtered out, and uncertain low-severity findings otherwise move to an Unverified section")
-	flags.BoolVar(&cfg.NoRepoPatterns, "no-repo-patterns", false, "Ignore repo-specific patterns")
-	flags.BoolVar(&cfg.NoLocalPatterns, "no-local-patterns", false, "Ignore local patterns from the tool")
-	flags.BoolVar(&cfg.NoCache, "no-cache", false, "Ignore cache, force a fresh review")
-	flags.BoolVar(&cfg.ClearCache, "clear-cache", false, "Clear cached reviews and exit (honors --clear-cache-scope)")
-	flags.StringVar(&cfg.ClearCacheScope, "clear-cache-scope", "", "Restrict --clear-cache to a single command (review, propose, audit, elaborate, gap-analysis, review-prepared)")
-	flags.BoolVar(&cfg.CacheStats, "cache-stats", false, "Show cache size, age distribution, and per-command breakdown, then exit")
-	flags.StringVar(&cfg.CacheInspect, "cache-inspect", "", "Print the metadata and payload for the given cache key, then exit")
-	flags.DurationVar(&cfg.CacheMaxAge, "cache-max-age", cache.DefaultMaxAge, "Reject cached entries older than this duration (0 disables the TTL)")
-	flags.StringVar(&cfg.Format, "format", "markdown", "Output format (markdown, json)")
-	flags.BoolVar(&cfg.PostReview, "post-review", false, "Post the review as a comment on the PR")
-	flags.BoolVar(&cfg.InlineReview, "inline", false, "Post review with inline comments using GitHub Review API (implies --post-review)")
-	flags.BoolVar(&cfg.Thorough, "thorough", false, "Run additional adversarial review pass")
-	flags.BoolVar(&cfg.Specialists, "specialists", false, "Run the domain-specialist review fan-out (security, data-migration, testing, performance, api-contract, maintainability) concurrently and merge their findings")
-	flags.BoolVar(&cfg.CoverageMap, "coverage-map", false, "Generate test coverage map for changed functions")
-	flags.IntVar(&cfg.MaxPatterns, "max-patterns", patterns.DefaultMaxPatternsInPrompt, "Max review patterns injected into the prompt (<=0 disables truncation, env: "+envMaxPatterns+")")
-	flags.IntVar(&cfg.MaxFindings, "max-findings", 0, "Cap on findings returned (<=0 disables cap)")
-	flags.BoolVar(&cfg.Local, "local", false, "Operate on the current working directory instead of cloning into a temp dir")
-	flags.BoolVar(&cfg.Force, "force", false, "With --local, skip the confirmation prompt when the working tree is dirty")
-	flags.BoolVar(&showVersion, "version", false, "Show version information and exit")
+	rootCmd := newRootCmd(deps)
 
 	// propose subcommand
 	var proposeCfg cli.ProposeConfig
@@ -841,41 +573,7 @@ or short form (owner/repo#123).`,
 
 	rootCmd.AddCommand(implementCmd)
 
-	// cache subcommand group: visibility into the on-disk cache. The existing
-	// top-level --cache-stats / --cache-inspect flags remain for compatibility;
-	// these subcommands are the preferred entry points.
-	cacheCmd := &cobra.Command{
-		Use:   "cache",
-		Short: "Inspect and manage cached review/propose/audit results",
-		Long: `Inspect and manage planwerk-review's on-disk cache.
-
-Cached entries are keyed by repo + HEAD SHA + flags and are written under the
-user cache directory. Use "cache stats" for an overview and "cache inspect
-<key>" to dump a single entry.`,
-	}
-
-	cacheStatsCmd := &cobra.Command{
-		Use:   "stats",
-		Short: "Show cache size, age distribution, and per-command breakdown",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCacheStats(cmd.OutOrStdout())
-		},
-	}
-
-	cacheInspectCmd := &cobra.Command{
-		Use:   "inspect <key>",
-		Short: "Print metadata and payload for a single cache key",
-		Long: `Print the metadata (command, writtenAt, age, size) and pretty-printed
-payload for a single cache entry. Keys are listed by "cache stats".`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCacheInspect(cmd.OutOrStdout(), args[0])
-		},
-	}
-
-	cacheCmd.AddCommand(cacheStatsCmd, cacheInspectCmd)
-	rootCmd.AddCommand(cacheCmd)
+	rootCmd.AddCommand(newCacheCmd(deps))
 
 	// gen-man-pages: hidden helper used by release tooling to emit man pages.
 	genManCmd := &cobra.Command{
