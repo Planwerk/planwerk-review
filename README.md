@@ -77,7 +77,7 @@ Prompt:
 1. **PR Input**: The tool receives a GitHub PR as input (URL or `owner/repo#number`).
 2. **Checkout**: The PR is checked out locally (diff between base and head). PR title and description are fetched for scope analysis.
 3. **Load Review Patterns**: Patterns are loaded from two sources:
-   - `patterns/` in the planwerk-review repository (general patterns)
+   - the planwerk-review pattern catalog, embedded in the binary (source: `internal/patterns/patterns/`)
    - `.planwerk/review_patterns/` in the target repository (repo-specific patterns)
 4. **Claude Code Review**: `claude /review` is executed with a structured prompt that includes persona framing, scope analysis, a two-pass checklist, suppression rules, and review patterns.
 5. **Result Aggregation**: Review results are collected, deduplicated, categorized by severity, and classified by actionability. Findings are enriched with code snippets, suggested fixes, confidence levels, and cross-references.
@@ -161,7 +161,7 @@ Each finding is classified by actionability:
 2. **Clone**: The repository is cloned locally with a partial clone filter.
 3. **Cache Check**: The default branch HEAD SHA is fetched via `git ls-remote`. If a cached result exists for this SHA and set of flags, it is reused.
 4. **Technology Detection**: The clone is scanned for language/framework markers (Go, Python, Kubernetes, Helm, GitHub Actions, …) and patterns are filtered to those applicable.
-5. **Pattern Load**: Patterns are loaded from `patterns/` (general) and `.planwerk/review_patterns/` (repo-specific) — identical sources to the review command.
+5. **Pattern Load**: Patterns are loaded from the embedded catalog (source: `internal/patterns/patterns/`) and `.planwerk/review_patterns/` (repo-specific) — identical sources to the review command.
 6. **Claude Audit**: Claude is instructed to apply EVERY loaded pattern to the ENTIRE current state of the codebase (not a diff) and emit concrete violations with file paths, line numbers, code snippets, and suggested fixes. Beyond patterns, it also flags BLOCKING/CRITICAL issues it encounters (security, data loss, broken error handling) and missing tests/docs matching the project's own conventions.
 7. **Structuring**: A second Claude call converts the raw findings into the same structured JSON format used by the review command (`BLOCKING`/`CRITICAL`/`WARNING`/`INFO` with fix class, confidence, related findings).
 8. **Output**: Findings are rendered as Markdown (default) or JSON, with an audit-specific verdict line (`Action required` / `Improvements suggested` / `Codebase healthy`) instead of the PR merge verdict.
@@ -353,7 +353,7 @@ planwerk-review propose owner/repo > proposals.md
 | `--force` | With `--local`, skip the confirmation prompt when the working tree is dirty | `false` |
 
 Proposals are grounded in the same review-pattern catalog used by `review` and
-`audit`. Patterns load from the tool's bundled `patterns/` directory, any
+`audit`. Patterns load from the tool's embedded catalog, any
 `--patterns` directories you supply, and the target repo's
 `.planwerk/review_patterns/`. When a proposal addresses a pattern (closes a
 gap, hardens against a violation, or extends coverage) Claude references the
@@ -860,22 +860,42 @@ With `--inline`, findings are posted as inline comments on the PR using the GitH
 
 Review Patterns are structured rules that systematically improve the review. They codify knowledge from past reviews and make it reusable.
 
-#### Pattern Sources (descending priority)
+#### Pattern Sources (lowest to highest priority)
 
-1. **Repo-specific Patterns** (`.planwerk/review_patterns/*.md` in the target repo)
+Patterns are resolved from up to five tiers. Later tiers override earlier ones
+by pattern name, so the more specific source wins on a name collision:
+
+1. **Embedded catalog** — a compile-time copy of `internal/patterns/patterns/`
+   baked into the binary with `//go:embed`. It is always present, so every
+   install method (`go install`, raw `go build`, release archives, OS packages)
+   produces a self-contained binary that loads the full catalog with no external
+   files. This is the lowest-priority source; any on-disk source below overrides
+   an embedded pattern of the same name.
+
+2. **Bundled on-disk catalog** (`<binDir>/../patterns`) — an optional copy next
+   to the installed binary. Lets a distribution ship the catalog as a separately
+   updatable data file (so pattern fixes can land without rebuilding the binary);
+   when present it overrides the embedded copy.
+
+3. **Working-directory catalog** (`./patterns`) — picked up when running from a
+   planwerk-review checkout during development of the tool itself.
+
+4. **Repo-specific Patterns** (`.planwerk/review_patterns/*.md` in the target repo)
    - Created and maintained by the development team (Planwerk) themselves
    - Contain repo-specific knowledge (e.g., "In this repo, all DB queries must go through the QueryBuilder")
    - Versioned with the repository
+   - Suppressed independently by `--no-repo-patterns`
 
-2. **General Patterns** (`patterns/` in the planwerk-review repository)
-   - Created by planwerk-review and recommended for adoption
-   - Contain universally applicable review knowledge (e.g., "Hardcoded values in matrix workflows")
-   - Grow over time through insights from conducted reviews
-
-3. **Remote Patterns** (passed via `--patterns <URI>` or the config file)
-   - Lets a team maintain a single, shared pattern catalog in a separate repository instead of vendoring it into every consuming repo
-   - Cloned into a per-user cache on first use and refreshed by TTL
+5. **Explicit / Remote Patterns** (passed via `--patterns <URI>` or the config file)
+   - Local directories or remote URIs — lets a team maintain a single, shared pattern catalog in a separate repository instead of vendoring it into every consuming repo
+   - Remote sources are cloned into a per-user cache on first use and refreshed by TTL
+   - Highest priority: override every tier above on a name collision
    - See [Remote Pattern Sources](#remote-pattern-sources) below for URI forms, caching, and authentication
+
+`--no-local-patterns` suppresses the first three tiers — the embedded catalog
+and both on-disk tool copies (`<binDir>/../patterns` and `./patterns`) — leaving
+only repo-specific and `--patterns` sources. `--no-repo-patterns` independently
+drops tier 4.
 
 #### Remote Pattern Sources
 
@@ -964,7 +984,7 @@ patterns             Refine patterns            High-precision
 
 **Knowledge building process:**
 
-1. **After the first review**: The tool analyzes review results and suggests new general patterns that should be added to `patterns/`.
+1. **After the first review**: The tool analyzes review results and suggests new general patterns that should be added to `internal/patterns/patterns/`.
 2. **For recurring findings**: When the same issue occurs across multiple repos, the `Occurrences` field is incremented and the pattern is refined.
 3. **Repo-specific patterns**: The development team creates these themselves in `.planwerk/review_patterns/` based on their domain knowledge. planwerk-review picks them up automatically.
 
@@ -1029,9 +1049,12 @@ planwerk-review/
 │   │   ├── review.go           # Submit PR reviews via GitHub Review API
 │   │   └── review_test.go
 │   ├── patterns/
+│   │   ├── embedded.go         # //go:embed all:patterns + loadEmbedded()
 │   │   ├── loader.go           # Load patterns from directories
 │   │   ├── pattern.go          # Pattern data structure + parsing
-│   │   └── pattern_test.go
+│   │   ├── pattern_test.go
+│   │   ├── sources.go          # Source dispatch (embedded + on-disk + remote)
+│   │   └── patterns/           # Embedded review-pattern catalog (14 design + 67 technology + SOURCES.md)
 │   ├── propose/
 │   │   ├── interactive.go      # Interactive GitHub issue creation flow
 │   │   ├── proposal.go         # Proposal data structure + categorization
@@ -1059,7 +1082,6 @@ planwerk-review/
 │   └── todocheck/
 │       ├── todocheck.go        # Load TODOS.md for cross-reference
 │       └── todocheck_test.go
-├── patterns/                   # General review patterns (.gitkeep)
 ├── Makefile
 ├── go.mod
 ├── go.sum
