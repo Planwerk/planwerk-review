@@ -999,7 +999,12 @@ planwerk-review/
 │       └── release.yml         # GoReleaser on tag push
 ├── cmd/
 │   └── planwerk-review/
-│       └── main.go             # CLI entrypoint (cobra): review + propose + audit
+│       ├── main.go             # CLI wiring: build runtimeDeps, register subcommands
+│       ├── root_cmd.go         # review (root) command + persistent & cache flags
+│       ├── resolve.go          # env-var / flag resolution helpers, format constants
+│       ├── version.go          # build-version metadata (--version)
+│       ├── cache_cmd.go        # cache subcommand group + cache helpers
+│       └── <name>_cmd.go       # one file per subcommand (newProposeCmd, newAuditCmd, …)
 ├── internal/
 │   ├── audit/
 │   │   ├── auditor.go          # Orchestration: Repo → Patterns → Claude → Findings
