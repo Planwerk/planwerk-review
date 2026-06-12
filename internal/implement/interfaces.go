@@ -23,6 +23,11 @@ type Context struct {
 	IssueState   string
 	Patterns     []patterns.Pattern
 	MaxPatterns  int
+	// Plan is the implementation plan the preceding read-only planning
+	// session produced. When non-empty it is embedded verbatim into the
+	// implement prompt; empty means the implement session plans for
+	// itself (--no-plan, or no planner wired).
+	Plan string
 }
 
 // ImplementFn is the bare-function shape the CLI passes in to wire Claude
@@ -79,6 +84,28 @@ type implementFnAdapter struct {
 }
 
 func (a implementFnAdapter) Implement(dir string, ctx Context) (string, error) {
+	return a.fn(dir, ctx)
+}
+
+// PlanFn is the bare-function shape of the planning session the CLI wires
+// in. It runs read-only inside the checkout and returns the implementation
+// plan text (already trimmed) that the implement session receives via
+// Context.Plan.
+type PlanFn func(dir string, ctx Context) (string, error)
+
+// ClaudePlanner is the injected dependency for the planning phase that
+// precedes the implement session. The production implementation is
+// claude.Plan (running on the dedicated planning model); tests substitute
+// a fake that returns scripted plans without invoking the real Claude CLI.
+type ClaudePlanner interface {
+	Plan(dir string, ctx Context) (string, error)
+}
+
+type planFnAdapter struct {
+	fn PlanFn
+}
+
+func (a planFnAdapter) Plan(dir string, ctx Context) (string, error) {
 	return a.fn(dir, ctx)
 }
 
