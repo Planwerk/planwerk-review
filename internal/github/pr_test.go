@@ -2,6 +2,9 @@ package github
 
 import (
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -144,6 +147,97 @@ func TestParseRefBareNumberWithGitHubRepository(t *testing.T) {
 			}
 		})
 	}
+}
+
+// initGitRepoForDiff builds a temp git repo with two commits and points
+// refs/remotes/origin/main at the first commit, so diffNames(dir, "main")
+// resolves origin/main...HEAD entirely offline — no network, no real remote.
+// The second commit modifies only changed.go.
+func initGitRepoForDiff(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	run := func(args ...string) string {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	write := func(name, content string) {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	run("init", "-q")
+	run("config", "user.email", "t@example.com")
+	run("config", "user.name", "tester")
+	write("unchanged.go", "package x\n")
+	write("changed.go", "package x\n// v1\n")
+	run("add", "-A")
+	run("commit", "-q", "-m", "first")
+	firstSHA := run("rev-parse", "HEAD")
+	write("changed.go", "package x\n// v2\n")
+	run("add", "-A")
+	run("commit", "-q", "-m", "second")
+	run("update-ref", "refs/remotes/origin/main", firstSHA)
+	return dir
+}
+
+func TestDiffNames(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		dir := initGitRepoForDiff(t)
+		files, err := diffNames(dir, "main")
+		if err != nil {
+			t.Fatalf("diffNames returned error: %v", err)
+		}
+		if len(files) != 1 || files[0] != "changed.go" {
+			t.Fatalf("files = %v, want [changed.go]", files)
+		}
+	})
+
+	t.Run("missing remote", func(t *testing.T) {
+		// A repo with one commit and no refs/remotes/origin/main: the diff
+		// query fails exactly as it would on a missing remote or auth failure.
+		dir := t.TempDir()
+		run := func(args ...string) {
+			cmd := exec.Command("git", args...)
+			cmd.Dir = dir
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("git %v: %v\n%s", args, err, out)
+			}
+		}
+		if err := os.WriteFile(filepath.Join(dir, "a.go"), []byte("package x\n"), 0o600); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+		run("init", "-q")
+		run("config", "user.email", "t@example.com")
+		run("config", "user.name", "tester")
+		run("add", "-A")
+		run("commit", "-q", "-m", "only")
+
+		files, err := diffNames(dir, "main")
+		if err == nil {
+			t.Fatal("expected an error when origin/main is missing, got nil")
+		}
+		if files != nil {
+			t.Errorf("files = %v, want nil on error", files)
+		}
+		if !strings.Contains(err.Error(), "git diff --name-only") {
+			t.Errorf("error %q does not name the git command", err)
+		}
+	})
+
+	t.Run("empty inputs", func(t *testing.T) {
+		files, err := diffNames("", "")
+		if err != nil {
+			t.Errorf("diffNames(\"\", \"\") error = %v, want nil", err)
+		}
+		if files != nil {
+			t.Errorf("files = %v, want nil", files)
+		}
+	})
 }
 
 func TestPRCleanupNoOpWhenLocal(t *testing.T) {
