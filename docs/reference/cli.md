@@ -1,0 +1,321 @@
+# CLI reference
+
+This page documents every user-facing `planwerk-review` subcommand and flag. A
+PR/issue/repo reference can be a full URL or the short form (`owner/repo#123`,
+`owner/repo`).
+
+The hidden `gen-man-pages` helper (used by release tooling) is intentionally
+omitted. Shell completions and man pages are produced by the built-in
+`completion` command and packaging — see
+[Install completions & man pages](/how-to/install-completions-and-man-pages).
+
+## Global flags
+
+These persistent flags apply to every command (`review`, `propose`, `audit`,
+`gap-analysis`, `review-prepared`, `elaborate`, `prompt`, `fix`, `implement`,
+`cache`).
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--verbose`, `-v` | Enable debug-level logging (also shows verbose build info with `--version`) | `false` |
+| `--log-format` | Log output format: `text` (human-friendly) or `json` (one JSON object per record, CI-friendly) | `text` |
+| `--remote-patterns-ttl` | Refresh interval for remote pattern sources (env: `PLANWERK_REMOTE_PATTERNS_TTL`; `<=0` disables refresh once cached). See [Remote pattern sources](/reference/review-patterns#remote-pattern-sources). | `24h` |
+| `--claude-timeout` | Maximum duration for a single Claude Code invocation, applied to every Claude call across all subcommands. Accepts any `time.ParseDuration` value (e.g. `20m`, `1h30m`); must be `> 0`. Env: `PLANWERK_CLAUDE_TIMEOUT`. | `15m` |
+| `--show-claude-output` | Stream Claude Code's live output to stderr while a run is in flight, instead of only the periodic heartbeat. Env: `PLANWERK_SHOW_CLAUDE_OUTPUT` (truthy: `1`, `true`, `yes`, `on`). | `false` |
+| `--claude-model` | Model passed to Claude Code via `--model` for every Claude call. Accepts a short alias (`opus`, `fable`, `sonnet`) or a full model ID (`claude-fable-5`). Env: `PLANWERK_CLAUDE_MODEL`. | `opus` |
+| `--claude-effort` | Reasoning effort passed to Claude Code via `--effort`: one of `low`, `medium`, `high`, `xhigh`, `max`. Env: `PLANWERK_CLAUDE_EFFORT`. | `xhigh` |
+
+Logs are written to stderr; when stderr is not a terminal, Claude-invocation
+heartbeats are still emitted at INFO level so long-running runs are visible in
+CI log streams.
+
+## `review` (default command)
+
+The root command reviews a single GitHub pull request.
+
+```bash
+# Simple invocation with PR URL
+planwerk-review https://github.com/owner/repo/pull/123
+
+# Short form with owner/repo#number
+planwerk-review owner/repo#123
+
+# Post review as inline comments on the PR
+planwerk-review --inline owner/repo#123
+
+# Write output to file
+planwerk-review owner/repo#123 > review.md
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--patterns` | Additional pattern source: local directory, `github:owner/repo[/sub][@ref]`, or `git+https://…[#ref[:sub]]` (see [Remote pattern sources](/reference/review-patterns#remote-pattern-sources)) | - |
+| `--min-severity` | Minimum severity level for output (`info`, `warning`, `critical`, `blocking`) | `info` |
+| `--min-confidence` | Minimum confidence shown in the main report (`verified`, `likely`, `uncertain`); findings below the threshold are filtered out, and uncertain low-severity findings otherwise move to an Unverified section | - |
+| `--no-repo-patterns` | Ignore repo-specific patterns | `false` |
+| `--no-local-patterns` | Ignore local patterns from the tool | `false` |
+| `--no-cache` | Ignore cache, force a fresh review | `false` |
+| `--clear-cache` | Clear cached reviews and exit (honors `--clear-cache-scope`) | `false` |
+| `--clear-cache-scope` | Restrict `--clear-cache` to a single command (`review`, `propose`, `audit`, `elaborate`, `gap-analysis`, `review-prepared`) | - |
+| `--cache-stats` | Show cache size, age distribution, and per-command breakdown, then exit | `false` |
+| `--cache-inspect` | Print the metadata and payload for the given cache key, then exit | - |
+| `--cache-max-age` | Reject cached entries older than this duration (`0` disables the TTL) | `720h` |
+| `--format` | Output format (`markdown`, `json`) | `markdown` |
+| `--post-review` | Post the review as a comment on the PR (updates existing if found) | `false` |
+| `--inline` | Post review with inline comments using the GitHub Review API (implies `--post-review`) | `false` |
+| `--thorough` | Run an additional adversarial review pass for security and failure modes | `false` |
+| `--specialists` | Run the domain-specialist review fan-out (security, data-migration, testing, performance, api-contract, maintainability) concurrently and merge their findings. Specialists are adaptively gated (see [Adaptive specialist gating](/explanation/review-methodology#adaptive-specialist-gating)). | `false` |
+| `--coverage-map` | Generate a test coverage map for changed functions | `false` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; env: `PLANWERK_MAX_PATTERNS`; see [Configuration file](/reference/configuration) for precedence) | `0` (unlimited) |
+| `--max-findings` | Cap on findings returned (`<=0` disables cap) | `0` |
+| `--local` | Operate on the current working directory instead of cloning into a temp dir (see [Use local mode](/how-to/use-local-mode)). The PR reference may be omitted — it is inferred from the current branch. | `false` |
+| `--force` | With `--local`, skip the confirmation prompt when the working tree is dirty | `false` |
+| `--version` | Show version information and exit | `false` |
+
+## `propose`
+
+Analyze a GitHub repository in depth and generate feature proposals.
+
+```bash
+planwerk-review propose owner/repo
+planwerk-review propose --format issues owner/repo
+planwerk-review propose --create-issues owner/repo
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--patterns` | Additional pattern source (see [Remote pattern sources](/reference/review-patterns#remote-pattern-sources)) | - |
+| `--no-repo-patterns` | Ignore repo-specific patterns | `false` |
+| `--no-local-patterns` | Ignore local patterns from the tool | `false` |
+| `--no-cache` | Ignore cache, force a fresh analysis | `false` |
+| `--cache-max-age` | Reject cached entries older than this duration (`0` disables the TTL) | `720h` |
+| `--format` | Output format (`markdown`, `json`, `issues`) | `markdown` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; env: `PLANWERK_MAX_PATTERNS`) | `0` (unlimited) |
+| `--create-issues` | Interactively create GitHub issues from proposals | `false` |
+| `--no-issue-dedupe` | Do not filter proposals whose title matches an existing GitHub issue | `false` |
+| `--local` | Operate on the current working directory instead of cloning into a temp dir (see [Use local mode](/how-to/use-local-mode)). The repository reference may be omitted — it is inferred from the `origin` remote. | `false` |
+| `--force` | With `--local`, skip the confirmation prompt when the working tree is dirty | `false` |
+
+## `audit`
+
+Apply every loaded review pattern to an entire codebase.
+
+```bash
+planwerk-review audit owner/repo
+planwerk-review audit --min-severity warning owner/repo
+planwerk-review audit --format json owner/repo
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--patterns` | Additional pattern source (see [Remote pattern sources](/reference/review-patterns#remote-pattern-sources)) | - |
+| `--min-severity` | Minimum severity level for output (`info`, `warning`, `critical`, `blocking`) | `info` |
+| `--min-confidence` | Minimum confidence shown in the main report (`verified`, `likely`, `uncertain`); findings below the threshold are filtered out, and uncertain low-severity findings otherwise move to an Unverified section | - |
+| `--no-repo-patterns` | Ignore repo-specific patterns | `false` |
+| `--no-local-patterns` | Ignore local patterns from the tool | `false` |
+| `--no-cache` | Ignore cache, force a fresh audit | `false` |
+| `--cache-max-age` | Reject cached entries older than this duration (`0` disables the TTL) | `720h` |
+| `--format` | Output format (`markdown`, `json`) | `markdown` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; env: `PLANWERK_MAX_PATTERNS`) | `0` (unlimited) |
+| `--max-findings` | Cap on findings returned (`<=0` disables cap) | `0` |
+| `--create-issues` | Interactively create GitHub issues from audit findings | `false` |
+| `--issue-min-severity` | Minimum severity for issue creation | `warning` |
+| `--no-issue-dedupe` | Do not filter findings whose title matches an existing GitHub issue | `false` |
+| `--local` | Operate on the current working directory instead of cloning into a temp dir (see [Use local mode](/how-to/use-local-mode)). The repository reference may be omitted — it is inferred from the `origin` remote. | `false` |
+| `--force` | With `--local`, skip the confirmation prompt when the working tree is dirty | `false` |
+
+## `gap-analysis`
+
+Compare every Planwerk feature file under `.planwerk/completed/` in the target
+repo against the actual codebase and report incomplete implementations.
+
+```bash
+planwerk-review gap-analysis owner/repo
+planwerk-review gap-analysis --feature CC-0042 owner/repo
+planwerk-review gap-analysis --file CC-0042-thing.json owner/repo
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--patterns` | Additional pattern source: local directory, `github:owner/repo[/sub][@ref]`, or `git+https://…[#ref[:sub]]` | - |
+| `--no-repo-patterns` | Ignore repo-specific patterns | `false` |
+| `--no-local-patterns` | Ignore local patterns from the tool | `false` |
+| `--no-cache` | Ignore cache, force a fresh gap analysis | `false` |
+| `--cache-max-age` | Reject cached entries older than this duration (`0` disables the TTL) | `720h` |
+| `--format` | Output format (`markdown`, `json`) | `markdown` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; env: `PLANWERK_MAX_PATTERNS`) | `0` (unlimited) |
+| `--feature` | Limit analysis to a single feature by `feature_id` (e.g. `CC-0042`) | - |
+| `--file` | Limit analysis to a single feature file under `.planwerk/completed/` (path or basename) | - |
+| `--create-issues` | Interactively create GitHub issues from gaps | `false` |
+| `--no-issue-dedupe` | Do not filter gaps whose suggested-issue title matches an existing GitHub issue | `false` |
+| `--local` | Operate on the current working directory instead of cloning into a temp dir (see [Use local mode](/how-to/use-local-mode)). The repository reference may be omitted — it is inferred from the `origin` remote. | `false` |
+| `--force` | With `--local`, skip the confirmation prompt when the working tree is dirty | `false` |
+
+`--feature` and `--file` may be combined as a sanity check; if the file's
+`feature_id` does not match `--feature`, the run aborts before invoking Claude.
+
+## `review-prepared`
+
+Review every Planwerk feature spec under `.planwerk/features/` whose status is
+`prepared` — surface weaknesses in the spec text itself and, with `--create-pr`,
+open a pull request that rewrites the JSON to address every WARNING-or-higher
+finding. This command reviews the spec only; it does not compare the spec to the
+codebase (use [`gap-analysis`](#gap-analysis) for that).
+
+```bash
+planwerk-review review-prepared owner/repo
+planwerk-review review-prepared --feature PX-0028 owner/repo
+planwerk-review review-prepared --create-pr owner/repo
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--patterns` | Additional pattern source: local directory, `github:owner/repo[/sub][@ref]`, or `git+https://…[#ref[:sub]]` | - |
+| `--no-repo-patterns` | Ignore repo-specific patterns | `false` |
+| `--no-local-patterns` | Ignore local patterns from the tool | `false` |
+| `--no-cache` | Ignore cache, force a fresh review | `false` |
+| `--cache-max-age` | Reject cached entries older than this duration (`0` disables the TTL) | `720h` |
+| `--format` | Output format (`markdown`, `json`) | `markdown` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; env: `PLANWERK_MAX_PATTERNS`) | `0` (unlimited) |
+| `--min-severity` | Minimum severity to render (`info`, `warning`, `critical`) | `info` |
+| `--feature` | Limit review to a single feature by `feature_id` (e.g. `PX-0028`) | - |
+| `--file` | Limit review to a single feature file under `.planwerk/features/` (path or basename) | - |
+| `--create-pr` | After the review, commit improved feature JSON files on a fresh branch and open a pull request | `false` |
+| `--pr-branch` | Branch name for `--create-pr` | `planwerk-review/improve-prepared-features` |
+| `--pr-base` | Base branch for `--create-pr` | repo default branch |
+| `--local` | Operate on the current working directory instead of cloning into a temp dir | `false` |
+| `--force` | With `--local`, skip the confirmation prompt when the working tree is dirty | `false` |
+
+## `elaborate`
+
+Expand a high-level GitHub issue into a detailed engineering plan grounded in
+the actual repository state.
+
+```bash
+planwerk-review elaborate owner/repo#123
+planwerk-review elaborate --update-issue owner/repo#123
+planwerk-review elaborate --post-comment owner/repo#123
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--patterns` | Additional pattern source (see [Remote pattern sources](/reference/review-patterns#remote-pattern-sources)) | - |
+| `--no-repo-patterns` | Ignore repo-specific patterns | `false` |
+| `--no-local-patterns` | Ignore local patterns from the tool | `false` |
+| `--no-cache` | Ignore cache, force a fresh elaboration | `false` |
+| `--cache-max-age` | Reject cached entries older than this duration (`0` disables the TTL) | `720h` |
+| `--format` | Output format (`markdown`, `json`) | `markdown` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; env: `PLANWERK_MAX_PATTERNS`) | `0` (unlimited) |
+| `--update-issue` | Replace the issue body with the elaborated body via `gh issue edit` | `false` |
+| `--post-comment` | Post the elaborated body as a new issue comment via `gh issue comment` | `false` |
+| `--review` | Run a reviewer pass that checks the draft for executability and refines it to close gaps before output | `false` |
+| `--max-review-iterations` | Cap on reviewer refine iterations when `--review` is set (`<=0` uses the default of 3) | `0` |
+| `--local` | Ground the elaboration in the current working directory instead of cloning into a temp dir. The issue reference is still required — only the repository checkout is local. | `false` |
+| `--force` | With `--local`, skip the confirmation prompt when the working tree is dirty | `false` |
+
+`--update-issue` and `--post-comment` are mutually exclusive.
+
+## `prompt`
+
+Deterministically render a copy-paste-ready Claude Code prompt for an existing
+GitHub issue. No Claude call is involved.
+
+```bash
+planwerk-review prompt owner/repo#42
+planwerk-review prompt --mode fix owner/repo#42
+planwerk-review prompt --mode implement owner/repo#42
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--mode` | Prompt variant (`auto`, `fix`, `implement`). In `auto`, issue bodies carrying a `**Severity**:` marker get the `fix` prompt; everything else gets the `implement` prompt. | `auto` |
+
+## `fix`
+
+Watch a pull request's CI checks and, when one fails, dispatch a fresh Claude
+Code session to apply a minimal fix and push it as a follow-up commit. The loop
+continues until every check is green or `--max-iterations` is exhausted.
+
+```bash
+planwerk-review fix owner/repo#123
+planwerk-review fix --dry-run owner/repo#123
+planwerk-review fix --local --force
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--interval` | Polling interval between check-status queries | `1m` |
+| `--max-iterations` | Maximum number of fix attempts before giving up | `5` |
+| `--interactive` | Ask before starting each new fix iteration (after the first) | `false` |
+| `--dry-run` | Report failing checks but do not invoke Claude or commit | `false` |
+| `--print-prompt` | Render the fix prompt for the current failing checks to stdout and exit | `false` |
+| `--print-bare-prompt` | Render a self-contained fix prompt (no check analysis) to stdout and exit | `false` |
+| `--no-fix-comment` | Do not post each iteration's fix report as a comment on the pull request | `false` |
+| `--patterns` | Additional pattern source: local directory, `github:owner/repo[/sub][@ref]`, or `git+https://…[#ref[:sub]]` | - |
+| `--no-repo-patterns` | Ignore repo-specific patterns under `.planwerk/review_patterns/` in the target repo | `false` |
+| `--no-local-patterns` | Ignore local patterns from the tool | `false` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; env: `PLANWERK_MAX_PATTERNS`) | `0` (unlimited) |
+| `--local` | Operate on the current working directory instead of cloning into a temp dir | `false` |
+| `--force` | With `--local`, skip the confirmation prompt when the working tree is dirty | `false` |
+
+`--dry-run`, `--print-prompt`, and `--print-bare-prompt` are mutually exclusive.
+
+## `implement`
+
+Take an elaborated GitHub issue, run a read-only Claude Code planning session,
+then a fresh implement session that executes the plan end to end (code, tests,
+docs) and opens a draft pull request.
+
+```bash
+planwerk-review implement owner/repo#123
+planwerk-review implement --no-plan owner/repo#123
+planwerk-review implement --verify owner/repo#123
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--dry-run` | Report what would happen but do not clone, invoke Claude, or push anything | `false` |
+| `--print-prompt` | Render the implement prompt (with the issue body embedded, without a plan) to stdout and exit | `false` |
+| `--print-bare-prompt` | Render a self-contained implement prompt (no issue body) to stdout and exit | `false` |
+| `--print-plan-prompt` | Render the planning prompt (with the issue body embedded) to stdout and exit | `false` |
+| `--no-plan` | Skip the planning session and implement directly in a single session | `false` |
+| `--no-plan-comment` | Do not post the generated implementation plan as a comment on the source issue | `false` |
+| `--plan-model` | Model for the planning session passed to Claude Code via `--model` (e.g. `fable`, `opus`; env: `PLANWERK_PLAN_MODEL`) | `fable` |
+| `--plan-effort` | Reasoning effort for the planning session passed via `--effort` (`low`, `medium`, `high`, `xhigh`, `max`; env: `PLANWERK_PLAN_EFFORT`) | `max` |
+| `--verify` | After implementing, run an independent pass that checks the actual diff against the issue's Acceptance Criteria without trusting the implementer's report | `false` |
+| `--patterns` | Additional pattern source: local directory, `github:owner/repo[/sub][@ref]`, or `git+https://…[#ref[:sub]]` | - |
+| `--no-repo-patterns` | Ignore repo-specific patterns under `.planwerk/review_patterns/` in the target repo | `false` |
+| `--no-local-patterns` | Ignore local patterns from the tool | `false` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; env: `PLANWERK_MAX_PATTERNS`) | `0` (unlimited) |
+| `--local` | Operate on the current working directory instead of cloning into a temp dir | `false` |
+| `--force` | With `--local`, skip the confirmation prompt when the working tree is dirty | `false` |
+
+`--dry-run`, `--print-prompt`, `--print-bare-prompt`, and `--print-plan-prompt`
+are mutually exclusive. The implement session runs in Claude Code's auto mode
+and requires Claude Code v2.1.83+.
+
+## `cache`
+
+Inspect the on-disk cache shared by `review`, `propose`, `audit`, `elaborate`,
+and `gap-analysis`. See [Caching model](/explanation/caching) for background.
+
+```bash
+# Show total entries, size, age distribution, and per-command breakdown
+planwerk-review cache stats
+
+# Dump metadata and pretty-printed payload for one key
+planwerk-review cache inspect <key>
+```
+
+| Subcommand | Arguments | Description |
+|------------|-----------|-------------|
+| `cache stats` | none | Show cache size, age distribution, and per-command breakdown |
+| `cache inspect` | `<key>` | Print metadata and the pretty-printed payload for a single cache key (keys come from `cache stats`) |
+
+## Built-in commands
+
+`completion` and `help` are provided by [Cobra](https://github.com/spf13/cobra).
+`completion <shell>` emits shell completion scripts for `bash`, `zsh`, `fish`,
+and `powershell` — see
+[Install completions & man pages](/how-to/install-completions-and-man-pages).
+`help [command]` prints help for any command.

@@ -1,0 +1,122 @@
+# Output format
+
+The generated Markdown report follows a fixed structure:
+
+```markdown
+# Review: owner/repo#123
+
+> *Feature: Add user authentication*
+> Reviewed by planwerk-review vX.Y.Z with Claude Code
+
+<!-- planwerk-review: blocking=1 critical=2 warning=3 info=1 recommendation=HOLD -->
+
+## BLOCKING (1)
+
+### B-001: Hardcoded secrets in configuration
+**File**: `config/auth.go:42` — **Fix**: ASK — **Confidence**: verified — **Pattern**: Hardcoded values
+
+**Problem**: API secret is hardcoded directly in the source code.
+
+**Action Required**: Remove secret from code and provide it via
+environment variable or secret manager.
+
+---
+
+## CRITICAL (2)
+
+### C-001: SQL Injection in User Query
+**File**: `db/users.go:87-92` — **Fix**: ASK — **Confidence**: verified
+
+**Problem**: User input is used in SQL query without sanitization.
+
+**Action Required**: Use prepared statements.
+
+---
+
+### C-002: Missing error handling
+**File**: `handlers/login.go:23` — **Fix**: AUTO-FIX — **Confidence**: likely
+
+**Problem**: Error from `ValidateToken()` is ignored.
+
+**Action Required**: Check error and return HTTP 401 on failure.
+
+**Related**: B-001
+
+---
+
+## WARNING (3)
+
+### W-001: ...
+
+---
+
+## Summary
+
+The PR introduces user authentication with a well-structured handler layer, but hardcoded secrets and an SQL injection vulnerability must be addressed before merge. Error handling is inconsistent across the new endpoints.
+
+| Severity | Count |
+|----------|-------|
+| BLOCKING | 1     |
+| CRITICAL | 2     |
+| WARNING  | 3     |
+| INFO     | 1     |
+
+> [!CAUTION]
+> **Do not merge** — 1 BLOCKING and 2 CRITICAL findings must be resolved first.
+```
+
+## Severity Levels
+
+| Level | Meaning | Action |
+|-------|---------|--------|
+| **BLOCKING** | Fundamental architecture/security issues | PR must not be merged |
+| **CRITICAL** | Bugs, security vulnerabilities, severe problems | Must be fixed before merge |
+| **WARNING** | Code quality, potential issues | Should be fixed |
+| **INFO** | Style questions, improvement suggestions | Optional, for information |
+
+## Actionability Levels
+
+| Level | Meaning | Action |
+|-------|---------|--------|
+| **auto-fix** | A senior engineer would fix without discussion | Apply the suggested fix directly |
+| **needs-discussion** | Requires team input before fixing | Discuss in PR comments or team sync |
+| **architectural** | Fundamental design issue | Needs broader design conversation |
+
+## Enriched Finding Fields
+
+Each finding includes additional metadata for tooling and automation:
+
+| Field | Description |
+|-------|-------------|
+| **FixClass** | `AUTO-FIX` or `ASK` — derived from Actionability, indicates whether the fix can be applied directly |
+| **Confidence** | `verified`, `likely`, or `uncertain` — how certain the reviewer is about the finding |
+| **CodeSnippet** | The relevant code fragment from the diff |
+| **SuggestedFix** | Concrete replacement code for auto-fix findings |
+| **RelatedTo** | IDs of related findings (e.g., `["B-001", "C-003"]`) |
+| **LineEnd** | End line for multi-line findings (enables line-range comments) |
+
+## Machine-Readable Output
+
+The Markdown report includes an HTML comment with counts and recommendation
+verdict for machine consumption:
+
+```html
+<!-- planwerk-review: blocking=1 critical=2 warning=0 info=3 recommendation=HOLD -->
+```
+
+Verdict values: `HOLD` (blockers/criticals present), `REVIEW` (warnings only),
+`MERGE` (clean), `CUSTOM` (manual recommendation).
+
+Recommendations use GitHub Alert syntax (`[!CAUTION]`, `[!WARNING]`, `[!TIP]`,
+`[!IMPORTANT]`) for native rendering.
+
+## Inline Review Mode (`--inline`)
+
+With `--inline`, findings are posted as inline comments on the PR using the
+GitHub Review API instead of (or in addition to) a single summary comment:
+
+- Each finding that maps to a line in the PR diff becomes an inline comment on that line
+- Auto-fix findings with a `SuggestedFix` use GitHub's `suggestion` syntax, enabling one-click apply
+- Findings that cannot be mapped to diff lines are included in the review summary body
+- The PR diff is fetched and parsed to validate that finding lines are within the diff (right side)
+- Implies `--post-review`
