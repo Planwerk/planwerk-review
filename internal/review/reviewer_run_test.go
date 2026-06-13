@@ -3,6 +3,7 @@ package review
 import (
 	"bytes"
 	"errors"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,6 +52,69 @@ func initGitRepoTwoCommits(t *testing.T) (dir, firstSHA string) {
 	run("add", "-A")
 	run("commit", "-q", "-m", "second")
 	return dir, firstSHA
+}
+
+func TestGetCommitLog(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		dir, firstSHA := initGitRepoTwoCommits(t)
+		// Point origin/main at the first commit so origin/main..HEAD resolves
+		// offline, with no real remote or network.
+		cmd := exec.Command("git", "update-ref", "refs/remotes/origin/main", firstSHA)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git update-ref: %v\n%s", err, out)
+		}
+		log, err := getCommitLog(dir, "main")
+		if err != nil {
+			t.Fatalf("getCommitLog returned error: %v", err)
+		}
+		if !strings.Contains(log, "second") {
+			t.Errorf("commit log = %q, want it to mention the second commit", log)
+		}
+	})
+
+	t.Run("missing remote", func(t *testing.T) {
+		// initGitRepoTwoCommits does not create origin/main, so the git log
+		// query fails as it would on a missing remote or auth failure.
+		dir, _ := initGitRepoTwoCommits(t)
+		log, err := getCommitLog(dir, "main")
+		if err == nil {
+			t.Fatal("expected an error when origin/main is missing, got nil")
+		}
+		if log != "" {
+			t.Errorf("log = %q, want empty on error", log)
+		}
+		if !strings.Contains(err.Error(), "git log") {
+			t.Errorf("error %q does not name the git command", err)
+		}
+	})
+}
+
+func TestRun_CommitLogFailureLogsWarning(t *testing.T) {
+	// Not t.Parallel(): cache.SetDir mutates a package-level variable and
+	// would race with concurrent Run tests.
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	// Capture slog so we can assert the warning is emitted. fakePR's Dir is a
+	// non-git temp dir, so getCommitLog's git log subprocess fails.
+	var logBuf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logBuf, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	pr := fakePR(t, "acme", "widgets", 99, "sha-nolog")
+	claudeMock := &configurableClaude{}
+	gh := &mockGitHub{fetchAndCheckout: func(ref string) (*github.PR, error) { return pr, nil }}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	var out bytes.Buffer
+	if err := runner.Run(&out, baseOpts()); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if !strings.Contains(logBuf.String(), "fetching commit log failed") {
+		t.Errorf("expected a warning when the commit log fetch fails, got:\n%s", logBuf.String())
+	}
 }
 
 // configurableClaude is a ClaudeRunner whose behavior is set per-test via
