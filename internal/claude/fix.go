@@ -53,7 +53,7 @@ func BuildFixPrompt(ctx fix.Context) string {
 - "Regression guard." — If the broken behavior is in production code and existing tests did not catch it, extend or add a test that fails before your fix and passes after.
 - "Simplify the diff." — Re-read your own diff and remove anything not strictly required. Prefer fewer lines, fewer files, fewer abstractions.
 - "Self-review before committing." — Walk through the diff once more as the reviewer. Reject anything you would push back on.
-- "Stay inside the PR." — The PR has a stated intent (title + body). Your fix must serve it. Do not change unrelated files.
+- "Stay inside the PR." — The PR has a stated intent (title + body). Your fix must serve it. Prefer to touch only files the PR already changes; reaching outside it is a last resort — do it ONLY when the failing check cannot be fixed any other way, keep that reach as small as possible, and never reach outside for unrelated cleanups.
 
 `)
 
@@ -133,7 +133,7 @@ Run these steps for EACH failing check above before editing any code:
 1. Run the diagnosis workflow for every failing check.
 2. Apply the minimal change(s).
 3. Verify locally where possible. Re-read your diff. Remove anything not required.
-4. Self-review the diff against the original PR scope. Stop if your fix is drifting outside it.
+4. Self-review the diff against the original PR scope. Keep the fix inside it unless reaching outside is the only way to make the failing check pass — and if you must, confine the out-of-scope change to the minimum and call it out in the report.
 `)
 
 	if ctx.Local {
@@ -206,7 +206,7 @@ Run these steps for EACH failing check above before editing any code:
 		sb.WriteString("- NEVER force-push.\n")
 	}
 
-	sb.WriteString(`- NEVER change files outside the failure surface. If a fix would require it, STOP and explain instead of committing.
+	sb.WriteString(`- PREFER to change only files on the failure surface. Reaching outside it is a last resort, reserved for the worst case where the failing check genuinely cannot be fixed any other way — then make the smallest out-of-scope change that works and call it out explicitly in the report. NEVER reach outside for convenience, drive-by cleanups, or unrelated improvements.
 - NEVER skip, weaken, or suppress the failing check (see the "Do not cheat the check." pattern above for the explicit forbidden list).
 - NEVER skip pre-commit / CI hooks (no --no-verify, no --no-gpg-sign).
 - NEVER bump dependencies that the failure log does not directly implicate.
@@ -254,7 +254,7 @@ func BuildBareFixPrompt(ctx fix.BareContext) string {
 - "Regression guard." — If the broken behavior is in production code and existing tests did not catch it, extend or add a test that fails before your fix and passes after.
 - "Simplify the diff." — Re-read your own diff and remove anything not strictly required. Prefer fewer lines, fewer files, fewer abstractions.
 - "Self-review before committing." — Walk through the diff once more as the reviewer. Reject anything you would push back on.
-- "Stay inside the PR." — The PR has a stated intent (title + body). Your fix must serve it. Do not change unrelated files.
+- "Stay inside the PR." — The PR has a stated intent (title + body). Your fix must serve it. Prefer to touch only files the PR already changes; reaching outside it is a last resort — do it ONLY when the failing check cannot be fixed any other way, keep that reach as small as possible, and never reach outside for unrelated cleanups.
 
 `)
 
@@ -322,7 +322,7 @@ Run these steps for EACH failing check before editing any code:
 2. Run the diagnosis workflow for every failing check.
 3. Apply the minimal change(s).
 4. Verify locally where possible. Re-read your diff. Remove anything not required.
-5. Self-review the diff against the original PR scope. Stop if your fix is drifting outside it.
+5. Self-review the diff against the original PR scope. Keep the fix inside it unless reaching outside is the only way to make the failing check pass — and if you must, confine the out-of-scope change to the minimum and call it out in the report.
 6. Stage your changes and create ONE follow-up commit:
 
    git add -A
@@ -353,7 +353,7 @@ Run these steps for EACH failing check before editing any code:
 ## Hard rules
 
 - NEVER force-push.
-- NEVER change files outside the failure surface. If a fix would require it, STOP and explain instead of committing.
+- PREFER to change only files on the failure surface. Reaching outside it is a last resort, reserved for the worst case where the failing check genuinely cannot be fixed any other way — then make the smallest out-of-scope change that works and call it out explicitly in the report. NEVER reach outside for convenience, drive-by cleanups, or unrelated improvements.
 - NEVER skip, weaken, or suppress the failing check (see the "Do not cheat the check." pattern above for the explicit forbidden list).
 - NEVER skip pre-commit / CI hooks (no --no-verify, no --no-gpg-sign).
 - NEVER bump dependencies that the failure log does not directly implicate.
