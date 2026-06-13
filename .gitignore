@@ -9,5 +9,10 @@ dist/
 completions/
 docs/man/
 
+# VitePress documentation site
+docs/node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
 # OS files
 .DS_Store
