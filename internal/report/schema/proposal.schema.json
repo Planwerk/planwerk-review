@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProposalResult",
+  "description": "Contract for the `propose` --format json output (propose.ProposalResult). The command emits the result envelope; a single proposal is defined under $defs/proposal.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["repository_overview", "proposals"],
+  "properties": {
+    "repository_overview": { "type": "string" },
+    "proposals": {
+      "description": "Proposals. Encoded as null (not []) when there are none.",
+      "type": ["array", "null"],
+      "items": { "$ref": "#/$defs/proposal" }
+    }
+  },
+  "$defs": {
+    "proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "priority",
+        "category",
+        "title",
+        "description",
+        "motivation",
+        "scope",
+        "affected_areas",
+        "acceptance_criteria"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "priority": {
+          "type": "string",
+          "enum": ["HIGH", "MEDIUM", "LOW"]
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "feature",
+            "improvement",
+            "refactoring",
+            "testing",
+            "documentation",
+            "security",
+            "performance"
+          ]
+        },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "motivation": { "type": "string" },
+        "scope": {
+          "type": "string",
+          "enum": ["Small", "Medium", "Large"]
+        },
+        "affected_areas": {
+          "description": "Encoded as null (not []) when there are none.",
+          "type": ["array", "null"],
+          "items": { "type": "string" }
+        },
+        "acceptance_criteria": {
+          "description": "Encoded as null (not []) when there are none.",
+          "type": ["array", "null"],
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}
