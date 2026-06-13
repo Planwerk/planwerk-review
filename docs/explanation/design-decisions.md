@@ -1,0 +1,31 @@
+# Design decisions
+
+The table below records the key design choices behind planwerk-review and the
+rationale for each.
+
+| # | Question | Decision | Rationale |
+|---|----------|----------|-----------|
+| 1 | **Claude Code invocation** | Once for the entire PR | More efficient; Claude sees full context across files |
+| 2 | **Pattern delivery** | Inline in the prompt before `/review` | Patterns are prepended to the `/review` command so Claude considers them during its built-in review |
+| 3 | **Result parsing** | Second Claude call for structuring | `/review` returns unstructured text; a second `claude -p` call converts it to JSON matching the `ReviewResult` schema |
+| 4 | **Authentication** | `gh auth` | Simplest setup; leverages existing developer workflow |
+| 5 | **Review caching** | Based on PR HEAD SHA | Avoids repeated reviews of unchanged PR state |
+| 6 | **Propose: two-step Claude** | Analysis → Structure | First call explores codebase freely; second call converts to strict JSON schema |
+| 7 | **Propose: cache invalidation** | Based on default branch HEAD SHA | Cache key includes the default-branch HEAD (resolved via `gh api graphql` so private repos work), so proposals refresh when the repo changes |
+| 8 | **Propose: output formats** | Markdown, JSON, Issues, Interactive | Markdown for reading, JSON for automation, Issues for templates, `--create-issues` for interactive `gh issue create` |
+| 9 | **Review prompt structure** | Multi-section structured prompt | Persona framing, scope analysis, two-pass checklist, suppressions, and anti-sycophancy rules produce higher-quality, more consistent reviews (inspired by [gstack](https://github.com/garrytan/gstack)) |
+| 10 | **Actionability classification** | auto-fix / needs-discussion / architectural | Helps teams prioritize which findings to address immediately vs. discuss first |
+| 11 | **Scope drift detection** | PR title + body analyzed before code review | Catches scope creep and missing requirements — often the most valuable review feedback |
+| 12 | **PR comment posting** | `--post-review` updates existing comment | Idempotent: detects and replaces prior planwerk-review comment via HTML signature. Truncates to GitHub's 65 536-char limit. |
+| 13 | **Adversarial review** | `--thorough` runs a second pass | Independent security-focused review merged with primary results, deduplicating by file+line+title |
+| 14 | **Coverage map** | `--coverage-map` maps changed functions to tests | Produces a table rating each changed function's test coverage (★★★/★★/★/GAP) with separate E2E gap analysis for projects using Chainsaw or similar frameworks |
+| 15 | **External command timeouts** | All `claude`, `gh`, `git` calls have timeouts | Claude: 15 min, git clone: 5 min, gh: 2 min — prevents indefinite blocking |
+| 16 | **Test & doc verification** | Dedicated prompt section + checklist items for test/doc completeness | Missing tests and documentation are the most common review gaps; explicit checks at SEMANTIC severity ensure they are flagged consistently. E2E test detection covers Chainsaw (`chainsaw-test.yaml`), kuttl, Helm chart tests, and generic `e2e/` directories |
+| 17 | **Enriched findings** | Code snippets, suggested fixes, confidence, fix class, line ranges, relationships | Enables downstream tooling (Claude Code, CI) to process, apply, and correlate findings programmatically |
+| 18 | **Inline review comments** | `--inline` posts via GitHub Review API with `suggestion` syntax | Puts findings exactly where the code is; auto-fix suggestions become one-click "Apply suggestion" buttons on GitHub |
+| 19 | **Machine-readable comment** | HTML comment with counts + verdict in Markdown output | CI scripts and Claude Code can parse review results without processing full Markdown |
+| 20 | **Compact Markdown format** | Empty sections skipped, single-line metadata, GitHub Alert syntax | Reduces noise for human readers and GitHub rendering; no "No findings." placeholders |
+| 21 | **Audit: reuse finding schema** | Same `ReviewResult`/`Finding` types as review | Audit findings drop straight into existing tooling, filters, and renderers — no parallel schema to maintain |
+| 22 | **Audit: verdict phrasing** | `Action required` / `Improvements suggested` / `Codebase healthy` | PR merge verdicts (`Do not merge` / `Ready to merge`) do not apply to a full-codebase audit; audit-specific phrasing avoids misleading readers |
+| 23 | **Audit: no patterns = error** | `audit` fails fast when no patterns load | An audit with zero patterns would produce an unfocused, generic review; surfacing the misconfiguration is better than silently running it |
+| 24 | **Adaptive specialist gating** | Skip specialists whose relevant paths the diff does not touch | A small or docs-only PR should not spin up all six specialists; gating cuts wall-clock and cost. `security` and `data-migration` always run because a missed vulnerability or destructive migration is too costly to gate; an unknown diff fails open so nothing is silently skipped |
