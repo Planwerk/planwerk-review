@@ -12,8 +12,8 @@ omitted. Shell completions and man pages are produced by the built-in
 ## Global flags
 
 These persistent flags apply to every command (`review`, `propose`, `audit`,
-`gap-analysis`, `review-prepared`, `elaborate`, `prompt`, `fix`, `rebase`,
-`implement`, `cache`, `schema`).
+`gap-analysis`, `review-prepared`, `draft`, `elaborate`, `prompt`, `fix`,
+`rebase`, `implement`, `cache`, `schema`).
 
 | Flag | Description | Default |
 |------|-------------|---------|
@@ -185,6 +185,52 @@ planwerk-review review-prepared --create-pr owner/repo
 | `--pr-base` | Base branch for `--create-pr` | repo default branch |
 | `--local` | Operate on the current working directory instead of cloning into a temp dir | `false` |
 | `--force` | With `--local`, skip the confirmation prompt when the working tree is dirty | `false` |
+
+## `draft`
+
+Turn a rough, one-line feature idea into a ready-to-file GitHub issue through a
+short clarifying Q&A. The draft is previewed, duplicate-title-checked, and
+created only on explicit confirmation. `draft` is the front of the pipeline —
+`draft → elaborate → implement` — and deliberately stops at an initial feature
+description: it does not produce an engineering plan (that is `elaborate`).
+
+```bash
+# Draft an issue for an explicit repository (prompts for the idea, then asks)
+planwerk-review draft owner/repo
+
+# Seed the idea on the command line
+planwerk-review draft owner/repo "add a dark mode toggle"
+
+# File against the current checkout's origin (no repo-ref needed)
+planwerk-review draft --local "add a dark mode toggle"
+
+# Draft without the clarifying questions, and preview without filing
+planwerk-review draft --no-interactive --dry-run owner/repo "add a dark mode toggle"
+```
+
+Without `--local`, the first positional is the repository reference
+(`owner/repo` or URL) and the second, optional, is the one-line idea. With
+`--local` the issue is filed against the current checkout's `origin` (no
+repo-ref needed) and the single positional is the idea; an explicit ref given
+under `--local` must match `origin`. When the idea is omitted it is prompted for
+interactively — except in a non-interactive context (stdin is not a TTY, or
+`--no-interactive`), where a missing idea aborts with an actionable error.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--local` | File against the current checkout's `origin` repo instead of taking an explicit repo-ref (see [Use local mode](/how-to/use-local-mode)). `draft` needs only the `origin` owner/repo — it takes no local checkout. | `false` |
+| `--no-interactive`, `-y` | Skip the clarifying Q&A loop and draft straight from the seed idea | `false` |
+| `--dry-run` | Render the drafted issue without filing it | `false` |
+| `--no-create` | Alias of `--dry-run`: render the drafted issue without filing it | `false` |
+| `--label` | Label to attach to the created issue (repeatable; no severity/priority levels — house convention) | - |
+| `--format` | Output format (`markdown`, `json`) | `markdown` |
+| `--print-prompt` | Render the draft prompt for the idea to stdout and exit; do not invoke Claude or GitHub | `false` |
+| `--print-bare-prompt` | Render a self-contained draft prompt (for a manual Claude session) to stdout and exit | `false` |
+
+`--print-prompt` and `--print-bare-prompt` are mutually exclusive and both
+require an idea. The create step always asks for confirmation, even with
+`--no-interactive` (which skips only the clarifying questions) — script
+non-interactive runs with `--dry-run` or `--format json`.
 
 ## `elaborate`
 
@@ -372,6 +418,7 @@ check-jsonschema --schemafile proposal.schema.json proposals.json
 | `audit` | Schema for `audit --format json` output — identical to `review`, because audit reuses the review result shape |
 | `propose` | Schema for `propose --format json` output (`proposal.schema.json`, the proposal-result envelope) |
 | `rebase` | Schema for the `rebase` post-rebase analysis output (`rebase-analysis.schema.json`) |
+| `draft` | Schema for `draft --format json` output (`draft.schema.json`, the drafted issue) |
 
 ## Built-in commands
 

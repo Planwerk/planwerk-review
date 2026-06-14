@@ -7,6 +7,7 @@ solves one specific problem.
 - [Analyze a repository and generate proposals](/how-to/analyze-a-repository)
 - [Audit a codebase against all patterns](/how-to/audit-a-codebase)
 - [Check completed features for gaps](/how-to/check-feature-gaps)
+- [Draft an issue](/how-to/draft-an-issue)
 - [Elaborate an issue](/how-to/elaborate-an-issue)
 - [Generate a fix/implement prompt](/how-to/generate-a-prompt)
 - [Implement an issue](/how-to/implement-an-issue)
