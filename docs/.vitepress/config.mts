@@ -34,6 +34,10 @@ export default defineConfig({
               text: 'From repo to GitHub issues',
               link: '/tutorials/from-repo-to-issues',
             },
+            {
+              text: 'Draft to implement',
+              link: '/tutorials/draft-to-implement',
+            },
           ],
         },
       ],
@@ -49,6 +53,7 @@ export default defineConfig({
             },
             { text: 'Audit a codebase', link: '/how-to/audit-a-codebase' },
             { text: 'Check feature gaps', link: '/how-to/check-feature-gaps' },
+            { text: 'Draft an issue', link: '/how-to/draft-an-issue' },
             { text: 'Elaborate an issue', link: '/how-to/elaborate-an-issue' },
             { text: 'Generate a prompt', link: '/how-to/generate-a-prompt' },
             { text: 'Implement an issue', link: '/how-to/implement-an-issue' },
