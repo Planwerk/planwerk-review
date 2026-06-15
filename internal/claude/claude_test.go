@@ -696,3 +696,16 @@ func TestBuildPlanPrompt_ContainsOverScopeGate(t *testing.T) {
 		}
 	}
 }
+
+// TestBuildImplementPrompt_ContainsCircuitBreakers locks the circuit-breaker
+// stop conditions (issue #89, I1): the auto-mode implement session must halt
+// and emit DONE_WITH_CONCERNS or BLOCKED instead of grinding through a thrash
+// loop. The bare prompt (human-supervised) is intentionally left without them.
+func TestBuildImplementPrompt_ContainsCircuitBreakers(t *testing.T) {
+	prompt := BuildImplementPrompt(goldenImplementContext())
+	for _, want := range []string{"Circuit breakers", "Fighting the test suite", "Ballooning scope", "Reverting in circles", "STATUS: DONE_WITH_CONCERNS"} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("implement prompt should name the circuit-breaker stop conditions; missing %q", want)
+		}
+	}
+}
