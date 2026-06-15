@@ -489,6 +489,94 @@ func TestSanitizePlan_PreservesEscalationMarker(t *testing.T) {
 	}
 }
 
+func TestSanitizeFixReport(t *testing.T) {
+	const report = "## Fix Report (iteration 1)\n\n### Per check\n- build\n### Status\nSTATUS: DONE"
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "already clean is unchanged",
+			input: report,
+			want:  report,
+		},
+		{
+			name:  "the branch is published preamble is dropped",
+			input: "The branch is published. Final report:\n\n" + report,
+			want:  report,
+		},
+		{
+			name:  "multi-line preamble is dropped",
+			input: "Pushed the follow-up commit.\nVerified the suite is green.\nFinal report:\n\n" + report,
+			want:  report,
+		},
+		{
+			name:  "wrapping markdown fence is stripped",
+			input: "```markdown\n" + report + "\n```",
+			want:  report,
+		},
+		{
+			name:  "bare-prompt heading without iteration is anchored",
+			input: "Done. Here is the report:\n\n## Fix Report\n\n### Status\nSTATUS: DONE",
+			want:  "## Fix Report\n\n### Status\nSTATUS: DONE",
+		},
+		{
+			name:  "no heading is returned trimmed but otherwise intact",
+			input: "\n  STATUS: BLOCKED — the failure is an infra flake.  \n",
+			want:  "STATUS: BLOCKED — the failure is an infra flake.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := sanitizeFixReport(tt.input); got != tt.want {
+				t.Errorf("sanitizeFixReport() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSanitizeImplementationReport(t *testing.T) {
+	const report = "## Implementation Report (issue #7)\n\n### Acceptance Criteria\n- Did the thing.\n### Status\nSTATUS: DONE"
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "already clean is unchanged",
+			input: report,
+			want:  report,
+		},
+		{
+			name:  "the branch is published preamble is dropped",
+			input: "The branch is published. Final report:\n\n" + report,
+			want:  report,
+		},
+		{
+			name:  "wrapping markdown fence is stripped",
+			input: "```markdown\n" + report + "\n```",
+			want:  report,
+		},
+		{
+			name:  "no heading is returned trimmed but otherwise intact",
+			input: "\n  STATUS: NEEDS_CONTEXT — the issue is underspecified.  \n",
+			want:  "STATUS: NEEDS_CONTEXT — the issue is underspecified.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := sanitizeImplementationReport(tt.input); got != tt.want {
+				t.Errorf("sanitizeImplementationReport() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestSetPlanModel_TogglesAndRestores(t *testing.T) {
 	if PlanModel() != DefaultPlanModel {
 		t.Fatalf("precondition: PlanModel() = %q, want default %q", PlanModel(), DefaultPlanModel)

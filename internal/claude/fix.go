@@ -28,7 +28,22 @@ func Fix(dir string, ctx fix.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("running fix: %w", err)
 	}
-	return strings.TrimSpace(out), nil
+	return sanitizeFixReport(out), nil
+}
+
+// fixReportHeading is the heading every fix report opens with. Both prompt
+// variants mandate it: the orchestrator-driven prompt as "## Fix Report
+// (iteration N)" and the bare prompt as "## Fix Report". sanitizeFixReport
+// anchors on this prefix to drop any conversational preamble the model emits
+// before the report ("The branch is published. Final report:").
+const fixReportHeading = "## Fix Report"
+
+// sanitizeFixReport strips a wrapping markdown fence and any preamble the model
+// emits before the "## Fix Report" heading, so only the report itself reaches
+// stdout and the PR comment. The report's "STATUS: ..." line survives because
+// it always follows the heading. See sanitizeReport.
+func sanitizeFixReport(out string) string {
+	return sanitizeReport(out, fixReportHeading)
 }
 
 // BuildFixPrompt assembles the prompt for a single fix iteration. It includes

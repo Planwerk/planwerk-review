@@ -93,3 +93,27 @@ func stripMarkdownFences(s string) string {
 	s = strings.TrimSuffix(s, "```")
 	return strings.TrimSpace(s)
 }
+
+// sanitizeReport normalizes a Claude session's raw final output into the report
+// artifact that is echoed to stdout and posted onto GitHub as a comment. Every
+// report prompt (plan, implement, fix) instructs the session to output ONLY the
+// report, but models routinely wrap it in a markdown fence or prepend a line of
+// commentary ("The branch is published. Final report:"). That preamble must
+// never reach the issue or PR comment, so we strip a wrapping fence and then
+// drop everything before the first line whose trimmed text starts with heading.
+//
+// When the heading is absent (unexpected output) the de-fenced text is returned
+// trimmed but otherwise intact, rather than risk discarding a legitimate report:
+// a bare escalation that omits the heading still survives, and its "STATUS: ..."
+// line — which the orchestrator parses to stop the loop — is preserved because
+// it always appears after the heading anchor.
+func sanitizeReport(out, heading string) string {
+	out = stripMarkdownFences(out)
+	lines := strings.Split(out, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), heading) {
+			return strings.TrimSpace(strings.Join(lines[i:], "\n"))
+		}
+	}
+	return strings.TrimSpace(out)
+}

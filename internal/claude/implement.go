@@ -106,7 +106,21 @@ func Implement(dir string, ctx implement.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("running implement: %w", err)
 	}
-	return strings.TrimSpace(out), nil
+	return sanitizeImplementationReport(out), nil
+}
+
+// implementReportHeading is the heading every implementation report opens with
+// ("## Implementation Report (issue #N)"). sanitizeImplementationReport anchors
+// on this prefix to drop any conversational preamble the model emits before the
+// report ("The branch is published. Final report:").
+const implementReportHeading = "## Implementation Report"
+
+// sanitizeImplementationReport strips a wrapping markdown fence and any preamble
+// the model emits before the "## Implementation Report" heading, so only the
+// report itself reaches stdout and the issue comment. The report's "STATUS: ..."
+// line survives because it always follows the heading. See sanitizeReport.
+func sanitizeImplementationReport(out string) string {
+	return sanitizeReport(out, implementReportHeading)
 }
 
 // BuildImplementPrompt assembles the prompt for an end-to-end
