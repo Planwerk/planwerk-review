@@ -49,6 +49,11 @@ classifier still vets each action and blocks anything irreversible or aimed
 outside the repository (force push, pushing to main, data exfiltration).
 Requires Claude Code v2.1.83+.
 
+After the implement session the implementation report is posted back onto the
+source issue as a comment on every run — including runs where nothing was
+implemented or the attempt failed — so the course of the implementation is
+recorded on the issue (use --no-report-comment to skip that).
+
 Use --print-prompt to render the implement prompt (with the issue body
 embedded, without a plan) to stdout without invoking Claude;
 --print-plan-prompt does the same for the planning prompt. Use
@@ -99,6 +104,7 @@ or short form (owner/repo#123).`,
 	implementFlags.BoolVar(&implementCfg.PrintPlanPrompt, "print-plan-prompt", false, "Render the planning prompt (with the issue body embedded) to stdout and exit; do not clone or invoke Claude")
 	implementFlags.BoolVar(&implementCfg.NoPlan, "no-plan", false, "Skip the planning session and implement directly in a single session")
 	implementFlags.BoolVar(&implementCfg.NoPlanComment, "no-plan-comment", false, "Do not post the generated implementation plan as a comment on the source issue")
+	implementFlags.BoolVar(&implementCfg.NoReportComment, "no-report-comment", false, "Do not post the implementation report as a comment on the source issue")
 	implementFlags.StringVar(&planModel, "plan-model", claude.DefaultPlanModel, "Model for the planning session passed to Claude Code via --model (e.g. fable, opus; env: "+envPlanModel+")")
 	implementFlags.StringVar(&planEffort, "plan-effort", claude.DefaultPlanEffort, "Reasoning effort for the planning session passed to Claude Code via --effort (low, medium, high, xhigh, max; env: "+envPlanEffort+")")
 	implementFlags.BoolVar(&implementCfg.Verify, "verify", false, "After implementing, run an independent pass that checks the actual diff against the issue's Acceptance Criteria without trusting the implementer's report")

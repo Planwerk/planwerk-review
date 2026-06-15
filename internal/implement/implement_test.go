@@ -61,14 +61,20 @@ func TestRun_PlanFeedsImplement(t *testing.T) {
 	if !strings.Contains(buf.String(), "Implementation plan:") || !strings.Contains(buf.String(), "PLAN_READY") {
 		t.Errorf("plan not printed to output:\n%s", buf.String())
 	}
-	if gh.commentCalls.Load() != 1 {
-		t.Fatalf("AddIssueComment called %d times, want 1", gh.commentCalls.Load())
+	if gh.commentCalls.Load() != 2 {
+		t.Fatalf("AddIssueComment called %d times, want 2 (plan then report)", gh.commentCalls.Load())
 	}
-	if !strings.Contains(gh.commentBody, fp.plan) {
-		t.Errorf("posted comment %q does not contain the plan %q", gh.commentBody, fp.plan)
+	if !strings.Contains(gh.commentBodies[0], fp.plan) {
+		t.Errorf("first posted comment %q does not contain the plan %q", gh.commentBodies[0], fp.plan)
 	}
-	if !strings.Contains(gh.commentBody, planCommentFooter) {
-		t.Errorf("posted comment is missing the attribution footer:\n%s", gh.commentBody)
+	if !strings.Contains(gh.commentBodies[0], planCommentFooter) {
+		t.Errorf("first posted comment is missing the plan attribution footer:\n%s", gh.commentBodies[0])
+	}
+	if !strings.Contains(gh.commentBodies[1], cl.report) {
+		t.Errorf("second posted comment %q does not contain the report %q", gh.commentBodies[1], cl.report)
+	}
+	if !strings.Contains(gh.commentBodies[1], reportCommentFooter) {
+		t.Errorf("second posted comment is missing the report attribution footer:\n%s", gh.commentBodies[1])
 	}
 	if !strings.Contains(buf.String(), "Posted the implementation plan as a comment on issue #42") {
 		t.Errorf("missing plan-comment confirmation in output:\n%s", buf.String())
@@ -85,8 +91,14 @@ func TestRun_NoPlanCommentSkipsComment(t *testing.T) {
 	if err := r.Run(&bytes.Buffer{}, Options{IssueRef: "owner/repo#42", NoPlanComment: true}); err != nil {
 		t.Fatalf("Run returned %v, want nil", err)
 	}
-	if gh.commentCalls.Load() != 0 {
-		t.Errorf("AddIssueComment called %d times, want 0 with --no-plan-comment", gh.commentCalls.Load())
+	if gh.commentCalls.Load() != 1 {
+		t.Fatalf("AddIssueComment called %d times, want 1 — --no-plan-comment skips only the plan, the report still posts", gh.commentCalls.Load())
+	}
+	if !strings.Contains(gh.commentBodies[0], reportCommentFooter) {
+		t.Errorf("the posted comment should be the report, got:\n%s", gh.commentBodies[0])
+	}
+	if strings.Contains(gh.commentBodies[0], planCommentFooter) {
+		t.Errorf("--no-plan-comment must suppress the plan comment, but it was posted:\n%s", gh.commentBodies[0])
 	}
 	if cl.ctx.Plan != fp.plan {
 		t.Errorf("implement received Plan %q, want the planner's plan even when the comment is skipped", cl.ctx.Plan)
@@ -109,6 +121,75 @@ func TestRun_PlanCommentFailureIsNonFatal(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "Could not post the implementation plan") {
 		t.Errorf("expected a non-fatal warning about the failed comment post, got:\n%s", buf.String())
+	}
+}
+
+func TestRun_PostsReportComment(t *testing.T) {
+	gh := &fakeGitHub{issue: sampleIssue(), cloneDir: t.TempDir()}
+	cl := &fakeClaude{report: "## Implementation Report (issue #42)\n\nPR opened"}
+	r := newRunner(gh, cl)
+
+	var buf bytes.Buffer
+	if err := r.Run(&buf, Options{IssueRef: "owner/repo#42"}); err != nil {
+		t.Fatalf("Run returned %v, want nil", err)
+	}
+	if gh.commentCalls.Load() != 1 {
+		t.Fatalf("AddIssueComment called %d times, want 1", gh.commentCalls.Load())
+	}
+	if !strings.Contains(gh.commentBodies[0], cl.report) {
+		t.Errorf("posted comment %q does not contain the report %q", gh.commentBodies[0], cl.report)
+	}
+	if !strings.Contains(gh.commentBodies[0], reportCommentFooter) {
+		t.Errorf("posted comment is missing the attribution footer:\n%s", gh.commentBodies[0])
+	}
+	if !strings.Contains(buf.String(), "Posted the implementation report as a comment on issue #42") {
+		t.Errorf("missing report-comment confirmation in output:\n%s", buf.String())
+	}
+}
+
+func TestRun_ReportCommentFailureIsNonFatal(t *testing.T) {
+	gh := &fakeGitHub{issue: sampleIssue(), cloneDir: t.TempDir(), commentErr: errors.New("github down")}
+	cl := &fakeClaude{report: "PR opened"}
+	r := newRunner(gh, cl)
+
+	var buf bytes.Buffer
+	if err := r.Run(&buf, Options{IssueRef: "owner/repo#42"}); err != nil {
+		t.Fatalf("Run returned %v, want nil despite the comment-post failure", err)
+	}
+	if cl.called.Load() != 1 {
+		t.Errorf("implement called %d times, want 1", cl.called.Load())
+	}
+	if !strings.Contains(buf.String(), "Could not post the implementation report") {
+		t.Errorf("expected a non-fatal warning about the failed report post, got:\n%s", buf.String())
+	}
+}
+
+func TestRun_EmptyReportSkipsReportComment(t *testing.T) {
+	gh := &fakeGitHub{issue: sampleIssue(), cloneDir: t.TempDir()}
+	cl := &fakeClaude{report: ""}
+	r := newRunner(gh, cl)
+
+	if err := r.Run(&bytes.Buffer{}, Options{IssueRef: "owner/repo#42"}); err != nil {
+		t.Fatalf("Run returned %v, want nil", err)
+	}
+	if gh.commentCalls.Load() != 0 {
+		t.Errorf("AddIssueComment called %d times, want 0 — an empty report posts no comment", gh.commentCalls.Load())
+	}
+}
+
+func TestRun_NoReportCommentSkipsReportComment(t *testing.T) {
+	gh := &fakeGitHub{issue: sampleIssue(), cloneDir: t.TempDir()}
+	cl := &fakeClaude{report: "PR opened"}
+	r := newRunner(gh, cl)
+
+	if err := r.Run(&bytes.Buffer{}, Options{IssueRef: "owner/repo#42", NoReportComment: true}); err != nil {
+		t.Fatalf("Run returned %v, want nil", err)
+	}
+	if gh.commentCalls.Load() != 0 {
+		t.Errorf("AddIssueComment called %d times, want 0 with --no-report-comment", gh.commentCalls.Load())
+	}
+	if cl.called.Load() != 1 {
+		t.Errorf("implement called %d times, want 1 — the report is still produced, just not posted", cl.called.Load())
 	}
 }
 
@@ -292,9 +373,9 @@ type fakeGitHub struct {
 	cloneCalls      atomic.Int32
 	cloneLocalCalls atomic.Int32
 
-	commentErr   error
-	commentCalls atomic.Int32
-	commentBody  string
+	commentErr    error
+	commentCalls  atomic.Int32
+	commentBodies []string
 }
 
 func (f *fakeGitHub) GetIssue(owner, name string, number int) (*github.Issue, error) {
@@ -321,14 +402,15 @@ func (f *fakeGitHub) CloneRepo(ref string) (*github.Repo, error) {
 	return &github.Repo{Owner: owner, Name: name, Dir: f.cloneDir}, nil
 }
 
-// AddIssueComment records the posted plan comment and returns a canned URL,
-// unless commentErr is set to simulate a GitHub failure.
+// AddIssueComment records each posted comment body in order (plan then report)
+// and returns a canned URL, unless commentErr is set to simulate a GitHub
+// failure. Calls are sequential within a run, so a plain append is safe.
 func (f *fakeGitHub) AddIssueComment(owner, name string, number int, body string) (string, error) {
 	f.commentCalls.Add(1)
 	if f.commentErr != nil {
 		return "", f.commentErr
 	}
-	f.commentBody = body
+	f.commentBodies = append(f.commentBodies, body)
 	return fmt.Sprintf("https://github.com/%s/%s/issues/%d#issuecomment-1", owner, name, number), nil
 }
 
@@ -502,6 +584,9 @@ func TestRun_PropagatesClaudeError(t *testing.T) {
 	err := r.Run(io.Discard, Options{IssueRef: "owner/repo#1"})
 	if err == nil || !strings.Contains(err.Error(), "kaboom") {
 		t.Fatalf("expected wrapped 'kaboom' error, got %v", err)
+	}
+	if gh.commentCalls.Load() != 0 {
+		t.Errorf("AddIssueComment called %d times, want 0 — a hard Implement error yields no report to post", gh.commentCalls.Load())
 	}
 }
 
