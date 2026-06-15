@@ -288,6 +288,7 @@ type ImplementConfig struct {
 	PrintPlanPrompt bool
 	NoPlan          bool
 	NoPlanComment   bool
+	NoReportComment bool
 	Verify          bool
 
 	PatternDirs     []string
@@ -307,6 +308,7 @@ func (c ImplementConfig) ToImplementOptions(version string) implement.Options {
 		PrintPlanPrompt: c.PrintPlanPrompt,
 		NoPlan:          c.NoPlan,
 		NoPlanComment:   c.NoPlanComment,
+		NoReportComment: c.NoReportComment,
 		Verify:          c.Verify,
 		Version:         version,
 		PatternDirs:     c.PatternDirs,
