@@ -32,6 +32,7 @@ func main() {
 		newPromptCmd(deps),
 		newFixCmd(deps),
 		newRebaseCmd(deps),
+		newAddressCmd(deps),
 		newImplementCmd(deps),
 		newCacheCmd(deps),
 		newSchemaCmd(deps),
