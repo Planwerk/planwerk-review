@@ -236,9 +236,8 @@ func (r *Runner) dispatch(w io.Writer, opts Options, pr *github.PR, fullName str
 		if s := strings.TrimSpace(result.Summary); s != "" {
 			summaries = append(summaries, s)
 		}
-		escalated = parseStatus(result.Status)
-		if !escalated.ShouldEscalate() {
-			escalated = StatusUnknown
+		if st := parseStatus(result.Status); st.ShouldEscalate() {
+			escalated = st
 		}
 	}
 
