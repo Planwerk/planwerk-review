@@ -57,10 +57,23 @@ planwerk-review implement owner/repo#42
 When it finishes, open the draft PR it created, review the diff, and take it
 through your normal review process.
 
+If the planning session finds the issue underspecified, it stops at
+`STATUS: NEEDS_CONTEXT` and posts the plan instead of writing code. Supply the
+missing context and revise the plan in a second, interactive pass:
+
+```bash
+planwerk-review context owner/repo#42
+```
+
+Answer the clarifying questions; `context` re-plans and posts a revised plan.
+Rerun `implement owner/repo#42` and it reuses that plan.
+
 ## Where to go next
 
 - [Draft an issue](/how-to/draft-an-issue) — the full `draft` flow and flags.
 - [Elaborate an issue](/how-to/elaborate-an-issue) — how the plan is produced.
 - [Implement an issue](/how-to/implement-an-issue) — the implement session in
   detail.
+- [Supply context to a plan](/how-to/supply-context-to-a-plan) — resolving a
+  `NEEDS_CONTEXT` plan.
 - [CLI reference](/reference/cli) — every command and flag.

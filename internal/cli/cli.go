@@ -10,6 +10,7 @@ import (
 	"github.com/planwerk/planwerk-review/internal/gapanalysis"
 	"github.com/planwerk/planwerk-review/internal/implement"
 	"github.com/planwerk/planwerk-review/internal/meta"
+	"github.com/planwerk/planwerk-review/internal/plancontext"
 	"github.com/planwerk/planwerk-review/internal/prompt"
 	"github.com/planwerk/planwerk-review/internal/propose"
 	"github.com/planwerk/planwerk-review/internal/rebase"
@@ -343,6 +344,43 @@ func (c ImplementConfig) ToImplementOptions(version string) implement.Options {
 		MaxPatterns:       c.MaxPatterns,
 		Local:             c.Local,
 		Force:             c.Force,
+	}
+}
+
+// ContextConfig holds configuration for the context command, which supplies
+// missing context to a NEEDS_CONTEXT implementation plan and re-plans it.
+type ContextConfig struct {
+	IssueRef             string
+	NoInteractive        bool
+	NoPlanComment        bool
+	DryRun               bool
+	PrintQuestionsPrompt bool
+	PrintPlanPrompt      bool
+	Local                bool
+	Force                bool
+
+	PatternDirs     []string
+	NoRepoPatterns  bool
+	NoLocalPatterns bool
+	MaxPatterns     int
+}
+
+// ToContextOptions maps the CLI config to plancontext.Options.
+func (c ContextConfig) ToContextOptions(version string) plancontext.Options {
+	return plancontext.Options{
+		IssueRef:             c.IssueRef,
+		NoInteractive:        c.NoInteractive,
+		NoPlanComment:        c.NoPlanComment,
+		DryRun:               c.DryRun,
+		PrintQuestionsPrompt: c.PrintQuestionsPrompt,
+		PrintPlanPrompt:      c.PrintPlanPrompt,
+		Local:                c.Local,
+		Force:                c.Force,
+		Version:              version,
+		PatternDirs:          c.PatternDirs,
+		NoRepoPatterns:       c.NoRepoPatterns,
+		NoLocalPatterns:      c.NoLocalPatterns,
+		MaxPatterns:          c.MaxPatterns,
 	}
 }
 

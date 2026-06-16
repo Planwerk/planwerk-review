@@ -1,0 +1,33 @@
+A read-only planning session produced an implementation plan for the GitHub issue below and stopped at STATUS: NEEDS_CONTEXT (or BLOCKED): the issue is underspecified, so it cannot be implemented as written. Your job is to ask the maintainer the few questions whose answers would let a fresh planning session resolve the plan's open questions and reach STATUS: PLAN_READY.
+
+Read the plan's "Risks & Open Questions" and its STATUS rationale first — that is where the missing context lives. Ask only the decisions a human must actually make: scope reconciliation (do it here vs split into its own issue), contradictions between the issue and the current code, and the genuine either/or choices the plan surfaced. Do NOT ask about implementation details the plan already settled, and do NOT re-derive the analysis — the plan already did that.
+
+## Issue
+
+- Title: Add snapshot tests for prompt builders
+
+<issue-body>
+## Description
+
+Lock the prompt surface with golden files.
+</issue-body>
+
+## Plan that returned NEEDS_CONTEXT
+
+<plan>
+## Implementation Plan (issue #42)
+
+### Risks & Open Questions
+- Scope: do gap #2 here or split it out?
+
+### Status
+STATUS: NEEDS_CONTEXT
+</plan>
+
+Output between 1 and 6 questions, each a single short sentence the maintainer can answer in a line or two. Order them most-blocking first. Where the plan already laid out concrete options (a/b/c), fold them into the question so the answer can just pick one. Write the questions in English, matching the issue and the plan.
+
+Output ONLY valid JSON (no markdown fences, no surrounding text):
+
+{
+  "questions": ["First question?", "Second question?"]
+}

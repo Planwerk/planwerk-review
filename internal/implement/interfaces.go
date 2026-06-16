@@ -28,6 +28,24 @@ type Context struct {
 	// implement prompt; empty means the implement session plans for
 	// itself (--no-plan, or no planner wired).
 	Plan string
+
+	// PriorPlan and Clarifications drive the context subcommand's re-plan:
+	// when a previous planning session returned STATUS: NEEDS_CONTEXT, the
+	// human answers the open questions and a fresh planning session runs with
+	// PriorPlan (the escalated plan, verbatim) plus Clarifications (the Q&A)
+	// folded in. BuildPlanPrompt embeds both only when PriorPlan is non-empty,
+	// so an ordinary planning run — where both are zero — is byte-identical to
+	// before this field existed.
+	PriorPlan      string
+	Clarifications []Clarification
+}
+
+// Clarification is a single open question from a NEEDS_CONTEXT plan together
+// with the human's answer, collected by the context subcommand's interactive
+// Q&A loop and folded into the re-plan via Context.Clarifications.
+type Clarification struct {
+	Question string
+	Answer   string
 }
 
 // ImplementFn is the bare-function shape the CLI passes in to wire Claude

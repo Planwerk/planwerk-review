@@ -12,6 +12,7 @@ solves one specific problem.
 - [Split a Meta Issue](/how-to/split-a-meta-issue)
 - [Generate a fix/implement prompt](/how-to/generate-a-prompt)
 - [Implement an issue](/how-to/implement-an-issue)
+- [Supply context to a NEEDS_CONTEXT plan](/how-to/supply-context-to-a-plan)
 - [Rebase a PR](/how-to/rebase-a-pr)
 - [Use local mode](/how-to/use-local-mode)
 - [Wire it up as a GitHub Action](/how-to/use-the-github-action)

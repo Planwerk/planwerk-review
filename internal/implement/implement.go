@@ -382,7 +382,7 @@ func (r *Runner) preparePlan(w io.Writer, opts Options, owner, name, dir string,
 		if plan := mostRecentPlanComment(comments); plan != "" {
 			_, _ = fmt.Fprintf(w, "\nReusing the implementation plan already posted on issue #%d:\n%s\n", ctx.IssueNumber, plan)
 			if status := planEscalation(plan); status != "" {
-				return fmt.Errorf("the implementation plan already posted on issue #%d reported %s; review the plan above and clarify the issue, then rerun with --no-plan-reuse to plan afresh", ctx.IssueNumber, status)
+				return fmt.Errorf("the implementation plan already posted on issue #%d reported %s; run `planwerk-review context %s/%s#%d` to supply the missing context and revise the plan (or rerun with --no-plan-reuse to plan afresh)", ctx.IssueNumber, status, owner, name, ctx.IssueNumber)
 			}
 			ctx.Plan = plan
 			slog.Info("reused existing plan from issue", "issue", ctx.IssueNumber)
@@ -449,7 +449,7 @@ func (r *Runner) runPlanning(w io.Writer, opts Options, owner, name, dir string,
 		r.postPlanComment(w, opts, owner, name, ctx.IssueNumber, plan)
 	}
 	if status := planEscalation(plan); status != "" {
-		return fmt.Errorf("planning session reported %s; review the plan above and clarify the issue, or rerun with --no-plan", status)
+		return fmt.Errorf("planning session reported %s; review the plan above, then run `planwerk-review context %s/%s#%d` to supply the missing context and revise the plan (or rerun with --no-plan)", status, owner, name, ctx.IssueNumber)
 	}
 	ctx.Plan = plan
 	slog.Info("planning complete", "issue", ctx.IssueNumber)
@@ -565,6 +565,32 @@ func planEscalation(plan string) string {
 		return verdict
 	}
 	return ""
+}
+
+// PlanEscalation is the exported form of planEscalation, used by the context
+// subcommand (internal/plancontext) to recognize a posted plan that returned
+// STATUS: BLOCKED or NEEDS_CONTEXT and is therefore eligible for a context
+// supply + re-plan. Sharing the one implementation keeps the verdict semantics
+// identical to the implement command's own escalation check.
+func PlanEscalation(plan string) string {
+	return planEscalation(plan)
+}
+
+// MostRecentPlanComment is the exported form of mostRecentPlanComment, used by
+// the context subcommand to find the plan a previous implement run posted on
+// the issue. Sharing the one implementation keeps plan recognition identical:
+// the context subcommand reads exactly the comments implement would have
+// reused, and the revised plan it posts back is recognized the same way.
+func MostRecentPlanComment(comments []github.IssueComment) string {
+	return mostRecentPlanComment(comments)
+}
+
+// FormatPlanComment is the exported form of formatPlanComment, used by the
+// context subcommand to wrap the revised plan in the same comment body
+// implement posts — same attribution footer — so the next implement run reuses
+// the revised plan verbatim via MostRecentPlanComment.
+func FormatPlanComment(plan string) string {
+	return formatPlanComment(plan)
 }
 
 // runVerification runs the independent verification pass against the change set

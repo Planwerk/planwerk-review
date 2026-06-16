@@ -39,8 +39,9 @@ default "` + claude.DefaultPlanModel + `") at the dedicated planning effort (--p
 plan, which is embedded into the implement prompt. The finished plan is also
 posted back onto the source issue as a comment (use --no-plan-comment to skip
 that). A plan that reports STATUS: BLOCKED or NEEDS_CONTEXT aborts before any
-code is written. Use --no-plan to skip the planning session and implement
-directly in a single session.
+code is written; run "planwerk-review context <issue-ref>" to supply the
+missing context and revise the plan to PLAN_READY. Use --no-plan to skip the
+planning session and implement directly in a single session.
 
 If an implementation plan planwerk-review posted on an earlier run is already
 on the issue (for example a run that planned but was aborted before

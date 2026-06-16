@@ -33,6 +33,7 @@ func main() {
 		newFixCmd(deps),
 		newRebaseCmd(deps),
 		newImplementCmd(deps),
+		newContextCmd(deps),
 		newCacheCmd(deps),
 		newSchemaCmd(deps),
 		newGenManCmd(deps),

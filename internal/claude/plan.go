@@ -77,6 +77,35 @@ func BuildPlanPrompt(ctx implement.Context) string {
 	sb.WriteString(strings.TrimSpace(ctx.IssueBody))
 	sb.WriteString("\n</issue-body>\n\n")
 
+	// Context re-plan: when a previous planning session returned STATUS:
+	// NEEDS_CONTEXT (or BLOCKED), the context subcommand replays that plan and
+	// the maintainer's answers here so this session can resolve the open
+	// questions and aim for PLAN_READY. Emitted only when a prior plan is
+	// supplied, so an ordinary planning run stays byte-identical.
+	if strings.TrimSpace(ctx.PriorPlan) != "" {
+		sb.WriteString("## Prior Plan (returned STATUS: NEEDS_CONTEXT)\n\n")
+		sb.WriteString("A previous read-only planning session produced the plan below and stopped because the issue was underspecified. A human has since answered its open questions (next section). Treat this plan as your starting point: keep what still holds, re-verify it against the current code, and use the answers to resolve what it could not.\n\n")
+		sb.WriteString("<prior-plan>\n")
+		sb.WriteString(strings.TrimSpace(ctx.PriorPlan))
+		sb.WriteString("\n</prior-plan>\n\n")
+
+		sb.WriteString("## Human-Supplied Context\n\n")
+		sb.WriteString("These are the maintainer's answers to the prior plan's open questions. They are authoritative: prefer them over your own assumptions and do NOT re-litigate a decision they settle. Where they resolve an open question, fold the resolution into the plan and aim for STATUS: PLAN_READY. Stay at NEEDS_CONTEXT only for questions the answers genuinely leave open.\n\n")
+		sb.WriteString("<clarifications>\n")
+		for _, c := range ctx.Clarifications {
+			q := strings.TrimSpace(c.Question)
+			a := strings.TrimSpace(c.Answer)
+			if q == "" {
+				continue
+			}
+			if a == "" {
+				a = "(no answer given)"
+			}
+			fmt.Fprintf(&sb, "- Q: %s\n  A: %s\n", q, a)
+		}
+		sb.WriteString("</clarifications>\n\n")
+	}
+
 	if len(ctx.Patterns) > 0 {
 		sb.WriteString("## Project Review Patterns to Honor\n\n")
 		sb.WriteString("These patterns are the catalog the project's review/audit/elaborate tools share — including any project-specific patterns shipped under `.planwerk/review_patterns/` in this repository. Treat them as binding constraints on the planned change set: when a pattern covers an area the plan touches, plan the resolution the pattern endorses.\n\n")

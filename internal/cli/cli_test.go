@@ -67,3 +67,29 @@ func TestToImplementOptions_VerifyFlags(t *testing.T) {
 		}
 	})
 }
+
+// TestToContextOptions guards the context command's flag mapping: a missing copy
+// in ToContextOptions would silently disable a flag with no compile error.
+func TestToContextOptions(t *testing.T) {
+	cfg := ContextConfig{
+		IssueRef:             "acme/widgets#7",
+		NoInteractive:        true,
+		NoPlanComment:        true,
+		DryRun:               true,
+		PrintQuestionsPrompt: true,
+		PrintPlanPrompt:      true,
+		Local:                true,
+		Force:                true,
+		PatternDirs:          []string{"./p"},
+		NoRepoPatterns:       true,
+		NoLocalPatterns:      true,
+		MaxPatterns:          9,
+	}
+	opts := cfg.ToContextOptions("v3")
+	if opts.IssueRef != "acme/widgets#7" || !opts.NoInteractive || !opts.NoPlanComment ||
+		!opts.DryRun || !opts.PrintQuestionsPrompt || !opts.PrintPlanPrompt || !opts.Local ||
+		!opts.Force || !opts.NoRepoPatterns || !opts.NoLocalPatterns || opts.MaxPatterns != 9 ||
+		opts.Version != "v3" || len(opts.PatternDirs) != 1 || opts.PatternDirs[0] != "./p" {
+		t.Errorf("unexpected options: %+v", opts)
+	}
+}

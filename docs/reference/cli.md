@@ -445,6 +445,42 @@ the bugs the change introduces (injection, race conditions, failure modes).
 Enable either, both, or neither. Both are non-fatal — a finding is reported, it
 does not fail the run.
 
+## `context`
+
+Resolve an implementation plan that `implement` posted on the issue and stopped
+on because it reported `STATUS: NEEDS_CONTEXT` (or `BLOCKED`). It asks the
+maintainer the few clarifying questions the plan's open questions imply, then
+re-runs the read-only planning session with those answers folded in and posts a
+revised plan the next `implement` run reuses. It is interactive, so it is kept
+separate from the unattended `implement` command.
+
+```bash
+planwerk-review context owner/repo#123
+planwerk-review context --no-interactive owner/repo#123
+planwerk-review context --print-questions-prompt owner/repo#123
+planwerk-review context --print-plan-prompt owner/repo#123
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--no-interactive`, `-y` | Skip the clarifying Q&A loop and re-plan from the prior plan alone | `false` |
+| `--no-plan-comment` | Do not post the revised plan as a comment on the source issue | `false` |
+| `--dry-run` | Report what would happen but do not clone or invoke Claude | `false` |
+| `--print-questions-prompt` | Render the clarifying-questions prompt (with the issue and posted plan embedded) to stdout and exit | `false` |
+| `--print-plan-prompt` | Render the re-plan prompt (with the prior plan embedded) to stdout and exit | `false` |
+| `--plan-model` | Model for the re-plan session passed to Claude Code via `--model` (e.g. `fable`, `opus`; env: `PLANWERK_PLAN_MODEL`) | `fable` |
+| `--plan-effort` | Reasoning effort for the re-plan session passed via `--effort` (`low`, `medium`, `high`, `xhigh`, `max`; env: `PLANWERK_PLAN_EFFORT`) | `max` |
+| `--patterns` | Additional pattern source: local directory, `github:owner/repo[/sub][@ref]`, or `git+https://…[#ref[:sub]]` | - |
+| `--no-repo-patterns` | Ignore repo-specific patterns under `.planwerk/review_patterns/` in the target repo | `false` |
+| `--no-local-patterns` | Ignore local patterns from the tool | `false` |
+| `--max-patterns` | Max review patterns injected into the prompt (`<=0` disables truncation; env: `PLANWERK_MAX_PATTERNS`) | `0` (unlimited) |
+| `--local` | Operate on the current working directory instead of cloning into a temp dir | `false` |
+| `--force` | With `--local`, skip the confirmation prompt when the working tree is dirty | `false` |
+
+`--dry-run`, `--print-questions-prompt`, and `--print-plan-prompt` are mutually
+exclusive. On a non-interactive terminal (piped stdin) the Q&A loop reads one
+answer per line; `--no-interactive` skips it entirely.
+
 ## `cache`
 
 Inspect the on-disk cache shared by `review`, `propose`, `audit`, `elaborate`,

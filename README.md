@@ -16,6 +16,7 @@ AI-powered code review and codebase analysis tool for GitHub repositories. Uses 
 - **Meta** split a Meta Issue into linked, draft-depth Sub Issues
 - **Prompt** generation that fixes or implements an issue
 - **Implement** an elaborated issue end to end and open a draft PR
+- **Context** supply for a NEEDS_CONTEXT plan: answer its open questions and revise it to PLAN_READY
 - **Fix** a PR's failing CI checks in a self-healing loop
 - **Rebase** a PR onto its base, resolve conflicts with Claude, and analyze the rebased commits
 

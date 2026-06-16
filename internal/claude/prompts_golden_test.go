@@ -282,6 +282,27 @@ func TestBuildPlanPrompt_Golden(t *testing.T) {
 	assertGoldenPrompt(t, "plan", BuildPlanPrompt(goldenImplementContext()))
 }
 
+// TestBuildPlanPromptWithContext_Golden locks the shape the context subcommand
+// drives: a prior NEEDS_CONTEXT plan and the maintainer's answers are embedded
+// so the re-plan can resolve the open questions. The plain plan golden must stay
+// byte-identical, proving the new block is emitted only when PriorPlan is set.
+func TestBuildPlanPromptWithContext_Golden(t *testing.T) {
+	ctx := goldenImplementContext()
+	ctx.PriorPlan = "## Implementation Plan (issue #42)\n\n### Summary\n- Smallest safe subset only.\n\n### Risks & Open Questions\n- Scope: do gap #2 here or split it out?\n\n### Status\nSTATUS: NEEDS_CONTEXT"
+	ctx.Clarifications = []implement.Clarification{
+		{Question: "Do gap #2 here or split it out?", Answer: "Split it into its own issue."},
+		{Question: "Which store name guards the mapper?", Answer: "openbao-cluster-store"},
+	}
+	assertGoldenPrompt(t, "plan_with_context", BuildPlanPrompt(ctx))
+}
+
+func TestBuildContextQuestionsPrompt_Golden(t *testing.T) {
+	priorPlan := "## Implementation Plan (issue #42)\n\n### Risks & Open Questions\n- Scope: do gap #2 here or split it out?\n\n### Status\nSTATUS: NEEDS_CONTEXT"
+	assertGoldenPrompt(t, "context_questions",
+		BuildContextQuestionsPrompt("Add snapshot tests for prompt builders",
+			"## Description\n\nLock the prompt surface with golden files.\n", priorPlan))
+}
+
 func goldenFixContext() fix.Context {
 	return fix.Context{
 		RepoFullName:  "planwerk/planwerk-review",
