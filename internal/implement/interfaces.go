@@ -161,12 +161,71 @@ func (a adversarialFnAdapter) AdversarialReview(dir, baseBranch string) (*report
 	return a.fn(dir, baseBranch)
 }
 
+// SimplifyApplyContext is the input for the Claude simplify-apply session: the
+// PR the implement session opened, the simplification findings to fold into it,
+// and the pattern catalog so the apply session stays consistent with the same
+// review patterns the implementation honored. The apply session folds each
+// finding into the commit it belongs to and force-pushes the rewritten branch
+// to HeadBranch with --force-with-lease — the findings-driven analog of the
+// fix command's apply step.
+type SimplifyApplyContext struct {
+	RepoFullName string
+	PRNumber     int
+	HeadBranch   string
+	BaseBranch   string
+	Findings     []report.Finding
+	Patterns     []patterns.Pattern
+	MaxPatterns  int
+}
+
+// SimplifyFinder runs the read-only ponytail-style pass over a produced diff and
+// returns structured simplification findings (a delete/collapse list of
+// over-engineering). Optional: wired only when the simplify pass is enabled.
+// baseBranch scopes the pass to the diff against that branch.
+type SimplifyFinder interface {
+	SimplifyFindings(dir, baseBranch string) (*report.ReviewResult, error)
+}
+
+// SimplifyFindFn is the bare-function form of SimplifyFinder. It matches
+// claude.SimplifyFindings so the CLI can wire it directly.
+type SimplifyFindFn func(dir, baseBranch string) (*report.ReviewResult, error)
+
+type simplifyFindFnAdapter struct {
+	fn SimplifyFindFn
+}
+
+func (a simplifyFindFnAdapter) SimplifyFindings(dir, baseBranch string) (*report.ReviewResult, error) {
+	return a.fn(dir, baseBranch)
+}
+
+// SimplifyApplier applies the simplification findings and folds each into the
+// commit it belongs to via fixup/autosquash, then force-pushes the rewritten
+// branch to the PR head with --force-with-lease. It returns the apply report
+// and the resolved Claude model id for the report comment's attribution footer.
+// Optional: wired only when the simplify pass is enabled.
+type SimplifyApplier interface {
+	ApplySimplifications(dir string, ctx SimplifyApplyContext) (report, model string, err error)
+}
+
+// SimplifyApplyFn is the bare-function form of SimplifyApplier. It matches
+// claude.ApplySimplifications so the CLI can wire it directly.
+type SimplifyApplyFn func(dir string, ctx SimplifyApplyContext) (report, model string, err error)
+
+type simplifyApplyFnAdapter struct {
+	fn SimplifyApplyFn
+}
+
+func (a simplifyApplyFnAdapter) ApplySimplifications(dir string, ctx SimplifyApplyContext) (string, string, error) {
+	return a.fn(dir, ctx)
+}
+
 // GitHubClient is the subset of github operations the implement command
 // needs: fetching the source issue, listing its comments (to detect and reuse
 // an implementation plan posted on an earlier run), cloning the repository so
-// Claude has a working tree to operate on, and posting the finished plan and
-// report back onto the issue as comments. Each method maps to a single gh CLI
-// invocation under the hood.
+// Claude has a working tree to operate on, posting the finished plan and
+// report back onto the issue as comments, and — for the simplify pass —
+// resolving the PR the implement session opened and posting the simplification
+// report onto it. Each method maps to a single gh CLI invocation under the hood.
 type GitHubClient interface {
 	GetIssue(owner, name string, number int) (*github.Issue, error)
 	GetIssueRelations(owner, name string, number int) (*github.IssueRelations, error)
@@ -174,6 +233,8 @@ type GitHubClient interface {
 	CloneRepo(ref string) (*github.Repo, error)
 	CloneRepoLocal(ref string, opts github.LocalOptions) (*github.Repo, error)
 	AddIssueComment(owner, name string, number int, body string) (string, error)
+	CurrentPR(dir string) (*github.PRRef, error)
+	AddPRComment(owner, name string, number int, body string) (string, error)
 }
 
 // defaultGitHubClient is the production GitHubClient backed by the github
@@ -202,4 +263,12 @@ func (defaultGitHubClient) CloneRepoLocal(ref string, opts github.LocalOptions) 
 
 func (defaultGitHubClient) AddIssueComment(owner, name string, number int, body string) (string, error) {
 	return github.AddIssueComment(owner, name, number, body)
+}
+
+func (defaultGitHubClient) CurrentPR(dir string) (*github.PRRef, error) {
+	return github.CurrentPR(dir)
+}
+
+func (defaultGitHubClient) AddPRComment(owner, name string, number int, body string) (string, error) {
+	return github.AddPRComment(owner, name, number, body)
 }
