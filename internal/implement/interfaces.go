@@ -28,6 +28,17 @@ type Context struct {
 	// implement prompt; empty means the implement session plans for
 	// itself (--no-plan, or no planner wired).
 	Plan string
+	// MetaIssue, SiblingIssues, and ChildIssues place the source issue in its
+	// Meta/Sub-Issue neighborhood so the planning session grounds a Sub Issue in
+	// its larger effort instead of in isolation. They feed BuildPlanPrompt (the
+	// implement prompt itself stays unchanged — the plan already carries any
+	// cross-references forward). MetaIssue is the parent Meta Issue (nil when the
+	// source issue is not a Sub Issue); SiblingIssues are the Meta Issue's other
+	// Sub Issues; ChildIssues are the source issue's own Sub Issues when it is
+	// itself a Meta Issue. All empty when the issue stands alone.
+	MetaIssue     *github.Issue
+	SiblingIssues []github.Issue
+	ChildIssues   []github.Issue
 }
 
 // ImplementFn is the bare-function shape the CLI passes in to wire Claude
@@ -156,6 +167,7 @@ func (a adversarialFnAdapter) AdversarialReview(dir, baseBranch string) (*report
 // invocation under the hood.
 type GitHubClient interface {
 	GetIssue(owner, name string, number int) (*github.Issue, error)
+	GetIssueRelations(owner, name string, number int) (*github.IssueRelations, error)
 	ListIssueComments(owner, name string, number int) ([]github.IssueComment, error)
 	CloneRepo(ref string) (*github.Repo, error)
 	CloneRepoLocal(ref string, opts github.LocalOptions) (*github.Repo, error)
@@ -168,6 +180,10 @@ type defaultGitHubClient struct{}
 
 func (defaultGitHubClient) GetIssue(owner, name string, number int) (*github.Issue, error) {
 	return github.GetIssue(owner, name, number)
+}
+
+func (defaultGitHubClient) GetIssueRelations(owner, name string, number int) (*github.IssueRelations, error) {
+	return github.GetIssueRelations(owner, name, number)
 }
 
 func (defaultGitHubClient) ListIssueComments(owner, name string, number int) ([]github.IssueComment, error) {

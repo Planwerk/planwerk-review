@@ -20,6 +20,18 @@ type Context struct {
 	PriorDraft   string
 	ReviewGaps   []string
 	ReviewTarget string
+	// MetaIssue, SiblingIssues, and ChildIssues place the source issue in its
+	// Meta/Sub-Issue neighborhood so the elaboration plans this Sub Issue's
+	// slice of a larger effort coherently — honoring the Meta Issue's framing,
+	// not duplicating or contradicting sibling Sub Issues, and deferring a
+	// shared task's remaining part to the sibling that owns it. MetaIssue is the
+	// parent Meta Issue (nil when the source issue is not a Sub Issue);
+	// SiblingIssues are the Meta Issue's other Sub Issues; ChildIssues are the
+	// source issue's own Sub Issues when it is itself a Meta Issue. All empty
+	// when the issue stands alone.
+	MetaIssue     *github.Issue
+	SiblingIssues []github.Issue
+	ChildIssues   []github.Issue
 }
 
 // ReviewResult is the verdict of the optional reviewer pass over an
@@ -78,6 +90,7 @@ func (a reviewFnAdapter) ReviewElaboration(dir string, ctx Context, draftBody st
 type GitHubClient interface {
 	DefaultBranchHEAD(owner, name string) (string, error)
 	GetIssue(owner, name string, number int) (*github.Issue, error)
+	GetIssueRelations(owner, name string, number int) (*github.IssueRelations, error)
 	CloneRepo(ref string) (*github.Repo, error)
 	CloneRepoLocal(ref string, opts github.LocalOptions) (*github.Repo, error)
 	EditIssueBody(owner, name string, number int, body string) error
@@ -93,6 +106,10 @@ func (defaultGitHubClient) DefaultBranchHEAD(owner, name string) (string, error)
 
 func (defaultGitHubClient) GetIssue(owner, name string, number int) (*github.Issue, error) {
 	return github.GetIssue(owner, name, number)
+}
+
+func (defaultGitHubClient) GetIssueRelations(owner, name string, number int) (*github.IssueRelations, error) {
+	return github.GetIssueRelations(owner, name, number)
 }
 
 func (defaultGitHubClient) CloneRepo(ref string) (*github.Repo, error) {

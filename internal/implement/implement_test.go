@@ -42,6 +42,7 @@ func (f *fakeAdversarialVerifier) AdversarialReview(dir, baseBranch string) (*re
 type fakePlanner struct {
 	called atomic.Int32
 	dir    string
+	ctx    Context
 	plan   string
 	err    error
 }
@@ -49,6 +50,7 @@ type fakePlanner struct {
 func (f *fakePlanner) Plan(dir string, ctx Context) (string, error) {
 	f.called.Add(1)
 	f.dir = dir
+	f.ctx = ctx
 	return f.plan, f.err
 }
 
@@ -92,6 +94,35 @@ func TestRun_PlanFeedsImplement(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "Posted the implementation plan as a comment on issue #42") {
 		t.Errorf("missing plan-comment confirmation in output:\n%s", buf.String())
+	}
+}
+
+// TestRun_RelationsFeedPlanner locks that the Meta/Sub-Issue neighborhood
+// fetched in Run reaches the planning session's context, so BuildPlanPrompt can
+// render the Meta Issue and sibling Sub Issues.
+func TestRun_RelationsFeedPlanner(t *testing.T) {
+	gh := &fakeGitHub{
+		issue:    sampleIssue(),
+		cloneDir: t.TempDir(),
+		relations: &github.IssueRelations{
+			Parent:   &github.Issue{Number: 1, Title: "Meta", Body: "Meta body"},
+			Siblings: []github.Issue{{Number: 7, Title: "Sibling", Body: "Sibling body", State: "open"}},
+		},
+	}
+	cl := &fakeClaude{report: "PR opened"}
+	fp := &fakePlanner{plan: "## Implementation Plan (issue #42)\n\nSTATUS: PLAN_READY"}
+	r := newRunner(gh, cl)
+	r.Planner = fp
+
+	var buf bytes.Buffer
+	if err := r.Run(&buf, Options{IssueRef: "owner/repo#42"}); err != nil {
+		t.Fatalf("Run returned %v, want nil", err)
+	}
+	if fp.ctx.MetaIssue == nil || fp.ctx.MetaIssue.Number != 1 {
+		t.Fatalf("planner ctx.MetaIssue = %+v, want Meta Issue #1", fp.ctx.MetaIssue)
+	}
+	if len(fp.ctx.SiblingIssues) != 1 || fp.ctx.SiblingIssues[0].Number != 7 {
+		t.Fatalf("planner ctx.SiblingIssues = %+v, want one sibling #7", fp.ctx.SiblingIssues)
 	}
 }
 
@@ -732,6 +763,9 @@ type fakeGitHub struct {
 	issue    *github.Issue
 	issueErr error
 
+	relations    *github.IssueRelations
+	relationsErr error
+
 	comments    []github.IssueComment
 	commentsErr error
 	listCalls   atomic.Int32
@@ -757,6 +791,19 @@ func (f *fakeGitHub) GetIssue(owner, name string, number int) (*github.Issue, er
 	iss.Name = name
 	iss.Number = number
 	return &iss, nil
+}
+
+// GetIssueRelations returns the canned Meta/Sub-Issue neighborhood, defaulting
+// to "no relations" (the issue stands alone) so tests that do not exercise the
+// Meta/sibling path need not set it.
+func (f *fakeGitHub) GetIssueRelations(_, _ string, _ int) (*github.IssueRelations, error) {
+	if f.relationsErr != nil {
+		return nil, f.relationsErr
+	}
+	if f.relations == nil {
+		return &github.IssueRelations{}, nil
+	}
+	return f.relations, nil
 }
 
 // ListIssueComments returns the canned comments (oldest-first, as gh does),

@@ -217,8 +217,59 @@ func TestBuildBareDraftPrompt_Golden(t *testing.T) {
 	assertGoldenPrompt(t, "draft_bare", BuildBareDraftPrompt("add a dark mode toggle to the settings page"))
 }
 
+// goldenMetaIssue and goldenSiblingIssues describe the Meta/Sub-Issue
+// neighborhood shared by the elaborate and plan "meta" goldens: the source
+// issue (#42) is a Sub Issue of Meta Issue #40, which has two other Sub Issues —
+// an open follow-up (#43) and a closed, already-implemented one (#41).
+func goldenMetaIssue() *github.Issue {
+	return &github.Issue{
+		Owner:  "planwerk",
+		Name:   "planwerk-review",
+		Number: 40,
+		Title:  "Lock the prompt surface against drift",
+		URL:    "https://github.com/planwerk/planwerk-review/issues/40",
+		Body:   "Split the prompt-safety work into self-contained Sub Issues.\n\n- Golden snapshot tests (this batch)\n- Mutation tests over the goldens (follow-up)",
+		State:  "open",
+	}
+}
+
+func goldenSiblingIssues() []github.Issue {
+	return []github.Issue{
+		{
+			Owner: "planwerk", Name: "planwerk-review",
+			Number: 43,
+			Title:  "Add mutation tests for prompt builders",
+			URL:    "https://github.com/planwerk/planwerk-review/issues/43",
+			Body:   "Follow-up to the golden tests: ensure the goldens actually fail on meaningful prompt drift.",
+			State:  "open",
+		},
+		{
+			Owner: "planwerk", Name: "planwerk-review",
+			Number: 41,
+			Title:  "Extract shared prompt blocks",
+			URL:    "https://github.com/planwerk/planwerk-review/issues/41",
+			Body:   "Already done: the shared prompt blocks live in components.go.",
+			State:  "closed",
+		},
+	}
+}
+
+func goldenElaborateMetaContext() elaborate.Context {
+	ctx := goldenElaborateContext()
+	ctx.MetaIssue = goldenMetaIssue()
+	ctx.SiblingIssues = goldenSiblingIssues()
+	return ctx
+}
+
 func TestBuildElaboratePrompt_Golden(t *testing.T) {
 	assertGoldenPrompt(t, "elaborate", buildElaboratePrompt(goldenElaborateContext()))
+}
+
+// TestBuildElaboratePrompt_Meta_Golden locks the shape when the source issue is
+// a Sub Issue: the "## Meta / Sub-Issue Context" section renders the Meta Issue
+// and sibling Sub Issues with the cross-issue scoping guidance.
+func TestBuildElaboratePrompt_Meta_Golden(t *testing.T) {
+	assertGoldenPrompt(t, "elaborate_meta", buildElaboratePrompt(goldenElaborateMetaContext()))
 }
 
 func TestBuildElaborateReviewPrompt_Golden(t *testing.T) {
@@ -279,8 +330,23 @@ func TestBuildImplementPromptWithPlan_Golden(t *testing.T) {
 	assertGoldenPrompt(t, "implement_with_plan", BuildImplementPrompt(ctx))
 }
 
+func goldenPlanMetaContext() implement.Context {
+	ctx := goldenImplementContext()
+	ctx.MetaIssue = goldenMetaIssue()
+	ctx.SiblingIssues = goldenSiblingIssues()
+	return ctx
+}
+
 func TestBuildPlanPrompt_Golden(t *testing.T) {
 	assertGoldenPrompt(t, "plan", BuildPlanPrompt(goldenImplementContext()))
+}
+
+// TestBuildPlanPrompt_Meta_Golden locks the shape when the issue being planned
+// is a Sub Issue: BuildPlanPrompt renders the "## Meta / Sub-Issue Context"
+// section so the planning session scopes to this issue's slice and references
+// siblings for adjacent parts.
+func TestBuildPlanPrompt_Meta_Golden(t *testing.T) {
+	assertGoldenPrompt(t, "plan_meta", BuildPlanPrompt(goldenPlanMetaContext()))
 }
 
 func goldenFixContext() fix.Context {
