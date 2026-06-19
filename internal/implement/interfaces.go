@@ -142,9 +142,13 @@ func (a verifyFnAdapter) VerifyImplementation(dir, issueTitle, issueBody string)
 
 // AdversarialVerifier red-teams a produced change set for the bugs it
 // introduces, reusing the adversarial-review machinery instead of only
-// checking acceptance-criteria coverage. Optional: wired only when
-// --verify-adversarial is set. baseBranch scopes the review to the diff
-// against that branch; an empty value falls back to the default branch.
+// checking acceptance-criteria coverage. baseBranch scopes the review to the
+// diff against that branch; an empty value falls back to the default branch.
+//
+// It serves two passes. As the report-only --verify-adversarial pass it is
+// wired only when that flag is set. As the finder for the default-on
+// review-and-fix pass (paired with ReviewApplier) it is always wired, so the
+// review pass runs unless --no-review disables it.
 type AdversarialVerifier interface {
 	AdversarialReview(dir, baseBranch string) (*report.ReviewResult, error)
 }
@@ -216,6 +220,46 @@ type simplifyApplyFnAdapter struct {
 }
 
 func (a simplifyApplyFnAdapter) ApplySimplifications(dir string, ctx SimplifyApplyContext) (string, string, error) {
+	return a.fn(dir, ctx)
+}
+
+// ReviewApplyContext is the input for the Claude review-apply session: the PR
+// the implement session opened, the adversarial-review findings to resolve, and
+// the pattern catalog so the apply session stays consistent with the same
+// review patterns the implementation honored. The apply session resolves each
+// finding, folds the fix into the commit it belongs to, and force-pushes the
+// rewritten branch to HeadBranch with --force-with-lease — the findings-driven
+// analog of the fix command's apply step. It mirrors SimplifyApplyContext; the
+// two stay separate types so each pass's prompt can evolve independently.
+type ReviewApplyContext struct {
+	RepoFullName string
+	PRNumber     int
+	HeadBranch   string
+	BaseBranch   string
+	Findings     []report.Finding
+	Patterns     []patterns.Pattern
+	MaxPatterns  int
+}
+
+// ReviewApplier resolves the review pass's findings and folds each fix into the
+// commit it belongs to via fixup/autosquash, then force-pushes the rewritten
+// branch to the PR head with --force-with-lease. It returns the apply report and
+// the resolved Claude model id for the report comment's attribution footer.
+// Optional: paired with the AdversarialVerifier finder; nil leaves the
+// review-and-fix pass disabled.
+type ReviewApplier interface {
+	ApplyReview(dir string, ctx ReviewApplyContext) (report, model string, err error)
+}
+
+// ReviewApplyFn is the bare-function form of ReviewApplier. It matches
+// claude.ApplyReview so the CLI can wire it directly.
+type ReviewApplyFn func(dir string, ctx ReviewApplyContext) (report, model string, err error)
+
+type reviewApplyFnAdapter struct {
+	fn ReviewApplyFn
+}
+
+func (a reviewApplyFnAdapter) ApplyReview(dir string, ctx ReviewApplyContext) (string, string, error) {
 	return a.fn(dir, ctx)
 }
 
