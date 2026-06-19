@@ -77,6 +77,8 @@ func BuildPlanPrompt(ctx implement.Context) string {
 	sb.WriteString(strings.TrimSpace(ctx.IssueBody))
 	sb.WriteString("\n</issue-body>\n\n")
 
+	renderIssueRelations(&sb, ctx.MetaIssue, ctx.SiblingIssues, ctx.ChildIssues)
+
 	if len(ctx.Patterns) > 0 {
 		sb.WriteString("## Project Review Patterns to Honor\n\n")
 		sb.WriteString("These patterns are the catalog the project's review/audit/elaborate tools share — including any project-specific patterns shipped under `.planwerk/review_patterns/` in this repository. Treat them as binding constraints on the planned change set: when a pattern covers an area the plan touches, plan the resolution the pattern endorses.\n\n")

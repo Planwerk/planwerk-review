@@ -13,6 +13,13 @@ deliberately **not** elaborated. Pick a Sub Issue and run
 [`elaborate`](/how-to/elaborate-an-issue) / [`implement`](/how-to/implement-an-issue)
 on it when you are ready; `meta` itself stops at creating and linking.
 
+Because the Sub Issues are linked to the Meta Issue, `elaborate` and
+`implement`'s planning session read that link back: when run on a Sub Issue, they
+pull in the Meta Issue and the sibling Sub Issues so each Sub Issue is planned as
+a coherent slice of the whole — scoped to its part, deferring adjacent work to the
+sibling that owns it. See
+[Sub Issues are elaborated against their Meta Issue](/how-to/elaborate-an-issue#sub-issues-are-elaborated-against-their-meta-issue).
+
 ```bash
 # Preview the planned split without filing or linking anything
 planwerk-review meta --dry-run owner/repo#123

@@ -15,6 +15,7 @@ import (
 
 type fakeGitHub struct {
 	getIssue          func(owner, name string, number int) (*github.Issue, error)
+	getIssueRelations func(owner, name string, number int) (*github.IssueRelations, error)
 	defaultBranchHEAD func(owner, name string) (string, error)
 	cloneRepo         func(ref string) (*github.Repo, error)
 	editIssueBody     func(owner, name string, number int, body string) error
@@ -29,6 +30,15 @@ type fakeGitHub struct {
 
 func (f *fakeGitHub) GetIssue(owner, name string, number int) (*github.Issue, error) {
 	return f.getIssue(owner, name, number)
+}
+
+// GetIssueRelations defaults to "no relations" (the issue stands alone) so
+// tests that do not exercise the Meta/sibling path need not set it.
+func (f *fakeGitHub) GetIssueRelations(owner, name string, number int) (*github.IssueRelations, error) {
+	if f.getIssueRelations == nil {
+		return &github.IssueRelations{}, nil
+	}
+	return f.getIssueRelations(owner, name, number)
 }
 
 func (f *fakeGitHub) DefaultBranchHEAD(owner, name string) (string, error) {
@@ -293,6 +303,93 @@ func TestRun_RendersMarkdownAndCachesResult(t *testing.T) {
 	}
 	if !strings.Contains(out2.String(), "Description body.") {
 		t.Errorf("cache-hit output missing description, got:\n%s", out2.String())
+	}
+}
+
+func TestRun_ThreadsMetaAndSiblingContext(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	patternDir := seedPatternDir(t)
+	repo := fakeRepo(t, "acme", "widgets")
+	gh := &fakeGitHub{
+		getIssue: func(owner, name string, number int) (*github.Issue, error) {
+			return &github.Issue{Owner: owner, Name: name, Number: number, Title: "Sub", Body: "Body"}, nil
+		},
+		getIssueRelations: func(owner, name string, number int) (*github.IssueRelations, error) {
+			return &github.IssueRelations{
+				Parent:   &github.Issue{Owner: owner, Name: name, Number: 1, Title: "Meta", Body: "Meta body"},
+				Siblings: []github.Issue{{Owner: owner, Name: name, Number: 2, Title: "Sibling", Body: "Sibling body", State: "open"}},
+			}, nil
+		},
+		cloneRepo: func(ref string) (*github.Repo, error) { return repo, nil },
+	}
+	cl := &fakeClaude{fn: func(dir string, ctx Context) (*Result, error) {
+		if ctx.MetaIssue == nil || ctx.MetaIssue.Number != 1 {
+			t.Fatalf("MetaIssue not threaded into context: %+v", ctx.MetaIssue)
+		}
+		if len(ctx.SiblingIssues) != 1 || ctx.SiblingIssues[0].Number != 2 {
+			t.Fatalf("SiblingIssues not threaded into context: %+v", ctx.SiblingIssues)
+		}
+		return &Result{Title: "Sub", Description: "d", Motivation: "m"}, nil
+	}}
+	r := &Runner{Claude: cl, GitHub: gh}
+
+	var out bytes.Buffer
+	if err := r.Run(&out, baseOpts(patternDir)); err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if cl.calls != 1 {
+		t.Fatalf("Claude calls = %d, want 1", cl.calls)
+	}
+}
+
+// TestRun_SiblingChangeBustsCache locks the cache-key contribution of the
+// relations fingerprint: editing a sibling Sub Issue between two otherwise
+// identical runs (same repo head, same issue body) must miss the cache and
+// re-elaborate, so a stale sibling cannot leak into the plan.
+func TestRun_SiblingChangeBustsCache(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	patternDir := seedPatternDir(t)
+	repo := fakeRepo(t, "acme", "widgets")
+	siblingBody := "Sibling body v1"
+	gh := &fakeGitHub{
+		getIssue: func(owner, name string, number int) (*github.Issue, error) {
+			return &github.Issue{Owner: owner, Name: name, Number: number, Title: "Sub", Body: "Body"}, nil
+		},
+		getIssueRelations: func(owner, name string, number int) (*github.IssueRelations, error) {
+			return &github.IssueRelations{
+				Parent:   &github.Issue{Owner: owner, Name: name, Number: 1, Title: "Meta", Body: "Meta body"},
+				Siblings: []github.Issue{{Owner: owner, Name: name, Number: 2, Title: "Sibling", Body: siblingBody, State: "open"}},
+			}, nil
+		},
+		cloneRepo: func(ref string) (*github.Repo, error) { return repo, nil },
+	}
+	cl := &fakeClaude{fn: func(dir string, ctx Context) (*Result, error) {
+		return &Result{Title: "Sub", Description: "d", Motivation: "m"}, nil
+	}}
+	r := &Runner{Claude: cl, GitHub: gh}
+
+	var out bytes.Buffer
+	if err := r.Run(&out, baseOpts(patternDir)); err != nil {
+		t.Fatalf("first Run error: %v", err)
+	}
+	// Same inputs ⇒ cache hit, no second Claude call.
+	if err := r.Run(&out, baseOpts(patternDir)); err != nil {
+		t.Fatalf("cache-hit Run error: %v", err)
+	}
+	if cl.calls != 1 {
+		t.Fatalf("after identical re-run, Claude calls = %d, want 1 (cache hit)", cl.calls)
+	}
+	// Edit the sibling ⇒ relations fingerprint changes ⇒ cache miss.
+	siblingBody = "Sibling body v2"
+	if err := r.Run(&out, baseOpts(patternDir)); err != nil {
+		t.Fatalf("post-edit Run error: %v", err)
+	}
+	if cl.calls != 2 {
+		t.Fatalf("after sibling edit, Claude calls = %d, want 2 (cache miss)", cl.calls)
 	}
 }
 

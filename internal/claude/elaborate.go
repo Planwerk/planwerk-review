@@ -58,6 +58,8 @@ Apply these thinking patterns:
 		sb.WriteString("\n</issue-body>\n\n")
 	}
 
+	renderIssueRelations(&sb, ctx.MetaIssue, ctx.SiblingIssues, ctx.ChildIssues)
+
 	if len(ctx.Patterns) > 0 {
 		sb.WriteString("## Review Patterns to Ground the Elaboration In\n\n")
 		sb.WriteString("These patterns are the catalog the project's review/audit/propose tools share. When the elaboration touches an area covered by a pattern, reference the pattern by name in the description or motivation so reviewers can trace the rationale.\n\n")

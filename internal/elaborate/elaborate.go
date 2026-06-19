@@ -107,6 +107,20 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	}
 	slog.Info("fetched issue", "repo", fmt.Sprintf("%s/%s", owner, name), "issue", number, "title", issue.Title)
 
+	// Resolve the issue's Meta/Sub-Issue neighborhood so a Sub Issue is
+	// elaborated against its Meta Issue and sibling Sub Issues, not in
+	// isolation. Best-effort: a repo without sub-issue relationships, a token
+	// lacking the scope, or an older GHES surfaces an error here and degrades to
+	// "no relations" rather than aborting the elaboration.
+	relations, err := r.GitHub.GetIssueRelations(owner, name, number)
+	if err != nil {
+		slog.Warn("could not fetch sub-issue relations; elaborating without Meta/sibling context", "issue", number, "err", err)
+		relations = &github.IssueRelations{}
+	}
+	if relations.Parent != nil {
+		slog.Info("issue is a sub-issue; including Meta and sibling context", "issue", number, "meta", relations.Parent.Number, "siblings", len(relations.Siblings))
+	}
+
 	headSHA, err := r.GitHub.DefaultBranchHEAD(owner, name)
 	if err != nil {
 		slog.Warn("could not fetch HEAD SHA, caching disabled", "err", err)
@@ -114,7 +128,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 		headSHA = ""
 	}
 
-	cacheKey := elaborateCacheKey(owner, name, number, issue, headSHA, opts.Review)
+	cacheKey := elaborateCacheKey(owner, name, number, issue, relations, headSHA, opts.Review)
 
 	if !opts.NoCache && headSHA != "" {
 		if data, ok := cache.GetRaw(cacheKey, opts.CacheMaxAge); ok {
@@ -160,10 +174,13 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 
 	slog.Info("elaborating issue with Claude")
 	baseCtx := Context{
-		Patterns:    pats,
-		MaxPatterns: opts.MaxPatterns,
-		RepoName:    repo.FullName(),
-		Issue:       issue,
+		Patterns:      pats,
+		MaxPatterns:   opts.MaxPatterns,
+		RepoName:      repo.FullName(),
+		Issue:         issue,
+		MetaIssue:     relations.Parent,
+		SiblingIssues: relations.Siblings,
+		ChildIssues:   relations.Children,
 	}
 	result, err := r.Claude.Elaborate(repo.Dir, baseCtx)
 	if err != nil {
@@ -238,11 +255,18 @@ func (r *Runner) finish(w io.Writer, result *Result, owner, name string, number 
 
 // elaborateCacheKey scopes the cache by repo, issue number, head SHA, and a
 // short fingerprint of the issue body so the cache invalidates whenever the
-// upstream issue is edited or the repo head moves.
-func elaborateCacheKey(owner, name string, number int, issue *github.Issue, headSHA string, review bool) string {
+// upstream issue is edited or the repo head moves. When the issue is a Sub
+// Issue (or itself a Meta Issue), a fingerprint of the Meta and sibling/child
+// issues is folded in too, so editing the Meta Issue or a sibling re-elaborates.
+// The relations flag is appended only when relations exist, so a plain issue's
+// key stays stable.
+func elaborateCacheKey(owner, name string, number int, issue *github.Issue, relations *github.IssueRelations, headSHA string, review bool) string {
 	flags := []string{
 		fmt.Sprintf("issue=%d", number),
 		"body=" + issueFingerprint(issue),
+	}
+	if fp := relationsFingerprint(relations); fp != "" {
+		flags = append(flags, "relations="+fp)
 	}
 	if review {
 		flags = append(flags, "review")
@@ -313,4 +337,32 @@ func issueFingerprint(issue *github.Issue) string {
 		return ""
 	}
 	return shortHash(issue.Title + "\n" + issue.Body)
+}
+
+// relationsFingerprint returns a stable short hash over the Meta Issue and the
+// sibling/child Sub Issues (number, title, body, state of each) so the cache
+// invalidates when any of them is edited. It returns "" when the issue has no
+// relations, so elaborateCacheKey can leave a plain issue's key untouched.
+func relationsFingerprint(relations *github.IssueRelations) string {
+	if relations == nil || (relations.Parent == nil && len(relations.Children) == 0) {
+		return ""
+	}
+	var sb strings.Builder
+	writeIssueFingerprint(&sb, relations.Parent)
+	for i := range relations.Siblings {
+		writeIssueFingerprint(&sb, &relations.Siblings[i])
+	}
+	for i := range relations.Children {
+		writeIssueFingerprint(&sb, &relations.Children[i])
+	}
+	return shortHash(sb.String())
+}
+
+// writeIssueFingerprint appends an issue's identifying fields to sb for the
+// relations fingerprint. A nil issue contributes nothing.
+func writeIssueFingerprint(sb *strings.Builder, issue *github.Issue) {
+	if issue == nil {
+		return
+	}
+	fmt.Fprintf(sb, "%d\n%s\n%s\n%s\n", issue.Number, issue.Title, issue.State, issue.Body)
 }

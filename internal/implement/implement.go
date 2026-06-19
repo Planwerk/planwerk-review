@@ -260,6 +260,24 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 		MaxPatterns:  opts.MaxPatterns,
 	}
 
+	// Resolve the issue's Meta/Sub-Issue neighborhood so the planning session
+	// grounds a Sub Issue in its Meta Issue and sibling Sub Issues. Fetched
+	// before the print-prompt branch so --print-plan-prompt renders the same
+	// context the live planning session sees. Best-effort: a repo without
+	// sub-issue relationships, a missing token scope, or an older GHES degrades
+	// to "no relations" rather than aborting the run.
+	relations, err := r.GitHub.GetIssueRelations(owner, name, number)
+	if err != nil {
+		slog.Warn("could not fetch sub-issue relations; planning without Meta/sibling context", "issue", number, "err", err)
+		relations = &github.IssueRelations{}
+	}
+	if relations.Parent != nil {
+		slog.Info("issue is a sub-issue; including Meta and sibling context in the plan", "issue", number, "meta", relations.Parent.Number, "siblings", len(relations.Siblings))
+	}
+	ctx.MetaIssue = relations.Parent
+	ctx.SiblingIssues = relations.Siblings
+	ctx.ChildIssues = relations.Children
+
 	// In --print-prompt / --print-plan-prompt mode the only stdout payload
 	// is the prompt itself; status chatter is silenced via slog (the prompt
 	// goes to w). No clone, so no tech-detection/pattern-loading either —
