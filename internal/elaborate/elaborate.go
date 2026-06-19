@@ -368,4 +368,9 @@ func writeIssueFingerprint(sb *strings.Builder, issue *github.Issue) {
 		return
 	}
 	fmt.Fprintf(sb, "%d\n%s\n%s\n%s\n", issue.Number, issue.Title, issue.State, issue.Body)
+	// Fold each sibling/child's open linked PRs into the fingerprint so a newly
+	// opened, merged, or removed Sub Issue PR busts the elaboration cache.
+	for _, pr := range issue.LinkedPRs {
+		fmt.Fprintf(sb, "pr=%d:%s:%t\n", pr.Number, pr.State, pr.IsDraft)
+	}
 }

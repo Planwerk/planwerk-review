@@ -393,6 +393,55 @@ func TestRun_SiblingChangeBustsCache(t *testing.T) {
 	}
 }
 
+// TestRun_SiblingPRChangeBustsCache locks the cache-key contribution of a
+// sibling's linked PRs: when an otherwise-identical sibling gains an open PR
+// between two runs (same repo head, same issue and sibling bodies), the
+// relations fingerprint must change so the elaboration re-runs and the newly
+// prepared implementation is accounted for instead of served from a stale cache.
+func TestRun_SiblingPRChangeBustsCache(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	patternDir := seedPatternDir(t)
+	repo := fakeRepo(t, "acme", "widgets")
+	var siblingPRs []github.LinkedPR
+	gh := &fakeGitHub{
+		getIssue: func(owner, name string, number int) (*github.Issue, error) {
+			return &github.Issue{Owner: owner, Name: name, Number: number, Title: "Sub", Body: "Body"}, nil
+		},
+		getIssueRelations: func(owner, name string, number int) (*github.IssueRelations, error) {
+			return &github.IssueRelations{
+				Parent:   &github.Issue{Owner: owner, Name: name, Number: 1, Title: "Meta", Body: "Meta body"},
+				Siblings: []github.Issue{{Owner: owner, Name: name, Number: 2, Title: "Sibling", Body: "Sibling body", State: "open", LinkedPRs: siblingPRs}},
+			}, nil
+		},
+		cloneRepo: func(ref string) (*github.Repo, error) { return repo, nil },
+	}
+	cl := &fakeClaude{fn: func(dir string, ctx Context) (*Result, error) {
+		return &Result{Title: "Sub", Description: "d", Motivation: "m"}, nil
+	}}
+	r := &Runner{Claude: cl, GitHub: gh}
+
+	var out bytes.Buffer
+	if err := r.Run(&out, baseOpts(patternDir)); err != nil {
+		t.Fatalf("first Run error: %v", err)
+	}
+	if err := r.Run(&out, baseOpts(patternDir)); err != nil {
+		t.Fatalf("cache-hit Run error: %v", err)
+	}
+	if cl.calls != 1 {
+		t.Fatalf("after identical re-run, Claude calls = %d, want 1 (cache hit)", cl.calls)
+	}
+	// A sibling gains an open PR ⇒ relations fingerprint changes ⇒ cache miss.
+	siblingPRs = []github.LinkedPR{{Number: 9, Title: "Implement sibling", URL: "https://example.com/pull/9", State: "open"}}
+	if err := r.Run(&out, baseOpts(patternDir)); err != nil {
+		t.Fatalf("post-PR Run error: %v", err)
+	}
+	if cl.calls != 2 {
+		t.Fatalf("after sibling PR appears, Claude calls = %d, want 2 (cache miss)", cl.calls)
+	}
+}
+
 func TestRun_NoCacheBypassesCache(t *testing.T) {
 	restore := cache.SetDir(t.TempDir())
 	t.Cleanup(restore)
