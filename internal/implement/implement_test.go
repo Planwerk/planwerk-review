@@ -39,6 +39,33 @@ func (f *fakeAdversarialVerifier) AdversarialReview(dir, baseBranch string) (*re
 	return f.result, f.err
 }
 
+type fakeSimplifyFinder struct {
+	called atomic.Int32
+	base   string
+	result *report.ReviewResult
+	err    error
+}
+
+func (f *fakeSimplifyFinder) SimplifyFindings(dir, baseBranch string) (*report.ReviewResult, error) {
+	f.called.Add(1)
+	f.base = baseBranch
+	return f.result, f.err
+}
+
+type fakeSimplifyApplier struct {
+	called atomic.Int32
+	ctx    SimplifyApplyContext
+	report string
+	model  string
+	err    error
+}
+
+func (f *fakeSimplifyApplier) ApplySimplifications(dir string, ctx SimplifyApplyContext) (string, string, error) {
+	f.called.Add(1)
+	f.ctx = ctx
+	return f.report, f.model, f.err
+}
+
 type fakePlanner struct {
 	called atomic.Int32
 	dir    string
@@ -752,6 +779,280 @@ func TestRun_VerifyAdversarialDisabledByDefault(t *testing.T) {
 	}
 	if av.called.Load() != 0 {
 		t.Errorf("adversarial verifier called %d times, want 0 when --verify-adversarial is off", av.called.Load())
+	}
+}
+
+// simplifyRunner wires the simplify deps onto a fresh Runner alongside the
+// shared GitHub/Claude fakes, so each simplify test reads as just its
+// finder/applier setup.
+func simplifyRunner(gh *fakeGitHub, cl *fakeClaude, sf *fakeSimplifyFinder, sa *fakeSimplifyApplier) *Runner {
+	r := newRunner(gh, cl)
+	r.Simplifier = sf
+	r.SimplifyApplier = sa
+	return r
+}
+
+func oneSimplifyFinding(file string) *report.ReviewResult {
+	return &report.ReviewResult{Findings: []report.Finding{
+		{Severity: report.SeverityWarning, Title: "Single-impl interface", File: file, Problem: "over-engineered", Action: "drop it"},
+	}}
+}
+
+func TestRun_SimplifyDefaultOnAppliesFindings(t *testing.T) {
+	gh := &fakeGitHub{
+		issue:    sampleIssue(),
+		cloneDir: t.TempDir(),
+		pr:       &github.PRRef{Number: 7, BaseBranch: "main", HeadBranch: "feat/x"},
+	}
+	cl := &fakeClaude{report: "PR opened"}
+	sf := &fakeSimplifyFinder{result: oneSimplifyFinding("internal/foo/foo.go")}
+	sa := &fakeSimplifyApplier{report: "## Simplification Report\n\nSTATUS: DONE"}
+	r := simplifyRunner(gh, cl, sf, sa)
+
+	var buf bytes.Buffer
+	if err := r.Run(&buf, Options{IssueRef: "owner/repo#42"}); err != nil {
+		t.Fatalf("Run returned %v, want nil", err)
+	}
+	if sf.called.Load() != 1 {
+		t.Errorf("finder called %d times, want 1 — the simplify pass is on by default", sf.called.Load())
+	}
+	if sf.base != "main" {
+		t.Errorf("finder got base %q, want main from CurrentPR", sf.base)
+	}
+	if sa.called.Load() != 1 {
+		t.Fatalf("applier called %d times, want 1", sa.called.Load())
+	}
+	if sa.ctx.PRNumber != 7 || sa.ctx.BaseBranch != "main" || sa.ctx.HeadBranch != "feat/x" {
+		t.Errorf("applier got ctx %+v, want PR #7 base main head feat/x threaded from CurrentPR", sa.ctx)
+	}
+	if len(sa.ctx.Findings) != 1 || sa.ctx.Findings[0].File != "internal/foo/foo.go" {
+		t.Errorf("applier got findings %+v, want the single kept finding", sa.ctx.Findings)
+	}
+	if gh.prCommentCalls.Load() != 1 {
+		t.Fatalf("AddPRComment called %d times, want 1 (the simplify report)", gh.prCommentCalls.Load())
+	}
+	if !strings.Contains(gh.prCommentBodies[0], "## Simplification Report") {
+		t.Errorf("PR comment does not carry the report:\n%s", gh.prCommentBodies[0])
+	}
+	if !strings.Contains(gh.prCommentBodies[0], simplifyCommentFooter("")) {
+		t.Errorf("PR comment is missing the attribution footer:\n%s", gh.prCommentBodies[0])
+	}
+	if !strings.Contains(buf.String(), "Posted the simplification report as a comment on PR #7") {
+		t.Errorf("missing simplify-comment confirmation in output:\n%s", buf.String())
+	}
+}
+
+func TestRun_NoSimplifySkipsPass(t *testing.T) {
+	gh := &fakeGitHub{
+		issue:    sampleIssue(),
+		cloneDir: t.TempDir(),
+		pr:       &github.PRRef{Number: 7, BaseBranch: "main", HeadBranch: "feat/x"},
+	}
+	cl := &fakeClaude{report: "PR opened"}
+	sf := &fakeSimplifyFinder{result: oneSimplifyFinding("internal/foo/foo.go")}
+	sa := &fakeSimplifyApplier{report: "## Simplification Report\n\nSTATUS: DONE"}
+	r := simplifyRunner(gh, cl, sf, sa)
+
+	if err := r.Run(&bytes.Buffer{}, Options{IssueRef: "owner/repo#42", NoSimplify: true}); err != nil {
+		t.Fatalf("Run returned %v, want nil", err)
+	}
+	if gh.currentPRCalls.Load() != 0 {
+		t.Errorf("CurrentPR called %d times, want 0 with --no-simplify", gh.currentPRCalls.Load())
+	}
+	if sf.called.Load() != 0 || sa.called.Load() != 0 {
+		t.Errorf("finder/applier called (%d/%d), want 0/0 with --no-simplify", sf.called.Load(), sa.called.Load())
+	}
+	if gh.prCommentCalls.Load() != 0 {
+		t.Errorf("AddPRComment called %d times, want 0 with --no-simplify", gh.prCommentCalls.Load())
+	}
+}
+
+func TestRun_SimplifyNoFindingsNoOp(t *testing.T) {
+	gh := &fakeGitHub{
+		issue:    sampleIssue(),
+		cloneDir: t.TempDir(),
+		pr:       &github.PRRef{Number: 7, BaseBranch: "main", HeadBranch: "feat/x"},
+	}
+	cl := &fakeClaude{report: "PR opened"}
+	sf := &fakeSimplifyFinder{result: &report.ReviewResult{}}
+	sa := &fakeSimplifyApplier{report: "unused"}
+	r := simplifyRunner(gh, cl, sf, sa)
+
+	var buf bytes.Buffer
+	if err := r.Run(&buf, Options{IssueRef: "owner/repo#42"}); err != nil {
+		t.Fatalf("Run returned %v, want nil", err)
+	}
+	if sf.called.Load() != 1 {
+		t.Errorf("finder called %d times, want 1", sf.called.Load())
+	}
+	if sa.called.Load() != 0 {
+		t.Errorf("applier called %d times, want 0 — no findings is a clean no-op", sa.called.Load())
+	}
+	if gh.prCommentCalls.Load() != 0 {
+		t.Errorf("AddPRComment called %d times, want 0 — no findings posts no PR comment", gh.prCommentCalls.Load())
+	}
+	if !strings.Contains(buf.String(), "Nothing to simplify.") {
+		t.Errorf("missing the no-op note in output:\n%s", buf.String())
+	}
+}
+
+func TestRun_SimplifyGuardrailRejectsTestFinding(t *testing.T) {
+	gh := &fakeGitHub{
+		issue:    sampleIssue(),
+		cloneDir: t.TempDir(),
+		pr:       &github.PRRef{Number: 7, BaseBranch: "main", HeadBranch: "feat/x"},
+	}
+	cl := &fakeClaude{report: "PR opened"}
+	sf := &fakeSimplifyFinder{result: &report.ReviewResult{Findings: []report.Finding{
+		{Severity: report.SeverityWarning, Title: "Redundant assertion", File: "internal/foo/foo_test.go", Problem: "x", Action: "drop"},
+		{Severity: report.SeverityWarning, Title: "Single-impl interface", File: "internal/foo/foo.go", Problem: "y", Action: "drop"},
+	}}}
+	sa := &fakeSimplifyApplier{report: "## Simplification Report\n\nSTATUS: DONE"}
+	r := simplifyRunner(gh, cl, sf, sa)
+
+	var buf bytes.Buffer
+	if err := r.Run(&buf, Options{IssueRef: "owner/repo#42"}); err != nil {
+		t.Fatalf("Run returned %v, want nil", err)
+	}
+	if sa.called.Load() != 1 {
+		t.Fatalf("applier called %d times, want 1", sa.called.Load())
+	}
+	if len(sa.ctx.Findings) != 1 || sa.ctx.Findings[0].File != "internal/foo/foo.go" {
+		t.Errorf("applier got findings %+v, want only the non-test finding — the test-file finding must be rejected", sa.ctx.Findings)
+	}
+	if !strings.Contains(buf.String(), "rejected 1 finding") {
+		t.Errorf("missing the guardrail-rejection note in output:\n%s", buf.String())
+	}
+}
+
+func TestRun_SimplifyEscalationStops(t *testing.T) {
+	for _, status := range []string{"BLOCKED", "NEEDS_CONTEXT"} {
+		t.Run(status, func(t *testing.T) {
+			gh := &fakeGitHub{
+				issue:    sampleIssue(),
+				cloneDir: t.TempDir(),
+				pr:       &github.PRRef{Number: 7, BaseBranch: "main", HeadBranch: "feat/x"},
+			}
+			cl := &fakeClaude{report: "PR opened"}
+			sf := &fakeSimplifyFinder{result: oneSimplifyFinding("internal/foo/foo.go")}
+			sa := &fakeSimplifyApplier{report: "## Simplification Report\n\nSTATUS: " + status}
+			r := simplifyRunner(gh, cl, sf, sa)
+
+			var buf bytes.Buffer
+			if err := r.Run(&buf, Options{IssueRef: "owner/repo#42"}); err != nil {
+				t.Fatalf("Run returned %v, want nil — the simplify pass is non-fatal", err)
+			}
+			if gh.prCommentCalls.Load() != 1 {
+				t.Errorf("AddPRComment called %d times, want 1 — an escalated report must still post", gh.prCommentCalls.Load())
+			}
+			if !strings.Contains(buf.String(), "Claude reported "+status+" — stopping the simplify pass") {
+				t.Errorf("missing the escalation/stop note in output:\n%s", buf.String())
+			}
+		})
+	}
+}
+
+func TestRun_SimplifyCommentFailureIsNonFatal(t *testing.T) {
+	gh := &fakeGitHub{
+		issue:        sampleIssue(),
+		cloneDir:     t.TempDir(),
+		pr:           &github.PRRef{Number: 7, BaseBranch: "main", HeadBranch: "feat/x"},
+		prCommentErr: errors.New("github down"),
+	}
+	cl := &fakeClaude{report: "PR opened"}
+	sf := &fakeSimplifyFinder{result: oneSimplifyFinding("internal/foo/foo.go")}
+	sa := &fakeSimplifyApplier{report: "## Simplification Report\n\nSTATUS: DONE"}
+	r := simplifyRunner(gh, cl, sf, sa)
+
+	var buf bytes.Buffer
+	if err := r.Run(&buf, Options{IssueRef: "owner/repo#42"}); err != nil {
+		t.Fatalf("Run returned %v, want nil despite the PR-comment failure", err)
+	}
+	if sa.called.Load() != 1 {
+		t.Errorf("applier called %d times, want 1 — a failed comment post must not abort the run", sa.called.Load())
+	}
+	if !strings.Contains(buf.String(), "Could not post the simplification report") {
+		t.Errorf("expected a non-fatal warning about the failed comment post, got:\n%s", buf.String())
+	}
+}
+
+func TestRun_SimplifyNoPRSkips(t *testing.T) {
+	// gh.pr is nil, so CurrentPR returns (nil, nil): no PR is associated with
+	// the branch and the pass skips cleanly.
+	gh := &fakeGitHub{issue: sampleIssue(), cloneDir: t.TempDir()}
+	cl := &fakeClaude{report: "PR opened"}
+	sf := &fakeSimplifyFinder{result: oneSimplifyFinding("internal/foo/foo.go")}
+	sa := &fakeSimplifyApplier{report: "unused"}
+	r := simplifyRunner(gh, cl, sf, sa)
+
+	var buf bytes.Buffer
+	if err := r.Run(&buf, Options{IssueRef: "owner/repo#42"}); err != nil {
+		t.Fatalf("Run returned %v, want nil", err)
+	}
+	if gh.currentPRCalls.Load() != 1 {
+		t.Errorf("CurrentPR called %d times, want 1", gh.currentPRCalls.Load())
+	}
+	if sf.called.Load() != 0 || sa.called.Load() != 0 {
+		t.Errorf("finder/applier called (%d/%d), want 0/0 when no PR is associated", sf.called.Load(), sa.called.Load())
+	}
+	if !strings.Contains(buf.String(), "no pull request is associated with this branch") {
+		t.Errorf("missing the no-PR skip note in output:\n%s", buf.String())
+	}
+}
+
+func TestRun_SimplifyFinderErrorIsNonFatal(t *testing.T) {
+	gh := &fakeGitHub{
+		issue:    sampleIssue(),
+		cloneDir: t.TempDir(),
+		pr:       &github.PRRef{Number: 7, BaseBranch: "main", HeadBranch: "feat/x"},
+	}
+	cl := &fakeClaude{report: "PR opened"}
+	sf := &fakeSimplifyFinder{err: errors.New("finder exploded")}
+	sa := &fakeSimplifyApplier{report: "unused"}
+	r := simplifyRunner(gh, cl, sf, sa)
+
+	var buf bytes.Buffer
+	if err := r.Run(&buf, Options{IssueRef: "owner/repo#42"}); err != nil {
+		t.Fatalf("Run returned %v, want nil despite the finder error", err)
+	}
+	if sa.called.Load() != 0 {
+		t.Errorf("applier called %d times, want 0 after a finder error", sa.called.Load())
+	}
+	if !strings.Contains(buf.String(), "Simplify pass could not run") {
+		t.Errorf("expected a non-fatal warning about the finder failure, got:\n%s", buf.String())
+	}
+}
+
+func TestKeepSimplifyFindings(t *testing.T) {
+	cases := []struct {
+		name     string
+		file     string
+		rejected bool
+	}{
+		{"go test file", "internal/foo/foo_test.go", true},
+		{"python test file", "pkg/foo_test.py", true},
+		{"js test file", "src/foo.test.ts", true},
+		{"js spec file", "src/foo.spec.js", true},
+		{"tests directory", "tests/integration/foo.go", true},
+		{"testdata directory", "internal/foo/testdata/x.json", true},
+		{"nested test directory", "internal/test/helper.go", true},
+		{"production file is kept", "internal/foo/foo.go", false},
+		{"empty file is kept", "", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			in := []report.Finding{{Title: "x", File: tc.file}}
+			kept, rejected := keepSimplifyFindings(in)
+			if tc.rejected {
+				if len(rejected) != 1 || len(kept) != 0 {
+					t.Errorf("file %q: kept=%d rejected=%d, want it rejected", tc.file, len(kept), len(rejected))
+				}
+			} else {
+				if len(kept) != 1 || len(rejected) != 0 {
+					t.Errorf("file %q: kept=%d rejected=%d, want it kept", tc.file, len(kept), len(rejected))
+				}
+			}
+		})
 	}
 }
 
