@@ -70,6 +70,16 @@ validation, error handling, security, accessibility, tests, or assertions, posts
 its report as a PR comment, and is non-fatal. Nothing to simplify is a clean
 no-op. Disable it with --no-simplify.
 
+After the simplify pass, a review-and-fix pass runs by default: the
+adversarial review machinery flags bugs in the produced diff, then a fresh
+session folds each fix into the commit it belongs to (same fixup/autosquash and
+--force-with-lease mechanism as the simplify pass) so the draft PR lands already
+self-reviewed. It posts its report as a PR comment, a STATUS: BLOCKED /
+NEEDS_CONTEXT report stops the pass without retrying, and nothing to fix is a
+clean no-op. The pass is non-fatal — a failed or escalated review never changes
+the run's exit code. Disable it with --no-review. (The read-only --verify /
+--verify-adversarial flags remain available for a report-only run.)
+
 Use --print-prompt to render the implement prompt (with the issue body
 embedded, without a plan) to stdout without invoking Claude;
 --print-plan-prompt does the same for the planning prompt. Use
@@ -135,6 +145,7 @@ or short form (owner/repo#123).`,
 	implementFlags.BoolVar(&implementCfg.Verify, "verify", false, "After implementing, run an independent pass that checks the actual diff against the issue's Acceptance Criteria without trusting the implementer's report")
 	implementFlags.BoolVar(&implementCfg.VerifyAdversarial, "verify-adversarial", false, "After implementing, red-team the produced diff for the bugs it introduces using the adversarial-review pass (independent of --verify)")
 	implementFlags.BoolVar(&implementCfg.NoSimplify, "no-simplify", false, "Skip the automatic simplify pass that folds over-engineering removals into the PR before the review phase")
+	implementFlags.BoolVar(&implementCfg.NoReview, "no-review", false, "Skip the automatic review-and-fix pass that folds review findings into the PR after the simplify pass")
 	implementFlags.StringSliceVar(&implementCfg.PatternDirs, "patterns", nil, "Additional pattern sources: local dirs, github:owner/repo[/sub][@ref], or git+https://...[#ref[:sub]]")
 	implementFlags.BoolVar(&implementCfg.NoRepoPatterns, "no-repo-patterns", false, "Ignore repo-specific patterns under .planwerk/review_patterns/ in the target repo")
 	implementFlags.BoolVar(&implementCfg.NoLocalPatterns, "no-local-patterns", false, "Ignore local patterns from the tool")
