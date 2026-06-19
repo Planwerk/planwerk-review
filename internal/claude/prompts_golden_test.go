@@ -391,6 +391,35 @@ func TestBuildSimplifyApplyPrompt_Golden(t *testing.T) {
 	assertGoldenPrompt(t, "simplify_apply", BuildSimplifyApplyPrompt(goldenSimplifyApplyContext()))
 }
 
+func goldenReviewApplyContext() implement.ReviewApplyContext {
+	return implement.ReviewApplyContext{
+		RepoFullName: "planwerk/planwerk-review",
+		PRNumber:     42,
+		HeadBranch:   "feat/snapshot-tests",
+		BaseBranch:   "main",
+		Findings: []report.Finding{
+			{
+				Severity:     report.SeverityCritical,
+				Title:        "Unparameterized SQL query allows injection",
+				File:         "internal/store/query.go",
+				Problem:      "User input is concatenated straight into the SQL string.",
+				SuggestedFix: "Use a parameterized query with bind variables instead of string concatenation.",
+				CodeSnippet:  "db.Query(\"SELECT * FROM users WHERE name = '\" + name + \"'\")",
+			},
+		},
+		Patterns:    goldenPatterns(),
+		MaxPatterns: 0,
+	}
+}
+
+// TestBuildReviewApplyPrompt_Golden locks the review-apply prompt: the findings
+// fix-list, the regression-test requirement, and the
+// fold/autosquash/--force-with-lease publish steps that fold each fix into the
+// commit it belongs to.
+func TestBuildReviewApplyPrompt_Golden(t *testing.T) {
+	assertGoldenPrompt(t, "review_apply", BuildReviewApplyPrompt(goldenReviewApplyContext()))
+}
+
 func goldenFixContext() fix.Context {
 	return fix.Context{
 		RepoFullName:  "planwerk/planwerk-review",
