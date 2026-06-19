@@ -86,7 +86,7 @@ var Specialists = []Specialist{
 // returns its findings, tagged with the specialist's pattern. baseBranch scopes
 // the review to changes relative to that branch.
 func (c *Client) SpecialistReview(dir, baseBranch, key, focus string) (*report.ReviewResult, error) {
-	raw, err := c.runClaude(dir, buildSpecialistPrompt(baseBranch, key, focus), "specialist-"+key)
+	raw, model, err := c.runClaude(dir, buildSpecialistPrompt(baseBranch, key, focus), "specialist-"+key)
 	if err != nil {
 		return nil, fmt.Errorf("running %s specialist review: %w", key, err)
 	}
@@ -100,6 +100,7 @@ func (c *Client) SpecialistReview(dir, baseBranch, key, focus string) (*report.R
 		}
 	}
 	assignIDs(result)
+	result.Model = model
 	return result, nil
 }
 

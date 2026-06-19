@@ -15,7 +15,7 @@ import (
 //  1. Read the issue + walk the repo, producing a freeform elaboration.
 //  2. Structure the elaboration into JSON matching elaborate.Result.
 func (c *Client) Elaborate(dir string, ctx elaborate.Context) (*elaborate.Result, error) {
-	rawElaboration, err := c.runClaude(dir, buildElaboratePrompt(ctx), "elaborate")
+	rawElaboration, model, err := c.runClaude(dir, buildElaboratePrompt(ctx), "elaborate")
 	if err != nil {
 		return nil, fmt.Errorf("running elaboration: %w", err)
 	}
@@ -24,6 +24,7 @@ func (c *Client) Elaborate(dir string, ctx elaborate.Context) (*elaborate.Result
 	if err != nil {
 		return nil, fmt.Errorf("structuring elaboration: %w", err)
 	}
+	result.Model = model
 	return result, nil
 }
 
@@ -157,7 +158,9 @@ Before you output the elaborated issue, review your own draft and fix what you f
 }
 
 func (c *Client) structureElaboration(rawElaboration string, ctx elaborate.Context) (*elaborate.Result, error) {
-	text, err := c.runClaude("", buildElaborateStructurePrompt(rawElaboration, ctx), "elaborate-structure")
+	// The structuring pass reuses the same model as the elaboration call above,
+	// which already carries the model out; discard it here.
+	text, _, err := c.runClaude("", buildElaborateStructurePrompt(rawElaboration, ctx), "elaborate-structure")
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +207,9 @@ Field rules:
 // plan would look like. It is a single structured Claude call with the same
 // malformed-JSON repair fallback as the other structurers.
 func (c *Client) ReviewElaboration(dir string, ctx elaborate.Context, draftBody string) (*elaborate.ReviewResult, error) {
-	text, err := c.runClaude(dir, buildElaborateReviewPrompt(ctx, draftBody), "elaborate-review")
+	// The reviewer gate's score is internal and renders no footer, so the
+	// resolved model is not threaded out.
+	text, _, err := c.runClaude(dir, buildElaborateReviewPrompt(ctx, draftBody), "elaborate-review")
 	if err != nil {
 		return nil, fmt.Errorf("running elaboration review: %w", err)
 	}

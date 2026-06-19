@@ -13,7 +13,7 @@ import (
 //  1. Deep analysis of the codebase, grounded in the loaded review patterns.
 //  2. Structuring the analysis into JSON proposals.
 func (c *Client) Propose(dir string, ctx propose.AnalysisContext) (*propose.ProposalResult, error) {
-	rawAnalysis, err := c.runAnalysis(dir, ctx)
+	rawAnalysis, model, err := c.runAnalysis(dir, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("running analysis: %w", err)
 	}
@@ -24,10 +24,11 @@ func (c *Client) Propose(dir string, ctx propose.AnalysisContext) (*propose.Prop
 	}
 
 	assignProposalIDs(result)
+	result.Model = model
 	return result, nil
 }
 
-func (c *Client) runAnalysis(dir string, ctx propose.AnalysisContext) (string, error) {
+func (c *Client) runAnalysis(dir string, ctx propose.AnalysisContext) (text, model string, err error) {
 	return c.runClaude(dir, buildAnalysisPrompt(ctx), "analysis")
 }
 
@@ -88,7 +89,9 @@ IMPORTANT: Do NOT just list generic software improvements. Your proposals must b
 }
 
 func (c *Client) structureProposals(rawAnalysis string) (*propose.ProposalResult, error) {
-	text, err := c.runClaude("", buildProposalStructurePrompt(rawAnalysis), "proposals")
+	// The structuring pass reuses the same model as the analysis call above,
+	// which already carries the model out; discard it here.
+	text, _, err := c.runClaude("", buildProposalStructurePrompt(rawAnalysis), "proposals")
 	if err != nil {
 		return nil, err
 	}

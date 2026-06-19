@@ -10,18 +10,19 @@
 // Assisted-by commit-trailer convention (see commitTrailerBlock in the claude
 // package): every artifact names the exact Claude model that produced it. The
 // orchestrator passes Claude Code only a model alias ("opus"); the resolved id
-// ("claude-opus-4-8") is known only at runtime, so the claude runner records it
-// here from each session's stream-init event and the footer helpers read it
-// back. When no model has been recorded — a footer rendered with no session
-// behind it — the attribution falls back to a bare "with Claude" rather than
-// guessing an id.
+// ("claude-opus-4-8") is known only at runtime, so each Claude session returns
+// it to the caller, which threads it per-run into AssistantWith. Keeping the
+// model out of package-level state lets concurrent runners render their own
+// model without leaking each other's. When no model is known — a footer
+// rendered with no session behind it — the attribution falls back to a bare
+// "with Claude" rather than guessing an id.
 //
 // Every footer also names the planwerk-review build that produced it — the same
 // string "planwerk-review --version" prints — placed right after the repository
 // link so the report headers and the issue/PR/comment footers read identically.
-// Like the model id, the version is a process-wide fact recorded once at startup
-// (SetVersion) and read back by Tool(); renderers that already receive it as a
-// parameter pass it to ToolWithVersion directly.
+// Unlike the per-run model id, the version is a process-wide fact recorded once
+// at startup (SetVersion) and read back by Tool(); renderers that already
+// receive it as a parameter pass it to ToolWithVersion directly.
 package attribution
 
 import (
@@ -38,7 +39,7 @@ const (
 	Link = "[planwerk-review](" + RepoURL + ")"
 
 	// AssistantMarker is the stable, model-independent prefix of the assistant
-	// attribution clause. Assistant() appends ":<model id>" to it when a model
+	// attribution clause. AssistantWith appends ":<model id>" to it when a model
 	// is known. It is exported so callers that match a rendered footer as a
 	// detection marker (implement keys its posted-plan lookup on it) can do so
 	// on a prefix that survives a model change.
@@ -46,29 +47,9 @@ const (
 )
 
 var (
-	mu            sync.RWMutex
-	resolvedModel string
-	toolVersion   string
+	mu          sync.RWMutex
+	toolVersion string
 )
-
-// SetModel records the resolved Claude model id (e.g. "claude-opus-4-8") that
-// the most recent Claude session announced in its stream-init event. The claude
-// runner calls it as each session starts; Assistant() reads it so every footer
-// rendered afterwards names the exact model that produced the artifact. Passing
-// an empty (or whitespace-only) id clears the record.
-func SetModel(id string) {
-	mu.Lock()
-	resolvedModel = strings.TrimSpace(id)
-	mu.Unlock()
-}
-
-// Model reports the resolved model id recorded by the last SetModel call, or ""
-// when none has been recorded.
-func Model() string {
-	mu.RLock()
-	defer mu.RUnlock()
-	return resolvedModel
-}
 
 // SetVersion records the planwerk-review build version — the same string
 // "planwerk-review --version" prints (e.g. "e1efd0d") — so every footer can name
@@ -111,11 +92,14 @@ func ToolWithVersion(version string) string {
 	return Link
 }
 
-// Assistant renders the assistant attribution clause: "with Claude:claude-opus-4-8"
-// when the resolved model is known, and a bare "with Claude" otherwise. It never
-// guesses an id, mirroring the Assisted-by commit-trailer convention.
-func Assistant() string {
-	if m := Model(); m != "" {
+// AssistantWith renders the assistant attribution clause for an explicit model
+// id: "with Claude:claude-opus-4-8" when model is non-empty, and a bare
+// "with Claude" otherwise. It never guesses an id, mirroring the Assisted-by
+// commit-trailer convention. Callers thread the resolved model per-run (from the
+// Claude session that produced the artifact) so concurrent runners cannot leak
+// each other's model into a rendered footer.
+func AssistantWith(model string) string {
+	if m := strings.TrimSpace(model); m != "" {
 		return AssistantMarker + ":" + m
 	}
 	return AssistantMarker

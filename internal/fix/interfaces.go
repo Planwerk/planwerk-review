@@ -55,8 +55,9 @@ type Context struct {
 
 // FixFn is the bare-function shape the CLI passes in to wire Claude into the
 // orchestrator. Returns a short human-readable summary of what Claude did
-// (already trimmed) — the orchestrator logs/prints this verbatim.
-type FixFn func(dir string, ctx Context) (string, error)
+// (already trimmed) — the orchestrator logs/prints this verbatim — and the
+// resolved Claude model id for the report's attribution footer.
+type FixFn func(dir string, ctx Context) (report, model string, err error)
 
 // PromptBuildFn renders the fix prompt for a single iteration without invoking
 // Claude. Wired in by the CLI so the fix subcommand can support --print-prompt
@@ -99,18 +100,19 @@ type BareContext struct {
 type BarePromptBuildFn func(ctx BareContext) string
 
 // ClaudeFixer is the injected dependency the orchestrator uses to run a
-// single fix iteration. The production implementation is claude.Fix; tests
-// substitute a fake that returns scripted summaries without invoking the
-// real Claude CLI.
+// single fix iteration. It returns the fix report and the resolved Claude
+// model id (threaded into the report's attribution footer). The production
+// implementation is claude.Fix; tests substitute a fake that returns scripted
+// summaries without invoking the real Claude CLI.
 type ClaudeFixer interface {
-	Fix(dir string, ctx Context) (string, error)
+	Fix(dir string, ctx Context) (report, model string, err error)
 }
 
 type fixFnAdapter struct {
 	fn FixFn
 }
 
-func (a fixFnAdapter) Fix(dir string, ctx Context) (string, error) {
+func (a fixFnAdapter) Fix(dir string, ctx Context) (string, string, error) {
 	return a.fn(dir, ctx)
 }
 

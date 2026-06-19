@@ -103,7 +103,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 func (r *Runner) createAndLink(owner, name string, metaNumber int, opts Options, result *Result) error {
 	for i := range result.SubIssues {
 		s := &result.SubIssues[i]
-		body := BuildSubIssueBody(metaNumber, *s)
+		body := BuildSubIssueBody(metaNumber, *s, result.Model)
 		url, err := r.GitHub.CreateIssueWithLabels(owner, name, s.Title, body, opts.Labels)
 		if err != nil {
 			return fmt.Errorf("creating sub-issue %q: %w", s.Key, err)

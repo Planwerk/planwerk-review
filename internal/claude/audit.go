@@ -14,7 +14,7 @@ import (
 //  1. Audit the codebase against all patterns and emit an unstructured finding list.
 //  2. Structure the output into JSON matching report.ReviewResult.
 func (c *Client) Audit(dir string, ctx audit.AuditContext) (*report.ReviewResult, error) {
-	rawAudit, err := c.runClaude(dir, buildAuditPrompt(ctx), "audit")
+	rawAudit, model, err := c.runClaude(dir, buildAuditPrompt(ctx), "audit")
 	if err != nil {
 		return nil, fmt.Errorf("running audit: %w", err)
 	}
@@ -25,6 +25,7 @@ func (c *Client) Audit(dir string, ctx audit.AuditContext) (*report.ReviewResult
 	}
 
 	assignIDs(result)
+	result.Model = model
 	return result, nil
 }
 

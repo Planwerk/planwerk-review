@@ -18,7 +18,7 @@ import (
 //     reviewprepared.Result expects, INCLUDING the rewritten feature JSON
 //     when ctx.IncludeImproved is set.
 func (c *Client) ReviewPrepared(dir string, ctx reviewprepared.AnalysisContext) (*reviewprepared.Result, error) {
-	rawAnalysis, err := c.runClaude(dir, buildReviewPreparedPrompt(ctx), "review-prepared")
+	rawAnalysis, model, err := c.runClaude(dir, buildReviewPreparedPrompt(ctx), "review-prepared")
 	if err != nil {
 		return nil, fmt.Errorf("running review-prepared analysis: %w", err)
 	}
@@ -27,6 +27,7 @@ func (c *Client) ReviewPrepared(dir string, ctx reviewprepared.AnalysisContext) 
 	if err != nil {
 		return nil, fmt.Errorf("structuring review-prepared output: %w", err)
 	}
+	result.Model = model
 	return result, nil
 }
 
@@ -155,7 +156,9 @@ When you are done, emit a comprehensive review grouped by feature_id. For every 
 // structureReviewPreparedResult turns the free-form review into the strict
 // JSON shape that reviewprepared.Result expects.
 func (c *Client) structureReviewPreparedResult(rawAnalysis string, ctx reviewprepared.AnalysisContext) (*reviewprepared.Result, error) {
-	text, err := c.runClaude("", buildReviewPreparedStructurePrompt(rawAnalysis, ctx.IncludeImproved), "review-prepared-structure")
+	// The structuring pass reuses the same model as the analysis call above,
+	// which already carries the model out; discard it here.
+	text, _, err := c.runClaude("", buildReviewPreparedStructurePrompt(rawAnalysis, ctx.IncludeImproved), "review-prepared-structure")
 	if err != nil {
 		return nil, err
 	}

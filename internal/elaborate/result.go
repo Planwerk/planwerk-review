@@ -26,4 +26,8 @@ type Result struct {
 	// from the reviewer on a near-miss. Empty when the elaboration cleared the
 	// bar or the reviewer pass was not run.
 	ReviewTarget string `json:"review_target,omitempty"`
+	// Model is the resolved Claude model id (e.g. "claude-opus-4-8") that
+	// produced this result. It is threaded per-run to the attribution footer
+	// and excluded from the serialized payload.
+	Model string `json:"-"`
 }

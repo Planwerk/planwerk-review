@@ -206,6 +206,7 @@ func (r *Runner) dispatch(w io.Writer, opts Options, pr *github.PR, fullName str
 	var addressed []report.AddressedThread
 	var summaries []string
 	var escalated Status
+	var model string
 	processed := 0
 
 	if opts.OneCommitPerThread {
@@ -219,6 +220,7 @@ func (r *Runner) dispatch(w io.Writer, opts Options, pr *github.PR, fullName str
 			if err != nil {
 				return err
 			}
+			model = result.Model
 			addressed = append(addressed, result.Threads...)
 			if s := strings.TrimSpace(result.Summary); s != "" {
 				summaries = append(summaries, s)
@@ -234,6 +236,7 @@ func (r *Runner) dispatch(w io.Writer, opts Options, pr *github.PR, fullName str
 		if err != nil {
 			return err
 		}
+		model = result.Model
 		processed = len(selected)
 		addressed = result.Threads
 		if s := strings.TrimSpace(result.Summary); s != "" {
@@ -247,7 +250,7 @@ func (r *Runner) dispatch(w io.Writer, opts Options, pr *github.PR, fullName str
 	// Record what each thread changed on the PR itself — posted before the
 	// escalation/max-iterations checks so an escalated report still lands
 	// where the human who must intervene will see it.
-	r.postAddressComment(w, opts, pr.Owner, pr.Repo, pr.Number, addressed, summaries)
+	r.postAddressComment(w, opts, pr.Owner, pr.Repo, pr.Number, addressed, summaries, model)
 
 	if escalated.ShouldEscalate() {
 		_, _ = fmt.Fprintf(w, "\nClaude reported %s — stopping the address run and escalating.\n", escalated)
@@ -281,7 +284,7 @@ func (r *Runner) addressUnit(w io.Writer, opts Options, pr *github.PR, threads [
 		if err := r.GitHub.PushHead(pr.Dir, pr.HeadBranch); err != nil {
 			return nil, fmt.Errorf("pushing follow-up commits to %s: %w", pr.HeadBranch, err)
 		}
-		r.replyAndResolve(w, opts, result.Threads)
+		r.replyAndResolve(w, opts, result.Threads, result.Model)
 	}
 	return result, nil
 }
@@ -290,13 +293,13 @@ func (r *Runner) addressUnit(w io.Writer, opts Options, pr *github.PR, threads [
 // resolved (under --resolve) for every addressed thread. Both are best-effort,
 // mirroring fix's postFixComment: a GitHub failure is logged and surfaced but
 // never aborts the run — the follow-up commit is already pushed.
-func (r *Runner) replyAndResolve(w io.Writer, opts Options, threads []report.AddressedThread) {
+func (r *Runner) replyAndResolve(w io.Writer, opts Options, threads []report.AddressedThread, model string) {
 	for _, t := range threads {
 		if t.ThreadID == "" || !parseStatus(t.Status).addressed() {
 			continue
 		}
 		if opts.Reply {
-			if url, err := r.GitHub.AddReviewThreadReply(t.ThreadID, formatThreadReply(t)); err != nil {
+			if url, err := r.GitHub.AddReviewThreadReply(t.ThreadID, formatThreadReply(t, model)); err != nil {
 				slog.Warn("posting thread reply failed", "thread", t.ThreadID, "err", err)
 				_, _ = fmt.Fprintf(w, "Could not reply to thread %s: %v\n", t.ThreadID, err)
 			} else {

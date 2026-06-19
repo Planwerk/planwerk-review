@@ -10,4 +10,8 @@ type Result struct {
 	Motivation  string `json:"motivation"`
 	Scope       string `json:"scope"`
 	Body        string `json:"body"`
+	// Model is the resolved Claude model id (e.g. "claude-opus-4-8") that
+	// produced this result. It is threaded per-run to the attribution footer
+	// and excluded from the serialized payload.
+	Model string `json:"-"`
 }

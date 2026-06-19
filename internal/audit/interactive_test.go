@@ -70,7 +70,7 @@ func TestBuildGroupBody_ContainsAllOccurrences(t *testing.T) {
 			{File: "a.go", Line: 20, Severity: report.SeverityWarning, Problem: "second problem", Action: "fix second"},
 		},
 	}
-	body := buildGroupBody(g)
+	body := buildGroupBody(g, "")
 	for _, want := range []string{
 		"**Severity**: WARNING",
 		"**File**: `a.go` (2 occurrences)",

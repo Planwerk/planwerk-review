@@ -25,12 +25,12 @@ import (
 // run tests, commit, and push the repaired branch without an interactive
 // confirmation — the same requirement the implement command has — while the
 // auto-mode classifier still vets each action.
-func (c *Client) Fix(dir string, ctx fix.Context) (string, error) {
-	out, err := c.runClaudeAuto(dir, BuildFixPrompt(ctx), "fix")
+func (c *Client) Fix(dir string, ctx fix.Context) (string, string, error) {
+	out, model, err := c.runClaudeAuto(dir, BuildFixPrompt(ctx), "fix")
 	if err != nil {
-		return "", fmt.Errorf("running fix: %w", err)
+		return "", "", fmt.Errorf("running fix: %w", err)
 	}
-	return sanitizeFixReport(out), nil
+	return sanitizeFixReport(out), model, nil
 }
 
 // fixReportHeading is the heading every fix report opens with. Both prompt

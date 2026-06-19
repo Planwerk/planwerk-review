@@ -43,8 +43,9 @@ type Context struct {
 
 // ImplementFn is the bare-function shape the CLI passes in to wire Claude
 // into the orchestrator. Returns a short human-readable summary of what
-// Claude did (already trimmed) — the orchestrator logs/prints this verbatim.
-type ImplementFn func(dir string, ctx Context) (string, error)
+// Claude did (already trimmed) — the orchestrator logs/prints this verbatim —
+// and the resolved Claude model id for the report's attribution footer.
+type ImplementFn func(dir string, ctx Context) (report, model string, err error)
 
 // PromptBuildFn renders the implement prompt for the given issue context
 // without invoking Claude. Wired in by the CLI so the implement subcommand
@@ -87,36 +88,37 @@ type BarePromptBuildFn func(ctx BareContext) string
 // claude.Implement; tests substitute a fake that returns scripted summaries
 // without invoking the real Claude CLI.
 type ClaudeImplementer interface {
-	Implement(dir string, ctx Context) (string, error)
+	Implement(dir string, ctx Context) (report, model string, err error)
 }
 
 type implementFnAdapter struct {
 	fn ImplementFn
 }
 
-func (a implementFnAdapter) Implement(dir string, ctx Context) (string, error) {
+func (a implementFnAdapter) Implement(dir string, ctx Context) (string, string, error) {
 	return a.fn(dir, ctx)
 }
 
 // PlanFn is the bare-function shape of the planning session the CLI wires
 // in. It runs read-only inside the checkout and returns the implementation
 // plan text (already trimmed) that the implement session receives via
-// Context.Plan.
-type PlanFn func(dir string, ctx Context) (string, error)
+// Context.Plan, plus the resolved planning-model id for the plan comment's
+// attribution footer.
+type PlanFn func(dir string, ctx Context) (plan, model string, err error)
 
 // ClaudePlanner is the injected dependency for the planning phase that
 // precedes the implement session. The production implementation is
 // claude.Plan (running on the dedicated planning model); tests substitute
 // a fake that returns scripted plans without invoking the real Claude CLI.
 type ClaudePlanner interface {
-	Plan(dir string, ctx Context) (string, error)
+	Plan(dir string, ctx Context) (plan, model string, err error)
 }
 
 type planFnAdapter struct {
 	fn PlanFn
 }
 
-func (a planFnAdapter) Plan(dir string, ctx Context) (string, error) {
+func (a planFnAdapter) Plan(dir string, ctx Context) (string, string, error) {
 	return a.fn(dir, ctx)
 }
 

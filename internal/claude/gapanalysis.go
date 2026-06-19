@@ -17,7 +17,7 @@ import (
 //  1. Analyze the spec vs. the code and produce a free-form gap report.
 //  2. Structure that report into JSON matching gapanalysis.Result.
 func (c *Client) GapAnalysis(dir string, ctx gapanalysis.AnalysisContext) (*gapanalysis.Result, error) {
-	rawAnalysis, err := c.runClaude(dir, buildGapAnalysisPrompt(ctx), "gap-analysis")
+	rawAnalysis, model, err := c.runClaude(dir, buildGapAnalysisPrompt(ctx), "gap-analysis")
 	if err != nil {
 		return nil, fmt.Errorf("running gap analysis: %w", err)
 	}
@@ -26,6 +26,7 @@ func (c *Client) GapAnalysis(dir string, ctx gapanalysis.AnalysisContext) (*gapa
 	if err != nil {
 		return nil, fmt.Errorf("structuring gap-analysis output: %w", err)
 	}
+	result.Model = model
 	return result, nil
 }
 
@@ -128,7 +129,9 @@ Now perform the gap analysis.
 // reconciled against the input feature list so the result has one entry per
 // audited feature even if the model dropped a fully-implemented feature.
 func (c *Client) structureGapResult(rawAnalysis string, ctx gapanalysis.AnalysisContext) (*gapanalysis.Result, error) {
-	text, err := c.runClaude("", buildGapStructurePrompt(rawAnalysis), "gap-structure")
+	// The structuring pass reuses the same model as the analysis call above,
+	// which already carries the model out; discard it here.
+	text, _, err := c.runClaude("", buildGapStructurePrompt(rawAnalysis), "gap-structure")
 	if err != nil {
 		return nil, err
 	}
