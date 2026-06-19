@@ -12,8 +12,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-
-	"github.com/planwerk/planwerk-review/internal/attribution"
 )
 
 // streamMaxLineBytes caps a single NDJSON line from claude. The final
@@ -126,7 +124,7 @@ func (slogStreamSink) toolResult(label string) {
 // passed to claude as --permission-mode; model is the --model value and
 // effort the --effort value the caller selected (c.model/c.effort, or
 // c.planModel/c.planEffort for the planning session).
-func (c *Client) runClaudeStream(dir, prompt, label, permissionMode, model, effort string) (string, error) {
+func (c *Client) runClaudeStream(dir, prompt, label, permissionMode, model, effort string) (string, string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
 
@@ -149,18 +147,18 @@ func (c *Client) runClaudeStream(dir, prompt, label, permissionMode, model, effo
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return "", fmt.Errorf("claude stdout pipe: %w", err)
+		return "", "", fmt.Errorf("claude stdout pipe: %w", err)
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return "", fmt.Errorf("claude stderr pipe: %w", err)
+		return "", "", fmt.Errorf("claude stderr pipe: %w", err)
 	}
 
 	sink := streamSinkFn()
 	sink.starting(label)
 
 	if err := cmd.Start(); err != nil {
-		return "", fmt.Errorf("claude start: %w", err)
+		return "", "", fmt.Errorf("claude start: %w", err)
 	}
 
 	var (
@@ -173,32 +171,28 @@ func (c *Client) runClaudeStream(dir, prompt, label, permissionMode, model, effo
 		_, _ = io.Copy(&stderrBuf, stderr)
 	}()
 
+	// resolvedModel is the exact id the session reported on its init event;
+	// it is returned so the caller threads it per-run into the artifact footers
+	// instead of a package-level global, not the alias passed via --model.
 	finalResult, accText, resolvedModel, scanErr := readStream(stdout, label, sink)
-
-	// Record the exact model id the session reported so the artifact footers
-	// (rendered after this call returns) name the model that produced them,
-	// not the alias the orchestrator passed via --model.
-	if resolvedModel != "" {
-		attribution.SetModel(resolvedModel)
-	}
 
 	waitErr := cmd.Wait()
 	wg.Wait()
 
 	if scanErr != nil {
-		return "", fmt.Errorf("claude stream read: %w\nstderr: %s", scanErr, stderrBuf.String())
+		return "", "", fmt.Errorf("claude stream read: %w\nstderr: %s", scanErr, stderrBuf.String())
 	}
 	if waitErr != nil {
-		return "", fmt.Errorf("claude: %w\nstderr: %s", waitErr, stderrBuf.String())
+		return "", "", fmt.Errorf("claude: %w\nstderr: %s", waitErr, stderrBuf.String())
 	}
 
 	if finalResult != "" {
-		return finalResult, nil
+		return finalResult, resolvedModel, nil
 	}
 	if accText != "" {
-		return accText, nil
+		return accText, resolvedModel, nil
 	}
-	return "", fmt.Errorf("claude stream produced no result\nstderr: %s", stderrBuf.String())
+	return "", "", fmt.Errorf("claude stream produced no result\nstderr: %s", stderrBuf.String())
 }
 
 // readStream consumes NDJSON events from r until EOF, dispatching to

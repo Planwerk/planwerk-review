@@ -12,7 +12,7 @@ import (
 // all requirements, scenarios, test specifications, and acceptance criteria
 // defined in a Planwerk feature file. It returns findings for any deviations.
 func (c *Client) FeatureCompliance(dir, baseBranch string, feature *planwerk.Feature) (*report.ReviewResult, error) {
-	rawReview, err := c.runClaude(dir, buildCompliancePrompt(baseBranch, feature), "compliance")
+	rawReview, model, err := c.runClaude(dir, buildCompliancePrompt(baseBranch, feature), "compliance")
 	if err != nil {
 		return nil, fmt.Errorf("running feature compliance check: %w", err)
 	}
@@ -30,6 +30,7 @@ func (c *Client) FeatureCompliance(dir, baseBranch string, feature *planwerk.Fea
 	}
 
 	assignIDs(result)
+	result.Model = model
 	return result, nil
 }
 

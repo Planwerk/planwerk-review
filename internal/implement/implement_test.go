@@ -44,14 +44,15 @@ type fakePlanner struct {
 	dir    string
 	ctx    Context
 	plan   string
+	model  string
 	err    error
 }
 
-func (f *fakePlanner) Plan(dir string, ctx Context) (string, error) {
+func (f *fakePlanner) Plan(dir string, ctx Context) (string, string, error) {
 	f.called.Add(1)
 	f.dir = dir
 	f.ctx = ctx
-	return f.plan, f.err
+	return f.plan, f.model, f.err
 }
 
 func TestRun_PlanFeedsImplement(t *testing.T) {
@@ -83,13 +84,13 @@ func TestRun_PlanFeedsImplement(t *testing.T) {
 	if !strings.Contains(gh.commentBodies[0], fp.plan) {
 		t.Errorf("first posted comment %q does not contain the plan %q", gh.commentBodies[0], fp.plan)
 	}
-	if !strings.Contains(gh.commentBodies[0], planCommentFooter()) {
+	if !strings.Contains(gh.commentBodies[0], planCommentFooter("")) {
 		t.Errorf("first posted comment is missing the plan attribution footer:\n%s", gh.commentBodies[0])
 	}
 	if !strings.Contains(gh.commentBodies[1], cl.report) {
 		t.Errorf("second posted comment %q does not contain the report %q", gh.commentBodies[1], cl.report)
 	}
-	if !strings.Contains(gh.commentBodies[1], reportCommentFooter()) {
+	if !strings.Contains(gh.commentBodies[1], reportCommentFooter("")) {
 		t.Errorf("second posted comment is missing the report attribution footer:\n%s", gh.commentBodies[1])
 	}
 	if !strings.Contains(buf.String(), "Posted the implementation plan as a comment on issue #42") {
@@ -139,10 +140,10 @@ func TestRun_NoPlanCommentSkipsComment(t *testing.T) {
 	if gh.commentCalls.Load() != 1 {
 		t.Fatalf("AddIssueComment called %d times, want 1 — --no-plan-comment skips only the plan, the report still posts", gh.commentCalls.Load())
 	}
-	if !strings.Contains(gh.commentBodies[0], reportCommentFooter()) {
+	if !strings.Contains(gh.commentBodies[0], reportCommentFooter("")) {
 		t.Errorf("the posted comment should be the report, got:\n%s", gh.commentBodies[0])
 	}
-	if strings.Contains(gh.commentBodies[0], planCommentFooter()) {
+	if strings.Contains(gh.commentBodies[0], planCommentFooter("")) {
 		t.Errorf("--no-plan-comment must suppress the plan comment, but it was posted:\n%s", gh.commentBodies[0])
 	}
 	if cl.ctx.Plan != fp.plan {
@@ -184,7 +185,7 @@ func TestRun_PostsReportComment(t *testing.T) {
 	if !strings.Contains(gh.commentBodies[0], cl.report) {
 		t.Errorf("posted comment %q does not contain the report %q", gh.commentBodies[0], cl.report)
 	}
-	if !strings.Contains(gh.commentBodies[0], reportCommentFooter()) {
+	if !strings.Contains(gh.commentBodies[0], reportCommentFooter("")) {
 		t.Errorf("posted comment is missing the attribution footer:\n%s", gh.commentBodies[0])
 	}
 	if !strings.Contains(buf.String(), "Posted the implementation report as a comment on issue #42") {
@@ -361,9 +362,9 @@ func TestStripPlanCommentFooter(t *testing.T) {
 		in   string
 		want string
 	}{
-		{"round-trips a formatted plan comment", formatPlanComment(plan), plan},
+		{"round-trips a formatted plan comment", formatPlanComment(plan, ""), plan},
 		{"no footer returned trimmed", "  " + plan + "  ", plan},
-		{"trailing separator and whitespace stripped", plan + "\n\n---\n\n" + planCommentFooter() + "\n\n", plan},
+		{"trailing separator and whitespace stripped", plan + "\n\n---\n\n" + planCommentFooter("") + "\n\n", plan},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -377,7 +378,7 @@ func TestStripPlanCommentFooter(t *testing.T) {
 func TestMostRecentPlanComment(t *testing.T) {
 	const planA = "## Implementation Plan (issue #42)\n\nfirst plan\n\nSTATUS: PLAN_READY"
 	const planB = "## Implementation Plan (issue #42)\n\nsecond plan\n\nSTATUS: PLAN_READY"
-	reportComment := "## Implementation Report (issue #42)\n\ndone\n\n---\n\n" + reportCommentFooter() + "\n"
+	reportComment := "## Implementation Report (issue #42)\n\ndone\n\n---\n\n" + reportCommentFooter("") + "\n"
 
 	cases := []struct {
 		name string
@@ -387,8 +388,8 @@ func TestMostRecentPlanComment(t *testing.T) {
 		{
 			name: "picks the last comment carrying both markers",
 			in: []github.IssueComment{
-				{Body: formatPlanComment(planA)},
-				{Body: formatPlanComment(planB)},
+				{Body: formatPlanComment(planA, "")},
+				{Body: formatPlanComment(planB, "")},
 			},
 			want: planB,
 		},
@@ -399,7 +400,7 @@ func TestMostRecentPlanComment(t *testing.T) {
 		},
 		{
 			name: "ignores the footer without the plan heading",
-			in:   []github.IssueComment{{Body: "random text\n\n---\n\n" + planCommentFooter() + "\n"}},
+			in:   []github.IssueComment{{Body: "random text\n\n---\n\n" + planCommentFooter("") + "\n"}},
 			want: "",
 		},
 		{
@@ -410,7 +411,7 @@ func TestMostRecentPlanComment(t *testing.T) {
 		{
 			name: "skips a later report to find the earlier plan",
 			in: []github.IssueComment{
-				{Body: formatPlanComment(planA)},
+				{Body: formatPlanComment(planA, "")},
 				{Body: reportComment},
 			},
 			want: planA,
@@ -440,10 +441,8 @@ func TestMostRecentPlanComment_SurvivesModelChange(t *testing.T) {
 	postedUnderFable := plan + "\n\n---\n\n_Implementation plan generated by " +
 		attribution.Link + " implement with Claude:claude-fable-5_\n"
 
-	// The current run resolved a different model; detection must not depend on it.
-	attribution.SetModel("claude-opus-4-8")
-	t.Cleanup(func() { attribution.SetModel("") })
-
+	// Detection keys on the model-independent marker, so a plan posted under one
+	// model id is still found and stripped regardless of the current run's model.
 	got := mostRecentPlanComment([]github.IssueComment{{Body: postedUnderFable}})
 	if got != plan {
 		t.Errorf("mostRecentPlanComment() = %q, want the plan stripped of its footer %q", got, plan)
@@ -458,7 +457,7 @@ func TestRun_ReusesExistingPlan(t *testing.T) {
 	gh := &fakeGitHub{
 		issue:    sampleIssue(),
 		cloneDir: t.TempDir(),
-		comments: []github.IssueComment{{Body: formatPlanComment(plan)}},
+		comments: []github.IssueComment{{Body: formatPlanComment(plan, "")}},
 	}
 	cl := &fakeClaude{report: "PR opened"}
 	fp := &fakePlanner{plan: "FRESH PLAN should not be used"}
@@ -484,10 +483,10 @@ func TestRun_ReusesExistingPlan(t *testing.T) {
 	if gh.commentCalls.Load() != 1 {
 		t.Fatalf("AddIssueComment called %d times, want 1 — only the report, no duplicate plan", gh.commentCalls.Load())
 	}
-	if strings.Contains(gh.commentBodies[0], planCommentFooter()) {
+	if strings.Contains(gh.commentBodies[0], planCommentFooter("")) {
 		t.Errorf("reuse must not re-post the plan, but a plan comment was posted:\n%s", gh.commentBodies[0])
 	}
-	if !strings.Contains(gh.commentBodies[0], reportCommentFooter()) {
+	if !strings.Contains(gh.commentBodies[0], reportCommentFooter("")) {
 		t.Errorf("the single posted comment should be the report, got:\n%s", gh.commentBodies[0])
 	}
 }
@@ -497,7 +496,7 @@ func TestRun_NoPlanReuseForcesFreshPlan(t *testing.T) {
 	gh := &fakeGitHub{
 		issue:    sampleIssue(),
 		cloneDir: t.TempDir(),
-		comments: []github.IssueComment{{Body: formatPlanComment(posted)}},
+		comments: []github.IssueComment{{Body: formatPlanComment(posted, "")}},
 	}
 	cl := &fakeClaude{report: "PR opened"}
 	fp := &fakePlanner{plan: "## Implementation Plan (issue #42)\n\nfresh\n\nSTATUS: PLAN_READY"}
@@ -528,7 +527,7 @@ func TestRun_ReusedPlanEscalationAborts(t *testing.T) {
 			gh := &fakeGitHub{
 				issue:    sampleIssue(),
 				cloneDir: t.TempDir(),
-				comments: []github.IssueComment{{Body: formatPlanComment(plan)}},
+				comments: []github.IssueComment{{Body: formatPlanComment(plan, "")}},
 			}
 			cl := &fakeClaude{report: "unused"}
 			fp := &fakePlanner{plan: "unused"}
@@ -561,7 +560,7 @@ func TestRun_NoPlanBeatsReuse(t *testing.T) {
 	gh := &fakeGitHub{
 		issue:    sampleIssue(),
 		cloneDir: t.TempDir(),
-		comments: []github.IssueComment{{Body: formatPlanComment(posted)}},
+		comments: []github.IssueComment{{Body: formatPlanComment(posted, "")}},
 	}
 	cl := &fakeClaude{report: "PR opened"}
 	fp := &fakePlanner{plan: "unused"}
@@ -861,14 +860,15 @@ type fakeClaude struct {
 	dir    string
 	ctx    Context
 	report string
+	model  string
 	err    error
 }
 
-func (f *fakeClaude) Implement(dir string, ctx Context) (string, error) {
+func (f *fakeClaude) Implement(dir string, ctx Context) (string, string, error) {
 	f.called.Add(1)
 	f.dir = dir
 	f.ctx = ctx
-	return f.report, f.err
+	return f.report, f.model, f.err
 }
 
 func sampleIssue() *github.Issue {

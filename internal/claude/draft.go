@@ -11,7 +11,9 @@ import (
 // sharpen a one-line feature idea into a fileable issue. It is the first of the
 // draft command's two Claude calls.
 func (c *Client) DraftQuestions(seed string) ([]string, error) {
-	text, err := c.runClaude("", buildDraftQuestionsPrompt(seed), "draft-questions")
+	// The clarifying questions are a transient prompt with no rendered footer,
+	// so the resolved model is not threaded out.
+	text, _, err := c.runClaude("", buildDraftQuestionsPrompt(seed), "draft-questions")
 	if err != nil {
 		return nil, fmt.Errorf("generating draft questions: %w", err)
 	}
@@ -29,7 +31,7 @@ func (c *Client) DraftQuestions(seed string) ([]string, error) {
 // with no checkout — draft describes the idea, it does not plan against the
 // repository.
 func (c *Client) Draft(ctx draft.Context) (*draft.Result, error) {
-	text, err := c.runClaude("", BuildDraftPrompt(ctx), "draft")
+	text, model, err := c.runClaude("", BuildDraftPrompt(ctx), "draft")
 	if err != nil {
 		return nil, fmt.Errorf("running draft: %w", err)
 	}
@@ -37,6 +39,7 @@ func (c *Client) Draft(ctx draft.Context) (*draft.Result, error) {
 	if err := c.decodeJSONWithRepair(text, "drafted issue", &result); err != nil {
 		return nil, err
 	}
+	result.Model = model
 	return &result, nil
 }
 

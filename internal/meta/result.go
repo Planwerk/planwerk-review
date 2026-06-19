@@ -35,6 +35,10 @@ type SubIssue struct {
 type Result struct {
 	SubIssues []SubIssue `json:"subIssues"`
 	MetaBody  string     `json:"metaBody"`
+	// Model is the resolved Claude model id (e.g. "claude-opus-4-8") that
+	// produced this result. It is threaded per-run to the attribution footer
+	// and excluded from the serialized payload.
+	Model string `json:"-"`
 }
 
 // validScopes is the set of accepted Scope values, matching the house draft
@@ -56,8 +60,9 @@ func metaRefPlaceholder(key string) string {
 // Category/Scope header line, Description and Motivation sections, and a
 // generated-by footer that points back at the Meta Issue. It deliberately stops
 // at draft depth — no acceptance criteria, affected areas, or implementation
-// steps. Scope defaults to Medium when the model leaves it blank.
-func BuildSubIssueBody(metaNumber int, s SubIssue) string {
+// steps. Scope defaults to Medium when the split leaves it blank. model is the
+// resolved Claude model id stamped into the footer.
+func BuildSubIssueBody(metaNumber int, s SubIssue, model string) string {
 	var b strings.Builder
 
 	scope := strings.TrimSpace(s.Scope)
@@ -74,7 +79,7 @@ func BuildSubIssueBody(metaNumber int, s SubIssue) string {
 		fmt.Fprintf(&b, "## Motivation\n\n%s\n\n", m)
 	}
 
-	fmt.Fprintf(&b, "---\n\n_Split from #%d by %s %s_\n", metaNumber, attribution.Tool(), attribution.Assistant())
+	fmt.Fprintf(&b, "---\n\n_Split from #%d by %s %s_\n", metaNumber, attribution.Tool(), attribution.AssistantWith(model))
 	return b.String()
 }
 

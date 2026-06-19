@@ -18,7 +18,7 @@ import (
 // confirmation. The decode shares decodeJSONWithRepair so a one-character JSON
 // glitch does not fail the run.
 func (c *Client) Address(dir string, ctx address.Context) (*report.AddressResult, error) {
-	out, err := c.runClaudeAuto(dir, BuildAddressPrompt(ctx), "address")
+	out, model, err := c.runClaudeAuto(dir, BuildAddressPrompt(ctx), "address")
 	if err != nil {
 		return nil, fmt.Errorf("running address: %w", err)
 	}
@@ -26,6 +26,7 @@ func (c *Client) Address(dir string, ctx address.Context) (*report.AddressResult
 	if err := c.decodeJSONWithRepair(out, "structured address-result", &result); err != nil {
 		return nil, err
 	}
+	result.Model = model
 	return &result, nil
 }
 

@@ -17,6 +17,10 @@ type Proposal struct {
 type ProposalResult struct {
 	RepositoryOverview string     `json:"repository_overview"`
 	Proposals          []Proposal `json:"proposals"`
+	// Model is the resolved Claude model id (e.g. "claude-opus-4-8") that
+	// produced this result. It is threaded per-run to the attribution footer
+	// and excluded from the serialized payload.
+	Model string `json:"-"`
 }
 
 // CategorizedProposals groups proposals by priority.

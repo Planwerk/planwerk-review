@@ -57,7 +57,7 @@ func TestBuildSubIssueBody(t *testing.T) {
 		Description: "Lay the groundwork.",
 		Motivation:  "Everything else builds on it.",
 		Scope:       "Large",
-	})
+	}, "")
 	for _, want := range []string{
 		"**Category**: feature | **Scope**: Large",
 		"## Description\n\nLay the groundwork.",
@@ -71,13 +71,10 @@ func TestBuildSubIssueBody(t *testing.T) {
 }
 
 // TestBuildSubIssueBody_NamesResolvedModel confirms the rendered footer carries
-// the resolved model id when the session recorded one — the renderer reads it
-// through internal/attribution rather than hardcoding the assistant name.
+// the resolved model id passed per-run — the renderer threads it through
+// internal/attribution rather than hardcoding the assistant name.
 func TestBuildSubIssueBody_NamesResolvedModel(t *testing.T) {
-	attribution.SetModel("claude-opus-4-8")
-	t.Cleanup(func() { attribution.SetModel("") })
-
-	body := BuildSubIssueBody(525, SubIssue{Key: "a", Title: "Foundation", Description: "Lay the groundwork."})
+	body := BuildSubIssueBody(525, SubIssue{Key: "a", Title: "Foundation", Description: "Lay the groundwork."}, "claude-opus-4-8")
 	want := "_Split from #525 by [planwerk-review](https://github.com/planwerk/planwerk-review) with Claude:claude-opus-4-8_"
 	if !strings.Contains(body, want) {
 		t.Errorf("body missing model-named footer %q\n%s", want, body)
@@ -89,14 +86,10 @@ func TestBuildSubIssueBody_NamesResolvedModel(t *testing.T) {
 // model — the shared shape every artifact uses so headers and footers read
 // identically.
 func TestBuildSubIssueBody_NamesVersionAndModel(t *testing.T) {
-	attribution.SetModel("claude-opus-4-8")
 	attribution.SetVersion("e1efd0d")
-	t.Cleanup(func() {
-		attribution.SetModel("")
-		attribution.SetVersion("")
-	})
+	t.Cleanup(func() { attribution.SetVersion("") })
 
-	body := BuildSubIssueBody(525, SubIssue{Key: "a", Title: "Foundation", Description: "Lay the groundwork."})
+	body := BuildSubIssueBody(525, SubIssue{Key: "a", Title: "Foundation", Description: "Lay the groundwork."}, "claude-opus-4-8")
 	want := "_Split from #525 by [planwerk-review](https://github.com/planwerk/planwerk-review) e1efd0d with Claude:claude-opus-4-8_"
 	if !strings.Contains(body, want) {
 		t.Errorf("body missing version+model footer %q\n%s", want, body)
@@ -104,7 +97,7 @@ func TestBuildSubIssueBody_NamesVersionAndModel(t *testing.T) {
 }
 
 func TestBuildSubIssueBodyDefaultsScopeToMedium(t *testing.T) {
-	body := BuildSubIssueBody(1, SubIssue{Key: "a", Title: "T", Description: "D"})
+	body := BuildSubIssueBody(1, SubIssue{Key: "a", Title: "T", Description: "D"}, "")
 	if !strings.Contains(body, "**Scope**: Medium") {
 		t.Errorf("blank scope should default to Medium, got:\n%s", body)
 	}

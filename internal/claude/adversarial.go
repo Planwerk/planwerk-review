@@ -10,7 +10,7 @@ import (
 // It focuses on security vulnerabilities, failure modes, and attack vectors.
 // baseBranch scopes the review to changes relative to the given branch.
 func (c *Client) AdversarialReview(dir, baseBranch string) (*report.ReviewResult, error) {
-	rawReview, err := c.runAdversarialReview(dir, baseBranch)
+	rawReview, model, err := c.runAdversarialReview(dir, baseBranch)
 	if err != nil {
 		return nil, fmt.Errorf("running adversarial review: %w", err)
 	}
@@ -28,10 +28,11 @@ func (c *Client) AdversarialReview(dir, baseBranch string) (*report.ReviewResult
 	}
 
 	assignIDs(result)
+	result.Model = model
 	return result, nil
 }
 
-func (c *Client) runAdversarialReview(dir, baseBranch string) (string, error) {
+func (c *Client) runAdversarialReview(dir, baseBranch string) (text, model string, err error) {
 	return c.runClaude(dir, buildAdversarialPrompt(baseBranch), "adversarial")
 }
 

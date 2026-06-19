@@ -11,7 +11,8 @@ import (
 // deterministic repair without invoking the claude CLI; the *Client carries the
 // session configuration the repair call runs under.
 var repairJSON = func(c *Client, malformed string, parseErr error, label string) (string, error) {
-	return c.runClaude("", buildRepairPrompt(malformed, parseErr), label+"-repair")
+	text, _, err := c.runClaude("", buildRepairPrompt(malformed, parseErr), label+"-repair")
+	return text, err
 }
 
 // repairInvalidJSON asks Claude to fix JSON that parsed cleanly but failed
@@ -20,7 +21,8 @@ var repairJSON = func(c *Client, malformed string, parseErr error, label string)
 // deterministic repair without invoking the claude CLI; the *Client carries the
 // session configuration the repair call runs under.
 var repairInvalidJSON = func(c *Client, invalid string, validationErr error, label string) (string, error) {
-	return c.runClaude("", buildValidationRepairPrompt(invalid, validationErr), label+"-schema-repair")
+	text, _, err := c.runClaude("", buildValidationRepairPrompt(invalid, validationErr), label+"-schema-repair")
+	return text, err
 }
 
 // decodeJSONWithRepair strips markdown fences from text and unmarshals it into

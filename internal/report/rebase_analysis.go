@@ -17,6 +17,10 @@ type RebaseAnalysis struct {
 	Commits        []CommitAnalysis `json:"commits"`
 	Summary        string           `json:"summary"`
 	Recommendation string           `json:"recommendation"`
+	// Model is the resolved Claude model id (e.g. "claude-opus-4-8") that
+	// produced this analysis. It is threaded per-run to the attribution footer
+	// and excluded from the serialized payload.
+	Model string `json:"-"`
 }
 
 // CommitAnalysis carries the per-commit verdict: the rebased commit's SHA and
@@ -57,7 +61,7 @@ func (r *Renderer) RenderRebaseAnalysisJSON(result RebaseAnalysis) error {
 func (r *Renderer) RenderRebaseAnalysisMarkdown(result RebaseAnalysis, repoFullName string, prNumber int, onto, version string) {
 	_, _ = fmt.Fprintf(r.w, "# Rebase analysis: %s#%d\n\n", repoFullName, prNumber)
 	_, _ = fmt.Fprintf(r.w, "> Rebased onto `%s`  \n", onto)
-	_, _ = fmt.Fprintf(r.w, "> Analyzed by %s %s\n\n", attribution.ToolWithVersion(version), attribution.Assistant())
+	_, _ = fmt.Fprintf(r.w, "> Analyzed by %s %s\n\n", attribution.ToolWithVersion(version), attribution.AssistantWith(result.Model))
 
 	_, _ = fmt.Fprintf(r.w, "<!-- planwerk-rebase: commits=%d adjustments=%d -->\n\n",
 		len(result.Commits), countAdjustments(result.Commits))

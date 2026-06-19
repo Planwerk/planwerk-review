@@ -115,14 +115,15 @@ func (f *fakeGitHub) AddPRComment(owner, name string, number int, body string) (
 type fakeClaude struct {
 	called atomic.Int32
 	report string
+	model  string
 	err    error
 	ctx    Context
 }
 
-func (f *fakeClaude) Fix(_ string, ctx Context) (string, error) {
+func (f *fakeClaude) Fix(_ string, ctx Context) (string, string, error) {
 	f.called.Add(1)
 	f.ctx = ctx
-	return f.report, f.err
+	return f.report, f.model, f.err
 }
 
 type fakePrompter struct {
@@ -258,7 +259,7 @@ func TestRun_PostsFixComment(t *testing.T) {
 	if !strings.Contains(body, "corrected the slice bound") || !strings.Contains(body, "### Per check") {
 		t.Errorf("posted comment dropped the fix details:\n%s", body)
 	}
-	if !strings.Contains(body, fixCommentFooter()) {
+	if !strings.Contains(body, fixCommentFooter(cl.model)) {
 		t.Errorf("posted comment is missing the attribution footer:\n%s", body)
 	}
 	if !strings.Contains(buf.String(), "Posted the fix report as a comment on PR #7") {

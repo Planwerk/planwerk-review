@@ -8,8 +8,6 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-
-	"github.com/planwerk/planwerk-review/internal/attribution"
 )
 
 const (
@@ -201,10 +199,10 @@ func WithShowOutput(b bool) Option {
 }
 
 // runClaude invokes claude in the given directory on its default permission
-// mode and returns the extracted text response. Use it for the read-only
-// analysis steps (review, audit, structure, repair, …) that do not mutate
-// the checkout.
-func (c *Client) runClaude(dir, prompt, label string) (string, error) {
+// mode and returns the extracted text response along with the resolved model
+// id the session reported. Use it for the read-only analysis steps (review,
+// audit, structure, repair, …) that do not mutate the checkout.
+func (c *Client) runClaude(dir, prompt, label string) (text, model string, err error) {
 	return c.runClaudeWithPermission(dir, prompt, label, "", c.model, c.effort)
 }
 
@@ -215,7 +213,7 @@ func (c *Client) runClaude(dir, prompt, label string) (string, error) {
 // the default (read-only) permission mode while the strongest-reasoning model
 // thinks at the largest budget — the one session where that depth steers the
 // whole implementation.
-func (c *Client) runClaudePlan(dir, prompt, label string) (string, error) {
+func (c *Client) runClaudePlan(dir, prompt, label string) (text, model string, err error) {
 	return c.runClaudeWithPermission(dir, prompt, label, "", c.planModel, c.planEffort)
 }
 
@@ -225,7 +223,7 @@ func (c *Client) runClaudePlan(dir, prompt, label string) (string, error) {
 // `claude -p` session runs unattended inside a checkout and must commit,
 // push a feature branch, and open a PR without a human confirming each
 // step. The auto-mode classifier still vets every action.
-func (c *Client) runClaudeAuto(dir, prompt, label string) (string, error) {
+func (c *Client) runClaudeAuto(dir, prompt, label string) (text, model string, err error) {
 	return c.runClaudeWithPermission(dir, prompt, label, claudeAutoPermissionMode, c.model, c.effort)
 }
 
@@ -243,7 +241,7 @@ func (c *Client) runClaudeAuto(dir, prompt, label string) (string, error) {
 // runClaudeStream, which uses --output-format stream-json --verbose and
 // surfaces output incrementally; the periodic heartbeat is skipped in that
 // mode because the stream itself is the heartbeat.
-func (c *Client) runClaudeWithPermission(dir, prompt, label, permissionMode, model, effort string) (string, error) {
+func (c *Client) runClaudeWithPermission(dir, prompt, label, permissionMode, model, effort string) (string, string, error) {
 	if c.showOutput {
 		return c.runClaudeStream(dir, prompt, label, permissionMode, model, effort)
 	}
@@ -273,21 +271,18 @@ func (c *Client) runClaudeWithPermission(dir, prompt, label, permissionMode, mod
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
-			return "", fmt.Errorf("claude: %w\nstderr: %s", err, exitErr.Stderr)
+			return "", "", fmt.Errorf("claude: %w\nstderr: %s", err, exitErr.Stderr)
 		}
-		return "", fmt.Errorf("claude: %w", err)
+		return "", "", fmt.Errorf("claude: %w", err)
 	}
-	text, model, err := extractText(out)
+	// The returned model is the exact id the envelope reports (e.g.
+	// "claude-opus-4-8"); the caller threads it per-run into the artifact
+	// footers instead of a package-level global, mirroring runClaudeStream.
+	text, resolvedModel, err := extractText(out)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	// Record the exact model id the envelope reports so the artifact footers
-	// (rendered after this call returns) name the model that produced them,
-	// mirroring the streaming path in runClaudeStream.
-	if model != "" {
-		attribution.SetModel(model)
-	}
-	return text, nil
+	return text, resolvedModel, nil
 }
 
 type claudeResponse struct {

@@ -118,7 +118,7 @@ func TestBuildIssueBody_FallbackContents(t *testing.T) {
 		Source:      "User can not submit an empty password",
 		Confidence:  ConfidenceLikely,
 	}
-	body := buildIssueBody(g)
+	body := buildIssueBody(g, "")
 	for _, want := range []string{"Severity", "WARNING", "missing_criterion", "From the Planwerk spec", "auth/login.go"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("body missing %q:\n%s", want, body)

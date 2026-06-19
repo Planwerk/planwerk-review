@@ -12,7 +12,9 @@ import (
 // If the first attempt produces invalid JSON, decodeJSONWithRepair retries once
 // with the parse error included so Claude can correct the output.
 func (c *Client) structureReview(rawReview string) (*report.ReviewResult, error) {
-	text, err := c.runClaude("", buildStructurePrompt(rawReview), "structure")
+	// The structuring pass reuses the same model as the primary review call;
+	// the entry point carries that model out, so discard it here.
+	text, _, err := c.runClaude("", buildStructurePrompt(rawReview), "structure")
 	if err != nil {
 		return nil, err
 	}

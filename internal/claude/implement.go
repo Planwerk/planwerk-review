@@ -15,7 +15,7 @@ import (
 // report: it diffs the feature branch and reads the actual committed code.
 // Findings are returned for every criterion that is not fully satisfied.
 func (c *Client) VerifyImplementation(dir, issueTitle, issueBody string) (*report.ReviewResult, error) {
-	raw, err := c.runClaudeAuto(dir, buildVerifyImplementationPrompt(issueTitle, issueBody), "verify-implementation")
+	raw, model, err := c.runClaudeAuto(dir, buildVerifyImplementationPrompt(issueTitle, issueBody), "verify-implementation")
 	if err != nil {
 		return nil, fmt.Errorf("running implementation verification: %w", err)
 	}
@@ -29,6 +29,7 @@ func (c *Client) VerifyImplementation(dir, issueTitle, issueBody string) (*repor
 		}
 	}
 	assignIDs(result)
+	result.Model = model
 	return result, nil
 }
 
@@ -101,12 +102,12 @@ IMPORTANT: Completely ignore changes in the .planwerk/ directory.
 // files, run tests, commit, push the branch, and open the draft PR without
 // an interactive confirmation, while the auto-mode classifier still vets
 // each action.
-func (c *Client) Implement(dir string, ctx implement.Context) (string, error) {
-	out, err := c.runClaudeAuto(dir, BuildImplementPrompt(ctx), "implement")
+func (c *Client) Implement(dir string, ctx implement.Context) (string, string, error) {
+	out, model, err := c.runClaudeAuto(dir, BuildImplementPrompt(ctx), "implement")
 	if err != nil {
-		return "", fmt.Errorf("running implement: %w", err)
+		return "", "", fmt.Errorf("running implement: %w", err)
 	}
-	return sanitizeImplementationReport(out), nil
+	return sanitizeImplementationReport(out), model, nil
 }
 
 // implementReportHeading is the heading every implementation report opens with
