@@ -778,6 +778,14 @@ type fakeGitHub struct {
 	commentErr    error
 	commentCalls  atomic.Int32
 	commentBodies []string
+
+	pr             *github.PRRef
+	prErr          error
+	currentPRCalls atomic.Int32
+
+	prCommentErr    error
+	prCommentCalls  atomic.Int32
+	prCommentBodies []string
 }
 
 func (f *fakeGitHub) GetIssue(owner, name string, number int) (*github.Issue, error) {
@@ -839,6 +847,29 @@ func (f *fakeGitHub) AddIssueComment(owner, name string, number int, body string
 	}
 	f.commentBodies = append(f.commentBodies, body)
 	return fmt.Sprintf("https://github.com/%s/%s/issues/%d#issuecomment-1", owner, name, number), nil
+}
+
+// CurrentPR returns the canned PR ref for the simplify pass, unless prErr is
+// set to simulate a gh failure. The default zero value (nil pr, nil err) means
+// "no PR associated with the branch", so the simplify pass skips cleanly.
+func (f *fakeGitHub) CurrentPR(_ string) (*github.PRRef, error) {
+	f.currentPRCalls.Add(1)
+	if f.prErr != nil {
+		return nil, f.prErr
+	}
+	return f.pr, nil
+}
+
+// AddPRComment records each posted PR-comment body in order and returns a canned
+// URL, unless prCommentErr is set to simulate a GitHub failure. The simplify
+// pass posts its report here.
+func (f *fakeGitHub) AddPRComment(owner, name string, number int, body string) (string, error) {
+	f.prCommentCalls.Add(1)
+	if f.prCommentErr != nil {
+		return "", f.prCommentErr
+	}
+	f.prCommentBodies = append(f.prCommentBodies, body)
+	return fmt.Sprintf("https://github.com/%s/%s/pull/%d#issuecomment-1", owner, name, number), nil
 }
 
 // CloneRepoLocal mirrors github.UseLocalRepo: it returns a Local repo so
