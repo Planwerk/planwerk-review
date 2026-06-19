@@ -220,7 +220,9 @@ func TestBuildBareDraftPrompt_Golden(t *testing.T) {
 // goldenMetaIssue and goldenSiblingIssues describe the Meta/Sub-Issue
 // neighborhood shared by the elaborate and plan "meta" goldens: the source
 // issue (#42) is a Sub Issue of Meta Issue #40, which has two other Sub Issues —
-// an open follow-up (#43) and a closed, already-implemented one (#41).
+// an open follow-up (#43) that already carries an open PR and a draft PR, and a
+// closed, already-implemented one (#41) with no open PRs. The PRs exercise the
+// <linked-prs> sub-block and its open/draft labels.
 func goldenMetaIssue() *github.Issue {
 	return &github.Issue{
 		Owner:  "planwerk",
@@ -242,6 +244,10 @@ func goldenSiblingIssues() []github.Issue {
 			URL:    "https://github.com/planwerk/planwerk-review/issues/43",
 			Body:   "Follow-up to the golden tests: ensure the goldens actually fail on meaningful prompt drift.",
 			State:  "open",
+			LinkedPRs: []github.LinkedPR{
+				{Number: 57, Title: "Add mutation testing harness", URL: "https://github.com/planwerk/planwerk-review/pull/57", State: "open"},
+				{Number: 58, Title: "WIP: mutate prompt builders", URL: "https://github.com/planwerk/planwerk-review/pull/58", State: "open", IsDraft: true},
+			},
 		},
 		{
 			Owner: "planwerk", Name: "planwerk-review",

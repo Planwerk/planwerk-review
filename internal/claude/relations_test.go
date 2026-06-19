@@ -70,6 +70,49 @@ func TestRenderIssueRelations_ChildrenWhenIssueIsItselfMeta(t *testing.T) {
 	}
 }
 
+func TestRenderIssueRelations_LinkedPRsRendered(t *testing.T) {
+	var sb strings.Builder
+	meta := &github.Issue{Number: 1, Title: "Meta", Body: "Meta body", State: "open"}
+	siblings := []github.Issue{
+		{Number: 2, Title: "Sibling with PRs", Body: "body", State: "open", LinkedPRs: []github.LinkedPR{
+			{Number: 20, Title: "Implement it", URL: "https://example.com/pull/20", State: "open"},
+			{Number: 21, Title: "WIP", URL: "https://example.com/pull/21", State: "open", IsDraft: true},
+		}},
+		{Number: 3, Title: "Sibling without PRs", Body: "body", State: "open"},
+	}
+	renderIssueRelations(&sb, meta, siblings, nil)
+	got := sb.String()
+
+	for _, want := range []string{
+		"- PR #20 (open): Implement it — https://example.com/pull/20",
+		"- PR #21 (draft): WIP — https://example.com/pull/21",
+		"open pull request",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rendered section missing %q\n---\n%s", want, got)
+		}
+	}
+
+	// The sibling without PRs must not emit a <linked-prs> block. Match the
+	// opening tag as its own line ("<linked-prs>\n") to distinguish a real block
+	// from the guidance prose, which mentions `<linked-prs>` inline.
+	if n := strings.Count(got, "<linked-prs>\n"); n != 1 {
+		t.Errorf("got %d <linked-prs> blocks, want 1 (only the sibling with PRs)\n---\n%s", n, got)
+	}
+}
+
+func TestRenderIssueRelations_NoLinkedPRsEmitsNoBlock(t *testing.T) {
+	var sb strings.Builder
+	meta := &github.Issue{Number: 1, Title: "Meta", Body: "Meta body", State: "open"}
+	siblings := []github.Issue{{Number: 2, Title: "Sibling", Body: "body", State: "open"}}
+	renderIssueRelations(&sb, meta, siblings, nil)
+	// Match the opening tag as its own line so the guidance prose's inline
+	// mention of `<linked-prs>` does not register as a rendered block.
+	if strings.Contains(sb.String(), "<linked-prs>\n") {
+		t.Errorf("rendered a <linked-prs> block for a Sub Issue with no PRs\n%s", sb.String())
+	}
+}
+
 func TestRenderIssueRelations_EmptyStateFallsBackToUnknown(t *testing.T) {
 	var sb strings.Builder
 	meta := &github.Issue{Number: 1, Title: "Meta", Body: "", State: ""}

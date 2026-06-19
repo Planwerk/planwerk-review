@@ -89,6 +89,10 @@ type Issue struct {
 	Body   string `json:"body"`
 	URL    string `json:"url"`
 	State  string `json:"state"`
+	// LinkedPRs are the open pull requests linked to this issue via GitHub's
+	// closed-by relationship. Populated only for the sibling and child Sub Issues
+	// GetIssueRelations returns; nil for an Issue fetched any other way.
+	LinkedPRs []LinkedPR `json:"-"`
 }
 
 var (
