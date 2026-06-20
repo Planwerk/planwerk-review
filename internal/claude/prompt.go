@@ -42,7 +42,7 @@ Review the FULL pull request diff — every commit between origin/%s and HEAD mu
 
 	// Review patterns (grouped by category: technology, design-principle, project)
 	if len(ctx.Patterns) > 0 {
-		sb.WriteString("Before running the review, consider these review patterns grouped by category. Flag violations in your review, noting the pattern source when referencing best practice patterns:\n\n")
+		sb.WriteString("Apply these review patterns grouped by category. Flag violations in your review, noting the pattern source when referencing best practice patterns:\n\n")
 		sb.WriteString("<review-patterns>\n")
 		sb.WriteString(patterns.FormatGroupedForPrompt(ctx.Patterns, ctx.MaxPatterns))
 		sb.WriteString("</review-patterns>\n\n")

@@ -94,9 +94,7 @@ DO NOT comment on:
 - Code style, naming, or formatting.
 - Anything whose removal would change observable behavior.
 
-IMPORTANT: Completely ignore all changes in the .planwerk/ directory.
-
-`, baseBranch, baseBranch) + communicationStyleBlock() + outputLanguageBlock() + "/review"
+`, baseBranch, baseBranch) + planwerkIgnoreLine() + communicationStyleBlock() + outputLanguageBlock() + "/review"
 }
 
 // simplifyReportHeading is the heading every simplification report opens with.

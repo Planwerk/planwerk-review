@@ -82,9 +82,9 @@ If EVERY criterion is fully satisfied with cited evidence, report an empty findi
 
 For EVERY finding, include: the Acceptance Criterion it concerns (quote it in the problem), a code snippet (the satisfying/contradicting lines, or "No implementation found"), a concrete suggested fix, and a confidence level (verified | likely | uncertain).
 
-IMPORTANT: Completely ignore changes in the .planwerk/ directory.
-
-/review`)
+`)
+	sb.WriteString(planwerkIgnoreLine())
+	sb.WriteString("/review")
 
 	return sb.String()
 }

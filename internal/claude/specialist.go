@@ -130,9 +130,9 @@ Report nothing outside this domain. If your domain has no issues in this diff, r
 
 For EVERY finding, include: a code snippet (the exact problematic lines from the diff), a concrete suggested fix, and a confidence level — "verified" (visible in the diff with certainty), "likely" (strong evidence, depends on wider context), or "uncertain" (needs investigation). Quote the triggering line verbatim; if you cannot, set confidence to "uncertain".
 
-IMPORTANT: Completely ignore all changes in the .planwerk/ directory.
-
-/review`)
+`)
+	sb.WriteString(planwerkIgnoreLine())
+	sb.WriteString("/review")
 
 	return sb.String()
 }
