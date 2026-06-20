@@ -167,6 +167,39 @@ func TestLoadShippedPatterns_DeepModules(t *testing.T) {
 	}
 }
 
+// TestLoadShippedPatterns_TestBehavior pins the optional test-quality pattern
+// as a cross-cutting testing/design-principle pattern so a rename or an
+// accidental Applies-When tag surfaces immediately.
+func TestLoadShippedPatterns_TestBehavior(t *testing.T) {
+	root := projectRoot()
+	patsDir := filepath.Join(root, "internal", "patterns", "patterns")
+
+	all, err := patterns.Load(patsDir)
+	if err != nil {
+		t.Fatalf("loading shipped patterns: %v", err)
+	}
+
+	var tb *patterns.Pattern
+	for i := range all {
+		if all[i].Name == "Test Behavior, Not Implementation" {
+			tb = &all[i]
+			break
+		}
+	}
+	if tb == nil {
+		t.Fatal("missing pattern: Test Behavior, Not Implementation")
+	}
+	if tb.ReviewArea != "testing" {
+		t.Errorf("ReviewArea = %q, want testing", tb.ReviewArea)
+	}
+	if tb.Category != designPrincipleCategory {
+		t.Errorf("category = %q, want design-principle", tb.Category)
+	}
+	if len(tb.AppliesWhen) != 0 {
+		t.Errorf("AppliesWhen = %v, want empty (must apply to every project)", tb.AppliesWhen)
+	}
+}
+
 // TestLoadShippedPatterns_PythonDocstrings pins the per-language docstring
 // pattern as Python-scoped so it does not pollute non-Python reviews.
 func TestLoadShippedPatterns_PythonDocstrings(t *testing.T) {
