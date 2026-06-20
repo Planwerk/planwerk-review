@@ -4,14 +4,15 @@ import { defineConfig } from 'vitepress'
 //
 // The site is organized along the Diátaxis framework
 // (https://diataxis.fr/): Tutorials (learning), How-to guides (tasks),
-// Reference (lookup), and Explanation (understanding). The `base` matches the
-// GitHub Pages project path (https://planwerk.github.io/planwerk-review/);
-// without it the asset and link URLs 404 on the published site.
+// Reference (lookup), and Explanation (understanding). The `base` must match the
+// GitHub Pages project path (https://planwerk.github.io/planwerk-agent/), which
+// is derived from the repository name; without a matching base the asset and
+// link URLs 404 on the published site.
 export default defineConfig({
   title: 'planwerk-review',
   description:
     'AI-powered code review and codebase analysis for GitHub repositories.',
-  base: '/planwerk-review/',
+  base: '/planwerk-agent/',
   cleanUrls: true,
   lastUpdated: true,
 
