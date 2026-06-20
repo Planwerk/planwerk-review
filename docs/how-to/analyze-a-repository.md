@@ -63,3 +63,33 @@ fails, dedupe is skipped with a warning and the pipeline continues.
 Pass `--no-issue-dedupe` (on either subcommand) to disable the filter for
 debugging or when you want to see the full candidate list regardless of upstream
 state.
+
+## Stop re-proposing rejected ideas
+
+Existing-issue dedupe only filters ideas already filed as issues. To stop
+`propose` from re-suggesting an idea your team considered and *rejected* — one
+that was never filed — keep a knowledge base of rejected concepts in the target
+repo under `.planwerk/out-of-scope/`, one Markdown file per concept:
+
+```text
+.planwerk/out-of-scope/
+├── plugin-system.md
+└── hosted-web-dashboard.md
+```
+
+Give each file a `#` heading (used as the concept's name; the filename without
+its extension is the fallback) and a short rationale:
+
+```markdown
+# Plugin system
+
+A runtime plugin loader was rejected: the pattern catalog is compiled in on
+purpose.
+```
+
+`propose` reads the directory on every run and instructs Claude not to
+re-propose those concepts or close variants of them. The directory is optional —
+a repo without it runs unchanged — and read-only: rejecting a proposal does not
+add an entry, you curate the files yourself. Because the knowledge base is
+committed, editing it busts the per-commit analysis cache automatically, so the
+next run picks up your change.
