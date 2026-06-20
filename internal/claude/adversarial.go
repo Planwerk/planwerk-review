@@ -76,7 +76,5 @@ For every finding you report:
 - Rate your confidence: "verified" (exploit confirmed in code), "likely" (strong evidence), "uncertain" (theoretical concern)
 - If multiple findings are related (e.g., an injection vector and a missing input validation), note the connection by referencing the other finding's title
 
-IMPORTANT: Completely ignore all changes in the .planwerk/ directory.
-
-`, baseBranch, baseBranch) + communicationStyleBlock() + outputLanguageBlock() + "/review"
+`, baseBranch, baseBranch) + planwerkIgnoreLine() + communicationStyleBlock() + outputLanguageBlock() + "/review"
 }

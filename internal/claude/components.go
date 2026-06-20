@@ -174,6 +174,22 @@ Be direct and decisive in your findings. Do NOT hedge:
 `
 }
 
+// planwerkIgnoreLine returns the standard instruction that tells a review-type
+// session to ignore the project-management artifacts under .planwerk/. The four
+// finding-producing builders that scope to a diff — adversarial, simplify, the
+// fan-out specialist, and the implementation verifier — share this one line so
+// the wording cannot drift between them (it already had: one copy read "ignore
+// changes", the others "ignore all changes").
+//
+// Two builders keep their own elaborated wording on purpose: the primary review
+// prompt adds that no findings may be created for .planwerk/ files because they
+// are always expected in the diff, and the compliance prompt narrows the focus
+// to actual code/test/doc changes. Those are builder-specific elaborations, not
+// drift, so they are not collapsed here.
+func planwerkIgnoreLine() string {
+	return "IMPORTANT: Completely ignore all changes in the .planwerk/ directory.\n\n"
+}
+
 // commitTrailerBlock returns the "## Commit trailers" section shared by every
 // prompt whose session creates commits (implement, fix, address, and their
 // bare variants). It pins the trailer convention the maintainers require on

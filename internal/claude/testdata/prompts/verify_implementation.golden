@@ -60,6 +60,6 @@ Write your entire output in English, whatever language the input is written in â
 
 For EVERY finding, include: the Acceptance Criterion it concerns (quote it in the problem), a code snippet (the satisfying/contradicting lines, or "No implementation found"), a concrete suggested fix, and a confidence level (verified | likely | uncertain).
 
-IMPORTANT: Completely ignore changes in the .planwerk/ directory.
+IMPORTANT: Completely ignore all changes in the .planwerk/ directory.
 
 /review
