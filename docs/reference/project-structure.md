@@ -73,7 +73,7 @@ planwerk-review/
 │   │   ├── pattern.go          # Pattern data structure + parsing
 │   │   ├── pattern_test.go
 │   │   ├── sources.go          # Source dispatch (embedded + on-disk + remote)
-│   │   └── patterns/           # Embedded review-pattern catalog (14 design + 67 technology + SOURCES.md)
+│   │   └── patterns/           # Embedded review-pattern catalog (16 design + 67 technology + review + SOURCES.md)
 │   ├── propose/
 │   │   ├── interactive.go      # Interactive GitHub issue creation flow
 │   │   ├── proposal.go         # Proposal data structure + categorization
