@@ -134,6 +134,61 @@ planwerk-review audit --format json owner/repo
 | `--local` | Operate on the current working directory instead of cloning into a temp dir (see [Use local mode](/how-to/use-local-mode)). The repository reference may be omitted — it is inferred from the `origin` remote. | `false` |
 | `--force` | With `--local`, skip the confirmation prompt when the working tree is dirty | `false` |
 
+## `extract`
+
+Anchor a target repository's [GitHub Wiki](/reference/review-patterns#github-wiki)
+review patterns into committed, reproducible files — the path back from a
+fast-moving, world-editable wiki to a code-coupled knowledge store. The command
+is mechanical (it never calls Claude): it reads the wiki's `review_patterns/`
+directory, lets you select which entries to anchor, and writes the selected
+files.
+
+There are three write modes:
+
+- **Default** — write the selected patterns into the target repo's
+  `.planwerk/review_patterns/` and open a pull request through the existing
+  PR-creation path.
+- **`--local`** — write them directly into the current working tree's
+  `.planwerk/review_patterns/` instead of opening a PR.
+- **`--to-catalog`** — anchor them into this `planwerk-review` checkout's
+  bundled review catalog (`internal/patterns/patterns/review/`), normalizing
+  each pattern's frontmatter to the `review` category. This is the
+  maintainer/contribution path and must be run from a `planwerk-review`
+  checkout.
+
+By default the patterns are selected interactively (`y/N/q` per pattern). Pass
+`--all` to take every pattern, or `--pattern <stem>` (repeatable) to take
+specific ones by filename. A non-interactive run (no TTY) requires one of those
+flags: the wiki is an untrusted, world-editable source, so it refuses to extract
+(and, in the default mode, push into a PR) every pattern without an explicit
+choice rather than failing open.
+
+```bash
+planwerk-review extract owner/repo                       # interactive, opens a PR
+planwerk-review extract owner/repo --all                 # every pattern, opens a PR
+planwerk-review extract owner/repo --pattern my-rule --local
+planwerk-review extract owner/repo --all --to-catalog    # contribute to the bundled catalog
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--pattern` | Extract only the named wiki pattern(s) by filename stem (repeatable) | - |
+| `--all` | Extract every wiki review pattern without prompting | `false` |
+| `--to-catalog` | Anchor into this checkout's bundled review catalog (`internal/patterns/patterns/review/`), normalizing frontmatter to the `review` category | `false` |
+| `--local` | Write directly into the current working tree's `.planwerk/review_patterns/` instead of opening a PR (see [Use local mode](/how-to/use-local-mode)). The repository reference may be omitted — it is inferred from the `origin` remote. | `false` |
+| `--force` | With `--local`, skip the confirmation prompt when the working tree is dirty | `false` |
+| `--overwrite` | With `--local` or `--to-catalog`, replace an existing pattern at the destination instead of refusing the collision | `false` |
+| `--wiki-ref` | Pin the wiki to a branch, tag, or commit (env: `PLANWERK_WIKI_REF`) | - |
+
+`--to-catalog` and `--local` are mutually exclusive, as are `--all` and
+`--pattern`. `--to-catalog` and the default (PR) mode require an explicit
+`<repo-ref>`; `--local` may infer it from the `origin` remote.
+
+The destination filename is the wiki-controlled pattern stem, so `--local` and
+`--to-catalog` refuse to write when a file of that name already exists (a wiki
+author cannot silently clobber a trusted repo or catalog pattern); pass
+`--overwrite` to replace it deliberately.
+
 ## `glossary`
 
 Generate a starter domain glossary (`CONTEXT.md`) for a codebase and print it to
