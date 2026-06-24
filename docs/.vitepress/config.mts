@@ -82,6 +82,10 @@ export default defineConfig({
               link: '/how-to/use-the-github-wiki',
             },
             {
+              text: 'Extract review patterns',
+              link: '/how-to/extract-review-patterns',
+            },
+            {
               text: 'Configure the project',
               link: '/how-to/configure-the-project',
             },

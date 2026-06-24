@@ -158,6 +158,13 @@ A wiki `review_patterns/*.md` file with `Category: review` loads as the
 first-class `review` category, grouped under its own `<review-patterns>` block
 (see [Pattern Categories](#pattern-categories) below).
 
+**Anchoring wiki patterns.** Once a wiki pattern proves itself, the
+[`extract`](/reference/cli#extract) command anchors it into a committed location
+— the target repo's `.planwerk/review_patterns/` (PR or `--local`) or this
+tool's bundled catalog (`--to-catalog`) — turning a world-editable wiki entry
+into a reviewable, code-coupled pattern. See
+[Extract review patterns](/how-to/extract-review-patterns).
+
 ## Prompt Budget
 
 By default, all loaded patterns are injected into the prompt without truncation
