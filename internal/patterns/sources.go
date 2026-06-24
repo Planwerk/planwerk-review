@@ -16,6 +16,13 @@ type ResolveOptions struct {
 	// RepoDir is the target repository checkout root. It is only consulted
 	// when NoRepo is false.
 	RepoDir string
+	// Wiki is a resolved local directory holding the target repo's GitHub Wiki
+	// review patterns (see ResolveWiki). Empty means no wiki patterns. It sits
+	// below the repo's .planwerk/review_patterns and below the explicit Extra
+	// dirs, so the repo's committed (reviewed, branch-protected) patterns override
+	// the world-editable wiki on a name collision, while an operator's --patterns
+	// still overrides both.
+	Wiki string
 	// Extra are explicit --patterns directories supplied by the caller. They
 	// have the highest priority and are always appended.
 	Extra []string
@@ -23,10 +30,14 @@ type ResolveOptions struct {
 
 // Resolve assembles the ordered list of on-disk pattern directories to load,
 // applying the precedence the eight subcommands share: the planwerk-review
-// bundled local catalog (lowest priority), then the target repo's
-// .planwerk/review_patterns directory, then any explicit --patterns
-// directories (highest priority). The NoLocal and NoRepo toggles drop the
-// first two groups respectively.
+// bundled local catalog (lowest priority), then the target repo's GitHub Wiki
+// review patterns, then the target repo's .planwerk/review_patterns directory,
+// then any explicit --patterns directories (highest priority). The wiki sits
+// below the committed repo patterns on purpose: the wiki is world-editable and
+// unreviewed, so a repo's committed (and branch-protected) patterns must win
+// over it on a name collision. The NoLocal and NoRepo toggles drop the bundled
+// local and repo groups respectively; the wiki slot is dropped by passing an
+// empty Wiki.
 //
 // Resolve is the single source of truth for this precedence order; callers
 // must not re-derive it. The binary's embedded catalog is layered in
@@ -37,6 +48,9 @@ func Resolve(opts ResolveOptions) ([]string, error) {
 	var dirs []string
 	if dir := LocalPatternDir(opts.NoLocal); dir != "" {
 		dirs = append(dirs, dir)
+	}
+	if opts.Wiki != "" {
+		dirs = append(dirs, opts.Wiki)
 	}
 	if dir := RepoPatternDir(opts.NoRepo, opts.RepoDir); dir != "" {
 		dirs = append(dirs, dir)

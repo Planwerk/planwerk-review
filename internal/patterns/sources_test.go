@@ -54,6 +54,44 @@ func TestResolve(t *testing.T) {
 		}
 	})
 
+	t.Run("wiki slot sits between local and repo dirs", func(t *testing.T) {
+		chdirWithLocalCatalog(t, true)
+		repoDir, repoPatterns := makeRepoPatterns(t)
+
+		dirs, err := Resolve(ResolveOptions{
+			RepoDir: repoDir,
+			Wiki:    "/wiki/patterns",
+			Extra:   []string{"/explicit/a"},
+		})
+		if err != nil {
+			t.Fatalf("Resolve returned error: %v", err)
+		}
+		// The wiki ranks below the committed repo patterns: the loader lets later
+		// dirs win, so the repo's reviewed patterns override the world-editable
+		// wiki on a name collision.
+		want := []string{"patterns", "/wiki/patterns", repoPatterns, "/explicit/a"}
+		if !slices.Equal(dirs, want) {
+			t.Errorf("dirs = %v, want %v", dirs, want)
+		}
+	})
+
+	t.Run("empty wiki adds no slot", func(t *testing.T) {
+		chdirWithLocalCatalog(t, true)
+		repoDir, repoPatterns := makeRepoPatterns(t)
+
+		dirs, err := Resolve(ResolveOptions{
+			RepoDir: repoDir,
+			Extra:   []string{"/explicit"},
+		})
+		if err != nil {
+			t.Fatalf("Resolve returned error: %v", err)
+		}
+		want := []string{"patterns", repoPatterns, "/explicit"}
+		if !slices.Equal(dirs, want) {
+			t.Errorf("dirs = %v, want %v", dirs, want)
+		}
+	})
+
 	t.Run("NoLocal drops the bundled local catalog", func(t *testing.T) {
 		chdirWithLocalCatalog(t, true)
 		repoDir, repoPatterns := makeRepoPatterns(t)
