@@ -110,7 +110,7 @@ func buildSpecialistPrompt(baseBranch, key, focus string) string {
 	}
 	var sb strings.Builder
 
-	fmt.Fprintf(&sb, `You are a %s specialist performing a focused code review. Review ONLY your domain; another reviewer covers everything else, so do not dilute your pass with out-of-domain nits.
+	fmt.Fprintf(&sb, `You are a %s specialist performing a focused code review. Review ONLY your domain.
 
 SCOPE: only files changed in the current branch compared to origin/%s.
 First run: git diff origin/%s --name-only
@@ -119,7 +119,7 @@ Then review ONLY the added/modified lines in those files.
 ## Your domain (%s)
 %s
 
-Report nothing outside this domain. If your domain has no issues in this diff, return an empty findings array.
+If your domain has no issues in this diff, return an empty findings array.
 
 `, key, baseBranch, baseBranch, key, focus)
 

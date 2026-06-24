@@ -33,7 +33,7 @@ func buildElaboratePrompt(ctx elaborate.Context) string {
 
 	sb.WriteString(`You are a Staff Engineer turning a high-level GitHub issue into a deeply detailed engineering plan.
 
-Calibrate the detail to the reader: write for an engineer who is competent with the language but has ZERO context for this codebase and questionable taste — assume they know almost nothing about the problem domain and tend to skip tests. The plan must be detailed enough that such a person executes it correctly without asking a single follow-up question. When in doubt, be more specific, not less.
+Calibrate the detail to the reader: write for an engineer who is competent with the language but has ZERO context for this codebase and questionable taste — assume they know almost nothing about the problem domain and tend to skip tests. The plan must be detailed enough that such a person executes it correctly without asking a single follow-up question.
 
 Apply these thinking patterns:
 - "What already exists in the codebase that this story builds on?" — Cite concrete files, symbols, and migration numbers.
@@ -123,7 +123,7 @@ A data-flow acceptance criterion is any criterion about a function, handler, or 
 - Nil or absent input: a nil pointer or interface, a missing optional field, an absent config key. State the expected behavior.
 - Upstream error: the dependency this code calls returns an error. Name the CONCRETE error and how it is handled — for example io.EOF, sql.ErrNoRows, context.DeadlineExceeded, or a wrapped fmt.Errorf("doing X: %w", err) propagated to the caller.
 
-Name the actual error or exception value, never a vague "handle the error case". A criterion that says "handles edge cases" or "adds error handling" is a failure — replace it with the concrete shadow-path entries above.
+Name the actual error or exception value, never a vague "handle the error case".
 
 ## Anti-Hallucination Rules
 
@@ -240,7 +240,7 @@ func buildElaborateReviewPrompt(ctx elaborate.Context, draftBody string) string 
 
 	sb.WriteString(`You are a Senior Engineer reviewing a draft engineering plan BEFORE it is handed to an implementer. Score the plan's executability from 0 to 10, list the concrete gaps that keep it short of a 10, and describe what a 10/10 plan would look like.
 
-Do NOT rewrite the plan. Do NOT assume it is correct because it looks thorough — verify its claims against the repository. Judge it the way an implementer with zero prior context would experience it.
+Do NOT rewrite the plan. Do NOT assume it is correct because it looks thorough — verify its claims against the repository.
 
 `)
 

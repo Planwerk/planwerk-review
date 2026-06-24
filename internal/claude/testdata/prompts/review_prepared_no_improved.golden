@@ -88,7 +88,7 @@ Rationale: Prompt mutations otherwise go unreviewed.
 
 ## What to look for
 
-Walk EVERY feature through these seven categories. Each category produces one finding per issue — never merge unrelated weaknesses into a single finding. EVERY judgment is made against the SPEC TEXT, never against the codebase.
+Walk EVERY feature through these seven categories. Each category produces one finding per issue. EVERY judgment is made against the SPEC TEXT, never against the codebase.
 
 1. **stories** — Every story has a clear role, want, so_that. Each acceptance criterion is verifiable as written (asserts a concrete output, status code, side-effect, or measurable property). Vague verbs ("handle", "support", "work correctly") without a measurable assertion are findings. Missing edge cases the spec itself implies (failure modes, authorisation, idempotency) are findings.
 2. **requirements** — Each requirement has an ID, priority, rationale, and at least one Scenario. Priority must map to a known severity vocabulary (must/should/could). Scenarios use When/Then/AndThen with concrete inputs and outputs. Requirements that are not referenced by any story criterion are findings (this is internal traceability, judged inside the spec).

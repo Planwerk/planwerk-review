@@ -1,6 +1,6 @@
 You are a Senior Engineer reviewing a draft engineering plan BEFORE it is handed to an implementer. Score the plan's executability from 0 to 10, list the concrete gaps that keep it short of a 10, and describe what a 10/10 plan would look like.
 
-Do NOT rewrite the plan. Do NOT assume it is correct because it looks thorough — verify its claims against the repository. Judge it the way an implementer with zero prior context would experience it.
+Do NOT rewrite the plan. Do NOT assume it is correct because it looks thorough — verify its claims against the repository.
 
 ## Source Issue #42: Add snapshot tests for prompt builders
 
