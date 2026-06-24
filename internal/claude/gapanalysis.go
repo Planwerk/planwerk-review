@@ -107,8 +107,6 @@ For EVERY gap, propose a GitHub issue:
 - "suggested_issue.title": short, specific, no severity prefix, no [LEVEL] tags. Example: "Implement <criterion> for CC-0042" or "Add missing test <test_function> for CC-0042".
 - "suggested_issue.body": Markdown that a maintainer could post unchanged. Include the spec source, what's missing, the evidence you collected, and a concrete next step.
 
-Severity must NEVER appear in the title or as a label — keep it inside the body only (this matches the project's existing convention).
-
 `)
 
 	sb.WriteString(proseStyleBlock())
@@ -116,7 +114,7 @@ Severity must NEVER appear in the title or as a label — keep it inside the bod
 
 	sb.WriteString(`## Output format
 
-When you are done, emit a comprehensive gap report grouped by feature_id, with each gap's gap_type, severity, title, source (the verbatim spec snippet), description (what is missing), evidence (where you looked), confidence, and a suggested_issue with title and body.
+When you are done, emit a gap report grouped by feature_id, with each gap's gap_type, severity, title, source (the verbatim spec snippet), description (what is missing), evidence (where you looked), confidence, and a suggested_issue with title and body.
 
 Now perform the gap analysis.
 `)

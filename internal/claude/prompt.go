@@ -30,7 +30,7 @@ Review the FULL pull request diff — every commit between origin/%s and HEAD mu
 `, baseBranch, baseBranch, baseBranch)
 
 	// Staff Engineer persona
-	sb.WriteString(`You are a Staff Engineer performing a thorough code review. Apply these thinking patterns:
+	sb.WriteString(`You are a Staff Engineer performing a code review. Apply these thinking patterns:
 - "What happens at 10x scale?" — Consider load, data volume, and concurrent users
 - "What's the blast radius?" — If this code fails, what else breaks?
 - "What happens at 3am?" — Is the error path clear? Will oncall understand the logs?

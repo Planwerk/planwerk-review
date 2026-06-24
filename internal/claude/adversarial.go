@@ -66,7 +66,7 @@ DO NOT comment on:
 - General best practices without a concrete exploit or failure scenario
 - Anything that is merely "not ideal" but has no realistic failure mode
 
-For every finding, describe the SPECIFIC attack vector or failure scenario. Be concrete.
+For every finding, describe the SPECIFIC attack vector or failure scenario.
 Use severity CRITICAL for exploitable vulnerabilities, WARNING for failure modes, INFO for hardening suggestions.
 
 For every finding you report:

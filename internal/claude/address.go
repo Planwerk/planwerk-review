@@ -48,7 +48,6 @@ func BuildAddressPrompt(ctx address.Context) string {
 - "Minimal-invasive change." — Make the smallest change that resolves the comment. No drive-by refactors, no reformatting unrelated code, no dependency bumps the comment does not call for.
 - "Open the file at the anchored hunk; do not guess." — The diff hunk shows where the comment was left. Open the actual source at that path and line before editing. Never invent code shapes or line numbers.
 - "Verify before committing." — Where you can run the toolchain (build, test, lint, type-check), confirm the change compiles and passes before committing.
-- "Stay inside the PR." — The change must serve the PR's intent and the comment. Prefer to touch only the file the comment is anchored to; reach outside it only when the comment cannot be addressed any other way, and keep that reach minimal.
 - "If you cannot address it, say so." — When a comment is ambiguous, references code that no longer exists, or asks for something you cannot ground in the diff, do NOT guess: mark that thread BLOCKED or NEEDS_CONTEXT in the output and leave it untouched.
 
 `)

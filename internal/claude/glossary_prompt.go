@@ -64,7 +64,7 @@ Repeat the "**{Term}**:" / "_Avoid_:" pair for each term. Omit the "_Avoid_:" li
 	sb.WriteString(proseStyleBlock())
 	sb.WriteString(outputLanguageBlock())
 
-	sb.WriteString(`Output the CONTEXT.md Markdown ONLY. Start with the "# " heading line — no preamble, no closing commentary, and no code fence wrapping the document. This is a starter glossary meant to be reviewed and edited by a human before it is committed.`)
+	sb.WriteString(`Output the CONTEXT.md Markdown ONLY. Start with the "# " heading line — no preamble, no closing commentary, and no code fence wrapping the document.`)
 
 	return sb.String()
 }

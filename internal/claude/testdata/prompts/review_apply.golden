@@ -68,7 +68,7 @@ db.Query("SELECT * FROM users WHERE name = '" + name + "'")
 
 ## Project Review Patterns to Honor
 
-These patterns are the catalog the project's review/audit/elaborate tools share — including any project-specific patterns shipped under `.planwerk/review_patterns/` in this repository. The fixed result you push MUST stay consistent with them: do not introduce code or test changes that would itself be flagged by a pattern below. When a fix touches an area covered by a pattern, prefer the resolution the pattern endorses.
+These patterns are the catalog the project's review/audit/elaborate tools share — including any project-specific patterns shipped under `.planwerk/review_patterns/` in this repository. The fixed result you push MUST stay consistent with them: do not introduce code or test changes that would themselves be flagged by a pattern below. When a fix touches an area covered by a pattern, prefer the resolution the pattern endorses.
 
 <review-patterns>
 <technology-patterns>

@@ -206,7 +206,7 @@ Run these steps in order. Do not skip ahead.
 	sb.WriteString(`4. CREATE a fresh feature branch off the current default branch. Use a short, descriptive branch name derived from the issue (e.g. "implement/issue-` + fmt.Sprintf("%d", ctx.IssueNumber) + `-<slug>").
 5. IMPLEMENT the change set:
    - Match existing layout, naming, error handling, and logging conventions.
-   - Add unit tests for new logic, and make every new test exercise at least one error or edge path (empty/zero-length, nil/absent, an upstream error) — not the happy path only. Add integration / E2E tests when the project has them for comparable features.
+   - Add unit tests for new logic, and make every new test exercise at least one error or edge path — not the happy path only. Add integration / E2E tests when the project has them for comparable features.
    - Add or update documentation (README, CHANGELOG, doc comments, CLI help, generated API references) for every user-visible change.
    - Commit in small, reviewable steps with descriptive messages.
 6. VERIFY LOCALLY before you hand off:
