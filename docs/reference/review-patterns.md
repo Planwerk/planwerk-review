@@ -154,9 +154,9 @@ a run; `--no-wiki` keeps it off (the default). `--wiki-ref <ref>` (env
 `PLANWERK_WIKI_REF`) pins it to a branch, tag, or commit. See
 [Use the GitHub Wiki](/how-to/use-the-github-wiki) for the task guide.
 
-A wiki `review_patterns/*.md` file with `Category: review` loads today but falls
-into the generic project-patterns group until the dedicated `review` category
-lands.
+A wiki `review_patterns/*.md` file with `Category: review` loads as the
+first-class `review` category, grouped under its own `<review-patterns>` block
+(see [Pattern Categories](#pattern-categories) below).
 
 ## Prompt Budget
 
@@ -192,3 +192,20 @@ keeps the highest-priority patterns by severity (`BLOCKING` > `CRITICAL` >
 - **What was missed**: <What was overlooked>
 - **Fix**: <How it was fixed>
 ```
+
+## Pattern Categories
+
+A pattern's `**Category**:` field places it in one of three recognized
+categories. The loader groups each category under its own block when patterns
+are formatted for the analysis prompt and counts each separately in reporting:
+
+- `technology` — language- and tool-specific rules, emitted under
+  `<technology-patterns>`.
+- `design-principle` — cross-cutting design and architecture rules, emitted
+  under `<design-patterns>`.
+- `review` — patterns about the review process itself, emitted under
+  `<review-patterns>`. The bundled review patterns live in
+  `internal/patterns/patterns/review/`.
+
+A pattern with no `**Category**:` (or an unrecognized value) falls into the
+generic project group, emitted under `<project-patterns>`.
