@@ -68,6 +68,14 @@ func TestResolveWiki(t *testing.T) {
 		if rw.PatternsDir == "" {
 			t.Error("PatternsDir should point at the wiki review_patterns dir")
 		}
+		if rw.Dir == "" {
+			t.Error("Dir should point at the wiki clone root")
+		}
+		// PatternsDir is a subdirectory of the clone root, so per-entry consumers
+		// can enumerate both review_patterns/ and memory/ from Dir.
+		if filepath.Dir(rw.PatternsDir) != rw.Dir {
+			t.Errorf("PatternsDir %q is not under the clone root Dir %q", rw.PatternsDir, rw.Dir)
+		}
 		if !strings.Contains(rw.Memory, "We pin every dependency.") {
 			t.Errorf("Memory should carry the wiki memory page, got %q", rw.Memory)
 		}
