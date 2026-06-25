@@ -80,7 +80,7 @@ func (r *Renderer) RenderRebaseAnalysisMarkdown(result RebaseAnalysis, repoFullN
 }
 
 func (r *Renderer) renderCommitAnalysis(c CommitAnalysis) {
-	_, _ = fmt.Fprintf(r.w, "## %s %s\n\n", shortRebaseSHA(c.SHA), c.Subject)
+	_, _ = fmt.Fprintf(r.w, "## %s %s\n\n", ShortSHA(c.SHA), c.Subject)
 	if len(c.Adjustments) == 0 {
 		_, _ = fmt.Fprint(r.w, "No adjustments needed — the upstream range does not invalidate this commit.\n\n")
 		return
@@ -108,9 +108,9 @@ func countAdjustments(commits []CommitAnalysis) int {
 	return n
 }
 
-// shortRebaseSHA abbreviates a commit SHA to its first seven characters for
+// ShortSHA abbreviates a commit SHA to its first seven characters for
 // display, leaving shorter strings untouched.
-func shortRebaseSHA(sha string) string {
+func ShortSHA(sha string) string {
 	sha = strings.TrimSpace(sha)
 	if len(sha) <= 7 {
 		return sha
