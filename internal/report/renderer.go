@@ -70,10 +70,10 @@ func RenderWikiProvenance(w io.Writer, repo, commit string) {
 		return
 	}
 	if repo != "" {
-		_, _ = fmt.Fprintf(w, "> Wiki: %s.wiki @ %s\n", repo, shortRebaseSHA(commit))
+		_, _ = fmt.Fprintf(w, "> Wiki: %s.wiki @ %s\n", repo, ShortSHA(commit))
 		return
 	}
-	_, _ = fmt.Fprintf(w, "> Wiki: %s\n", shortRebaseSHA(commit))
+	_, _ = fmt.Fprintf(w, "> Wiki: %s\n", ShortSHA(commit))
 }
 
 // recommendationKey returns a short machine-readable verdict for the HTML comment.
