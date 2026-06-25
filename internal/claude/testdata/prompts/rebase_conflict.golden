@@ -48,7 +48,7 @@ Apply these task-specific thinking patterns on top of the baseline above:
 
 ## Conflict
 
-- Repository: planwerk/planwerk-review
+- Repository: planwerk/planwerk-agent
 - PR #42
 - Rebasing onto: origin/main (freshly fetched)
 - Head branch: feat/snapshot-tests

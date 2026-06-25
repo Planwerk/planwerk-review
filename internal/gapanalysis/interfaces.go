@@ -1,9 +1,9 @@
 package gapanalysis
 
 import (
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/planwerk"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/planwerk"
 )
 
 // AnalysisContext carries everything Claude needs to compare the spec against

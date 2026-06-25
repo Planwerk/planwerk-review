@@ -27,9 +27,9 @@ func TestParseRepoRef_URL(t *testing.T) {
 		wantOwner string
 		wantRepo  string
 	}{
-		{"https://github.com/planwerk/planwerk-review", "planwerk", "planwerk-review"},
-		{"https://github.com/planwerk/planwerk-review/", "planwerk", "planwerk-review"},
-		{"https://github.com/planwerk/planwerk-review.git", "planwerk", "planwerk-review"},
+		{"https://github.com/planwerk/planwerk-agent", "planwerk", "planwerk-agent"},
+		{"https://github.com/planwerk/planwerk-agent/", "planwerk", "planwerk-agent"},
+		{"https://github.com/planwerk/planwerk-agent.git", "planwerk", "planwerk-agent"},
 		{"https://github.com/org-name/my.repo", "org-name", "my.repo"},
 	}
 
@@ -52,7 +52,7 @@ func TestParseRepoRef_Short(t *testing.T) {
 		wantOwner string
 		wantRepo  string
 	}{
-		{"planwerk/planwerk-review", "planwerk", "planwerk-review"},
+		{"planwerk/planwerk-agent", "planwerk", "planwerk-agent"},
 		{"org-name/my.repo", "org-name", "my.repo"},
 		{"user_1/repo_2", "user_1", "repo_2"},
 	}

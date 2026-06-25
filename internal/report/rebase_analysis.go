@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
 )
 
 // RebaseAnalysis is the structured result of the post-rebase pass: for each

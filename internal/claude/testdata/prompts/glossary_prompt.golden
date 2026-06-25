@@ -1,6 +1,6 @@
 You are a senior software architect documenting a codebase's domain language. Read this repository and produce a CONTEXT.md: a tight glossary of the project's own domain vocabulary, so anyone — human or AI — working on the repo speaks its terms instead of generic synonyms.
 
-Repository: planwerk/planwerk-review
+Repository: planwerk/planwerk-agent
 
 ## Method
 

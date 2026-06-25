@@ -35,13 +35,13 @@ func assertGolden(t *testing.T, name, got string) {
 }
 
 func goldenProvenance() Provenance {
-	return Provenance{Repo: "planwerk/planwerk-review", Issue: 138}
+	return Provenance{Repo: "planwerk/planwerk-agent", Issue: 138}
 }
 
 func goldenResult() CaptureResult {
 	return CaptureResult{
 		Model:      "claude-opus-4-8",
-		WikiRepo:   "planwerk/planwerk-review",
+		WikiRepo:   "planwerk/planwerk-agent",
 		WikiCommit: "abc1234def5678",
 		Patterns: []ProposedPage{
 			{
@@ -119,7 +119,7 @@ func TestRenderMarkdown_BodyWithInnerFenceIsNotCorrupted(t *testing.T) {
 func TestRenderPage_PrependsMarkerAndPreservesPattern(t *testing.T) {
 	p := goldenResult().Patterns[0]
 	got := RenderPage(p, goldenProvenance())
-	if !strings.HasPrefix(got, "<!-- planwerk-review: captured from planwerk/planwerk-review#138 -->\n\n") {
+	if !strings.HasPrefix(got, "<!-- planwerk-agent: captured from planwerk/planwerk-agent#138 -->\n\n") {
 		t.Fatalf("page does not start with the provenance marker:\n%s", got)
 	}
 	if !strings.Contains(got, "# Review Pattern: Escape untrusted fences") {

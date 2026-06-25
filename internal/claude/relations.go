@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/github"
 )
 
 // renderIssueRelations writes the "## Meta / Sub-Issue Context" prompt section

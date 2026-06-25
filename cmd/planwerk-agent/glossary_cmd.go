@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/planwerk/planwerk-review/internal/cache"
-	"github.com/planwerk/planwerk-review/internal/glossary"
+	"github.com/planwerk/planwerk-agent/internal/cache"
+	"github.com/planwerk/planwerk-agent/internal/glossary"
 )
 
 // newGlossaryCmd builds the "glossary" subcommand: clone a GitHub repository
@@ -29,7 +29,7 @@ phrase their output in the repo's terms once it is committed as CONTEXT.md.
 The output is a starter: review and edit it before committing. Redirect it
 where you want it to land, for example:
 
-    planwerk-review glossary owner/repo > CONTEXT.md
+    planwerk-agent glossary owner/repo > CONTEXT.md
 
 Repository reference can be a URL (https://github.com/owner/repo)
 or short form (owner/repo).`,

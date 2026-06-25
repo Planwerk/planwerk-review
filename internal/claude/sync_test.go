@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/sync"
+	"github.com/planwerk/planwerk-agent/internal/sync"
 )
 
 func TestBuildSyncPrompt_InjectsEntriesAndReadOnlyRules(t *testing.T) {

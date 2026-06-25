@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/planwerk/planwerk-review/internal/cli"
-	"github.com/planwerk/planwerk-review/internal/extract"
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/cli"
+	"github.com/planwerk/planwerk-agent/internal/extract"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 // newExtractCmd builds the "extract" subcommand: anchor a target repo's GitHub
@@ -31,7 +31,7 @@ as committed, reproducible files, selecting which entries to anchor.
 By default the selected patterns are written into the target repo's
 .planwerk/review_patterns/ and a pull request is opened. With --local the
 patterns are written directly into the current working tree instead. With
---to-catalog the patterns are anchored into this planwerk-review checkout's
+--to-catalog the patterns are anchored into this planwerk-agent checkout's
 bundled review catalog (internal/patterns/patterns/review/), normalizing their
 frontmatter to the review category — the maintainer/contribution path.
 

@@ -2,7 +2,7 @@
 
 Learning-oriented, guided paths. Each tutorial takes you from nothing to a
 working result by following one linear sequence of steps — no decisions, no
-detours. Start here if you are new to planwerk-review.
+detours. Start here if you are new to planwerk-agent.
 
 - [Getting started](/tutorials/getting-started) — install the tool and walk
   through your first pull-request review end to end, up to the report.

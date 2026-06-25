@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/claude"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/claude"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // Pass labels recorded in Finding.ConfirmedBy so the merge can tell how many

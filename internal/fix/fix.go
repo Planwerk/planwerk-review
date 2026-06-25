@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
-	"github.com/planwerk/planwerk-review/internal/detect"
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/workspace"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/detect"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/workspace"
 )
 
 // Default loop parameters. Each can be overridden via Options / CLI flags.
@@ -27,11 +27,11 @@ const (
 	MaxLogChars = 64 * 1024
 
 	// BundledPatternsURLBase is the public raw-markdown URL prefix the
-	// bare-prompt catalog uses to point Claude at planwerk-review's bundled
+	// bare-prompt catalog uses to point Claude at planwerk-agent's bundled
 	// pattern files. We pin to "main" so manual sessions always pick up the
 	// latest patterns without us baking the binary's version into URLs that
 	// then drift on dev builds.
-	BundledPatternsURLBase = "https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns"
+	BundledPatternsURLBase = "https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns"
 )
 
 // Options configures the fix subcommand. Mirrors the Options style used by
@@ -125,7 +125,7 @@ func PrintBarePrompt(w io.Writer, opts Options, build BarePromptBuildFn) error {
 // repo so the prompt can carry concrete context: detected technologies and
 // the filtered review-pattern catalog (local + .planwerk/review_patterns/
 // + --patterns sources), inlined so the manual Claude session that pastes
-// this prompt does not need access to planwerk-review or its pattern dirs.
+// this prompt does not need access to planwerk-agent or its pattern dirs.
 //
 // The pasted-into Claude session is still expected to operate on its own
 // checkout of the PR head; the rendered prompt instructs it to discover and
@@ -538,7 +538,7 @@ func shortSHA(sha string) string {
 	return sha[:7]
 }
 
-// fixCommentFooter attributes the posted fix report to planwerk-review, naming
+// fixCommentFooter attributes the posted fix report to planwerk-agent, naming
 // the model that produced it and matching the footer the
 // implement/propose/elaborate/audit subcommands append to the artifacts they
 // leave on GitHub.

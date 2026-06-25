@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/cli"
+	"github.com/planwerk/planwerk-agent/internal/cli"
 )
 
 // runMetaCmd executes the meta subcommand hermetically: it exercises only the

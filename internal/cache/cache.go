@@ -11,7 +11,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // Command names used to scope cache operations and identify envelope origin.
@@ -34,9 +34,9 @@ var now = time.Now
 
 func defaultCacheDir() string {
 	if dir, err := os.UserCacheDir(); err == nil {
-		return filepath.Join(dir, "planwerk-review")
+		return filepath.Join(dir, "planwerk-agent")
 	}
-	return filepath.Join(os.TempDir(), "planwerk-review-cache")
+	return filepath.Join(os.TempDir(), "planwerk-agent-cache")
 }
 
 // SetDir overrides the cache directory and returns a function that restores

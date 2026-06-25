@@ -7,25 +7,25 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/address"
-	"github.com/planwerk/planwerk-review/internal/audit"
-	"github.com/planwerk/planwerk-review/internal/capture"
-	"github.com/planwerk/planwerk-review/internal/doccheck"
-	"github.com/planwerk/planwerk-review/internal/draft"
-	"github.com/planwerk/planwerk-review/internal/elaborate"
-	"github.com/planwerk/planwerk-review/internal/fix"
-	"github.com/planwerk/planwerk-review/internal/gapanalysis"
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/glossary"
-	"github.com/planwerk/planwerk-review/internal/implement"
-	"github.com/planwerk/planwerk-review/internal/meta"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/planwerk"
-	"github.com/planwerk/planwerk-review/internal/propose"
-	"github.com/planwerk/planwerk-review/internal/rebase"
-	"github.com/planwerk/planwerk-review/internal/report"
-	"github.com/planwerk/planwerk-review/internal/reviewprepared"
-	"github.com/planwerk/planwerk-review/internal/sync"
+	"github.com/planwerk/planwerk-agent/internal/address"
+	"github.com/planwerk/planwerk-agent/internal/audit"
+	"github.com/planwerk/planwerk-agent/internal/capture"
+	"github.com/planwerk/planwerk-agent/internal/doccheck"
+	"github.com/planwerk/planwerk-agent/internal/draft"
+	"github.com/planwerk/planwerk-agent/internal/elaborate"
+	"github.com/planwerk/planwerk-agent/internal/fix"
+	"github.com/planwerk/planwerk-agent/internal/gapanalysis"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/glossary"
+	"github.com/planwerk/planwerk-agent/internal/implement"
+	"github.com/planwerk/planwerk-agent/internal/meta"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/planwerk"
+	"github.com/planwerk/planwerk-agent/internal/propose"
+	"github.com/planwerk/planwerk-agent/internal/rebase"
+	"github.com/planwerk/planwerk-agent/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/reviewprepared"
+	"github.com/planwerk/planwerk-agent/internal/sync"
 )
 
 // updateGolden regenerates the prompt golden files under testdata/prompts/.
@@ -103,7 +103,7 @@ func goldenAuditContext() audit.AuditContext {
 		Patterns:    goldenPatterns(),
 		MaxPatterns: 0,
 		MaxFindings: 25,
-		RepoName:    "planwerk/planwerk-review",
+		RepoName:    "planwerk/planwerk-agent",
 	}
 }
 
@@ -111,13 +111,13 @@ func goldenAnalysisContext() propose.AnalysisContext {
 	return propose.AnalysisContext{
 		Patterns:    goldenPatterns(),
 		MaxPatterns: 0,
-		RepoName:    "planwerk/planwerk-review",
+		RepoName:    "planwerk/planwerk-agent",
 	}
 }
 
 func goldenSyncContext() sync.SyncContext {
 	return sync.SyncContext{
-		RepoName: "planwerk/planwerk-review",
+		RepoName: "planwerk/planwerk-agent",
 		Entries: []sync.Entry{
 			{Path: "review_patterns/no-raw-sql.md", Kind: sync.KindPattern, Raw: "# Review Pattern: No raw SQL\n\n**Severity**: WARNING\n"},
 			{Path: "memory/decisions.md", Kind: sync.KindMemory, Raw: "We pin every dependency and never float a version range.\n"},
@@ -176,11 +176,11 @@ func goldenElaborateContext() elaborate.Context {
 	return elaborate.Context{
 		Patterns:    goldenPatterns(),
 		MaxPatterns: 0,
-		RepoName:    "planwerk/planwerk-review",
+		RepoName:    "planwerk/planwerk-agent",
 		Issue: &github.Issue{
 			Number: 42,
 			Title:  "Add snapshot tests for prompt builders",
-			URL:    "https://github.com/planwerk/planwerk-review/issues/42",
+			URL:    "https://github.com/planwerk/planwerk-agent/issues/42",
 			Body:   "Lock the prompt surface with golden files so drift shows up in PR diffs.",
 			State:  "open",
 		},
@@ -210,7 +210,7 @@ func goldenMetaContext() meta.Context {
 		Issue: &github.Issue{
 			Number: 78,
 			Title:  "Restructure the documentation site",
-			URL:    "https://github.com/planwerk/planwerk-review/issues/78",
+			URL:    "https://github.com/planwerk/planwerk-agent/issues/78",
 			Body: "Split the docs overhaul into lettered workstreams.\n\n" +
 				"## Workstreams\n\n" +
 				"- A. Reorganize the reference section\n" +
@@ -242,10 +242,10 @@ func TestBuildBareDraftPrompt_Golden(t *testing.T) {
 func goldenMetaIssue() *github.Issue {
 	return &github.Issue{
 		Owner:  "planwerk",
-		Name:   "planwerk-review",
+		Name:   "planwerk-agent",
 		Number: 40,
 		Title:  "Lock the prompt surface against drift",
-		URL:    "https://github.com/planwerk/planwerk-review/issues/40",
+		URL:    "https://github.com/planwerk/planwerk-agent/issues/40",
 		Body:   "Split the prompt-safety work into self-contained Sub Issues.\n\n- Golden snapshot tests (this batch)\n- Mutation tests over the goldens (follow-up)",
 		State:  "open",
 	}
@@ -254,22 +254,22 @@ func goldenMetaIssue() *github.Issue {
 func goldenSiblingIssues() []github.Issue {
 	return []github.Issue{
 		{
-			Owner: "planwerk", Name: "planwerk-review",
+			Owner: "planwerk", Name: "planwerk-agent",
 			Number: 43,
 			Title:  "Add mutation tests for prompt builders",
-			URL:    "https://github.com/planwerk/planwerk-review/issues/43",
+			URL:    "https://github.com/planwerk/planwerk-agent/issues/43",
 			Body:   "Follow-up to the golden tests: ensure the goldens actually fail on meaningful prompt drift.",
 			State:  "open",
 			LinkedPRs: []github.LinkedPR{
-				{Number: 57, Title: "Add mutation testing harness", URL: "https://github.com/planwerk/planwerk-review/pull/57", State: "open"},
-				{Number: 58, Title: "WIP: mutate prompt builders", URL: "https://github.com/planwerk/planwerk-review/pull/58", State: "open", IsDraft: true},
+				{Number: 57, Title: "Add mutation testing harness", URL: "https://github.com/planwerk/planwerk-agent/pull/57", State: "open"},
+				{Number: 58, Title: "WIP: mutate prompt builders", URL: "https://github.com/planwerk/planwerk-agent/pull/58", State: "open", IsDraft: true},
 			},
 		},
 		{
-			Owner: "planwerk", Name: "planwerk-review",
+			Owner: "planwerk", Name: "planwerk-agent",
 			Number: 41,
 			Title:  "Extract shared prompt blocks",
-			URL:    "https://github.com/planwerk/planwerk-review/issues/41",
+			URL:    "https://github.com/planwerk/planwerk-agent/issues/41",
 			Body:   "Already done: the shared prompt blocks live in components.go.",
 			State:  "closed",
 		},
@@ -320,7 +320,7 @@ func TestBuildSyncStructurePrompt_Golden(t *testing.T) {
 
 func goldenCaptureContext() capture.CaptureContext {
 	return capture.CaptureContext{
-		RepoName:    "planwerk/planwerk-review",
+		RepoName:    "planwerk/planwerk-agent",
 		IssueNumber: 138,
 		BaseBranch:  "main",
 		Findings: []report.Finding{
@@ -371,7 +371,7 @@ func TestBuildAnalysisPrompt_NoPatterns(t *testing.T) {
 func goldenOutOfScopeEntries() []propose.OutOfScopeEntry {
 	return []propose.OutOfScopeEntry{
 		{Name: "Plugin system", Body: "# Plugin system\n\nA runtime plugin loader was rejected: the pattern catalog is compiled in on purpose."},
-		{Name: "Hosted web dashboard", Body: "# Hosted web dashboard\n\nplanwerk-review is a CLI; a hosted web UI is out of scope."},
+		{Name: "Hosted web dashboard", Body: "# Hosted web dashboard\n\nplanwerk-agent is a CLI; a hosted web UI is out of scope."},
 	}
 }
 
@@ -469,7 +469,7 @@ func TestBuildPlanPrompt_Memory(t *testing.T) {
 // prompt: the CONTEXT-FORMAT schema, the inclusion rules (be opinionated, only
 // context-specific terms), and the "output the Markdown only" tail.
 func TestBuildGlossaryPrompt_Golden(t *testing.T) {
-	ctx := glossary.GenerateContext{RepoName: "planwerk/planwerk-review"}
+	ctx := glossary.GenerateContext{RepoName: "planwerk/planwerk-agent"}
 	assertGoldenPrompt(t, "glossary_prompt", buildGlossaryPrompt(ctx))
 }
 
@@ -489,11 +489,11 @@ func goldenImplementContext() implement.Context {
 	return implement.Context{
 		Patterns:     goldenPatterns(),
 		MaxPatterns:  0,
-		RepoFullName: "planwerk/planwerk-review",
+		RepoFullName: "planwerk/planwerk-agent",
 		IssueNumber:  42,
 		IssueTitle:   "Add snapshot tests for prompt builders",
 		IssueBody:    "## Description\n\nLock the prompt surface with golden files so drift shows up in PR diffs.\n\n## Acceptance Criteria\n- Golden file exists for every builder\n",
-		IssueURL:     "https://github.com/planwerk/planwerk-review/issues/42",
+		IssueURL:     "https://github.com/planwerk/planwerk-agent/issues/42",
 		IssueState:   "open",
 	}
 }
@@ -540,7 +540,7 @@ func TestBuildSimplifyFindPrompt_Golden(t *testing.T) {
 
 func goldenSimplifyApplyContext() implement.SimplifyApplyContext {
 	return implement.SimplifyApplyContext{
-		RepoFullName: "planwerk/planwerk-review",
+		RepoFullName: "planwerk/planwerk-agent",
 		BaseBranch:   "main",
 		Findings: []report.Finding{
 			{
@@ -566,7 +566,7 @@ func TestBuildSimplifyApplyPrompt_Golden(t *testing.T) {
 
 func goldenReviewApplyContext() implement.ReviewApplyContext {
 	return implement.ReviewApplyContext{
-		RepoFullName: "planwerk/planwerk-review",
+		RepoFullName: "planwerk/planwerk-agent",
 		BaseBranch:   "main",
 		Findings: []report.Finding{
 			{
@@ -592,7 +592,7 @@ func TestBuildReviewApplyPrompt_Golden(t *testing.T) {
 
 func goldenFinalizeContext() implement.FinalizeContext {
 	return implement.FinalizeContext{
-		RepoFullName: "planwerk/planwerk-review",
+		RepoFullName: "planwerk/planwerk-agent",
 		IssueNumber:  42,
 		IssueTitle:   "Add snapshot tests for prompt builders",
 	}
@@ -608,7 +608,7 @@ func TestBuildFinalizePrompt_Golden(t *testing.T) {
 
 func goldenFixContext() fix.Context {
 	return fix.Context{
-		RepoFullName:  "planwerk/planwerk-review",
+		RepoFullName:  "planwerk/planwerk-agent",
 		PRNumber:      42,
 		PRTitle:       "Add the snapshot tests",
 		HeadBranch:    "feat/snapshot-tests",
@@ -620,7 +620,7 @@ func goldenFixContext() fix.Context {
 			{
 				Name:          "test",
 				Conclusion:    "failure",
-				HTMLURL:       "https://github.com/planwerk/planwerk-review/actions/runs/99",
+				HTMLURL:       "https://github.com/planwerk/planwerk-agent/actions/runs/99",
 				OutputTitle:   "1 failing test",
 				OutputSummary: "--- FAIL: TestParse",
 				Logs:          "--- FAIL: TestParse (0.00s)\n    parse_test.go:12: got 1, want 2\nFAIL",
@@ -651,7 +651,7 @@ func TestBuildFixPrompt_NoFixup_Golden(t *testing.T) {
 
 func goldenBareFixContext() fix.BareContext {
 	return fix.BareContext{
-		RepoFullName: "planwerk/planwerk-review",
+		RepoFullName: "planwerk/planwerk-agent",
 		PRNumber:     42,
 		TechTags:     []string{"go"},
 		PatternCatalog: []patterns.CatalogReference{
@@ -660,10 +660,10 @@ func goldenBareFixContext() fix.BareContext {
 				Severity:   "CRITICAL",
 				Category:   "design-principle",
 				ReviewArea: "security",
-				URL:        "https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns/hardcoded-secrets.md",
+				URL:        "https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns/hardcoded-secrets.md",
 			},
 		},
-		BundledURLBase: "https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns",
+		BundledURLBase: "https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns",
 		Fixup:          true,
 	}
 }
@@ -685,7 +685,7 @@ func TestBuildBareFixPrompt_NoFixup_Golden(t *testing.T) {
 
 func goldenAddressContext() address.Context {
 	return address.Context{
-		RepoFullName: "planwerk/planwerk-review",
+		RepoFullName: "planwerk/planwerk-agent",
 		PRNumber:     42,
 		PRTitle:      "Add the snapshot tests",
 		HeadBranch:   "feat/snapshot-tests",
@@ -710,7 +710,7 @@ func goldenAddressContext() address.Context {
 
 func goldenBareAddressContext() address.BareContext {
 	return address.BareContext{
-		RepoFullName: "planwerk/planwerk-review",
+		RepoFullName: "planwerk/planwerk-agent",
 		PRNumber:     42,
 		TechTags:     []string{"go"},
 		PatternCatalog: []patterns.CatalogReference{
@@ -719,10 +719,10 @@ func goldenBareAddressContext() address.BareContext {
 				Severity:   "CRITICAL",
 				Category:   "design-principle",
 				ReviewArea: "security",
-				URL:        "https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns/hardcoded-secrets.md",
+				URL:        "https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns/hardcoded-secrets.md",
 			},
 		},
-		BundledURLBase: "https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns",
+		BundledURLBase: "https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns",
 	}
 }
 
@@ -747,7 +747,7 @@ func TestBuildBareAddressPrompt_Golden(t *testing.T) {
 
 func goldenRebaseConflictContext() rebase.ConflictContext {
 	return rebase.ConflictContext{
-		RepoFullName:    "planwerk/planwerk-review",
+		RepoFullName:    "planwerk/planwerk-agent",
 		PRNumber:        42,
 		Onto:            "main",
 		HeadBranch:      "feat/snapshot-tests",
@@ -760,7 +760,7 @@ func goldenRebaseConflictContext() rebase.ConflictContext {
 
 func goldenRebaseAnalysisContext() rebase.AnalysisContext {
 	return rebase.AnalysisContext{
-		RepoFullName:    "planwerk/planwerk-review",
+		RepoFullName:    "planwerk/planwerk-agent",
 		PRNumber:        42,
 		Onto:            "main",
 		RebasedCommits:  []github.Commit{{SHA: "1111111aaaa", Subject: "Add the snapshot helper"}, {SHA: "2222222bbbb", Subject: "Wire the helper into the runner"}},
@@ -772,7 +772,7 @@ func goldenRebaseAnalysisContext() rebase.AnalysisContext {
 
 func goldenRebaseApplyContext() rebase.ApplyContext {
 	return rebase.ApplyContext{
-		RepoFullName: "planwerk/planwerk-review",
+		RepoFullName: "planwerk/planwerk-agent",
 		PRNumber:     42,
 		Onto:         "main",
 		HeadBranch:   "feat/snapshot-tests",
@@ -803,7 +803,7 @@ func goldenRebaseApplyContext() rebase.ApplyContext {
 
 func goldenBareRebaseContext() rebase.BareContext {
 	return rebase.BareContext{
-		RepoFullName: "planwerk/planwerk-review",
+		RepoFullName: "planwerk/planwerk-agent",
 		PRNumber:     42,
 		Onto:         "main",
 		TechTags:     []string{"go"},
@@ -813,10 +813,10 @@ func goldenBareRebaseContext() rebase.BareContext {
 				Severity:   "CRITICAL",
 				Category:   "design-principle",
 				ReviewArea: "security",
-				URL:        "https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns/hardcoded-secrets.md",
+				URL:        "https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns/hardcoded-secrets.md",
 			},
 		},
-		BundledURLBase: "https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns",
+		BundledURLBase: "https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns",
 	}
 }
 
@@ -913,7 +913,7 @@ func TestBuildVerifyImplementationPrompt_Golden(t *testing.T) {
 
 func goldenBareImplementContext() implement.BareContext {
 	return implement.BareContext{
-		RepoFullName: "planwerk/planwerk-review",
+		RepoFullName: "planwerk/planwerk-agent",
 		IssueNumber:  42,
 		TechTags:     []string{"go"},
 		PatternCatalog: []patterns.CatalogReference{
@@ -922,10 +922,10 @@ func goldenBareImplementContext() implement.BareContext {
 				Severity:   "CRITICAL",
 				Category:   "design-principle",
 				ReviewArea: "security",
-				URL:        "https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns/hardcoded-secrets.md",
+				URL:        "https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns/hardcoded-secrets.md",
 			},
 		},
-		BundledURLBase: "https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns",
+		BundledURLBase: "https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns",
 	}
 }
 
@@ -943,7 +943,7 @@ func goldenGapAnalysisContext() gapanalysis.AnalysisContext {
 		Features:    []*planwerk.Feature{f},
 		Patterns:    goldenPatterns(),
 		MaxPatterns: 0,
-		RepoName:    "planwerk/planwerk-review",
+		RepoName:    "planwerk/planwerk-agent",
 	}
 }
 
@@ -973,7 +973,7 @@ func goldenReviewPreparedContext(includeImproved bool) reviewprepared.AnalysisCo
 		},
 		Patterns:        goldenPatterns(),
 		MaxPatterns:     0,
-		RepoName:        "planwerk/planwerk-review",
+		RepoName:        "planwerk/planwerk-agent",
 		IncludeImproved: includeImproved,
 	}
 }

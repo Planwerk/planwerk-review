@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
-	"github.com/planwerk/planwerk-review/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/github"
 )
 
 // Column widths for the gaps summary table. Same look-and-feel as the audit

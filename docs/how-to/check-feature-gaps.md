@@ -9,19 +9,19 @@ whose description is not visible anywhere.
 
 ```bash
 # Audit every completed feature in the repo
-planwerk-review gap-analysis owner/repo
+planwerk-agent gap-analysis owner/repo
 
 # Single feature by ID
-planwerk-review gap-analysis --feature CC-0042 owner/repo
+planwerk-agent gap-analysis --feature CC-0042 owner/repo
 
 # Single feature by file (path or basename, must be under .planwerk/completed/)
-planwerk-review gap-analysis --file CC-0042-thing.json owner/repo
+planwerk-agent gap-analysis --file CC-0042-thing.json owner/repo
 
 # JSON output for automation
-planwerk-review gap-analysis --format json owner/repo
+planwerk-agent gap-analysis --format json owner/repo
 
 # Walk the gaps interactively and create GitHub issues for the ones you select
-planwerk-review gap-analysis --create-issues owner/repo
+planwerk-agent gap-analysis --create-issues owner/repo
 ```
 
 See the [CLI reference](/reference/cli#gap-analysis) for every flag.

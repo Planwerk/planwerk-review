@@ -1,8 +1,8 @@
 package fix
 
 import (
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 // FailedCheck is a flattened, prompt-friendly view of a single failing check
@@ -72,11 +72,11 @@ type PromptBuildFn func(ctx Context) string
 // operates on its own checkout, with no further coordination required.
 //
 // The pattern catalog is shipped as a list of remote URLs (for patterns
-// from the bundled planwerk-review catalog) plus relative checkout paths
+// from the bundled planwerk-agent catalog) plus relative checkout paths
 // (for project-specific patterns under .planwerk/review_patterns/). The
 // pasted-into Claude session fetches each URL itself, so the prompt stays
 // short and the patterns Claude sees are always the same as those
-// displayed on github.com/planwerk/planwerk-review.
+// displayed on github.com/planwerk/planwerk-agent.
 type BareContext struct {
 	RepoFullName     string
 	PRNumber         int

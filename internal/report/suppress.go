@@ -6,12 +6,12 @@ import (
 	"strings"
 )
 
-// ParseDataBlock extracts the machine-readable planwerk-review data block from
+// ParseDataBlock extracts the machine-readable planwerk-agent data block from
 // a prior review comment body (the one RenderDataBlock emitted) and returns the
 // commit SHA it was posted at plus the findings it carried. ok is false when no
 // well-formed data block is present.
 func ParseDataBlock(commentBody string) (commitSHA string, findings []Finding, ok bool) {
-	const open = "<!-- planwerk-review-data"
+	const open = "<!-- planwerk-agent-data"
 	const closeMarker = "-->"
 	start := strings.Index(commentBody, open)
 	if start < 0 {

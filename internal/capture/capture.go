@@ -15,7 +15,7 @@
 // standalone review/audit reuse (#140) build on this shared engine.
 package capture
 
-import "github.com/planwerk/planwerk-review/internal/sync"
+import "github.com/planwerk/planwerk-agent/internal/sync"
 
 // Kinds of proposed pages, reusing the sync vocabulary so capture, sync, and the
 // wiki conventions agree on the spelling.

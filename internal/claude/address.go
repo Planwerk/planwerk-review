@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/address"
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/address"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // Address runs a fresh auto-mode Claude Code session inside the checkout to
@@ -139,7 +139,7 @@ Field rules:
 // checkout of the PR head. The session fetches the unresolved review threads
 // itself, addresses them as follow-up commits, pushes, and optionally replies
 // to and resolves each thread. The pattern catalog is inlined so the session
-// needs no access to planwerk-review.
+// needs no access to planwerk-agent.
 func BuildBareAddressPrompt(ctx address.BareContext) string {
 	var sb strings.Builder
 
@@ -188,7 +188,7 @@ query($owner: String!, $name: String!, $number: Int!) {
 }'
 `+"```"+`
 
-Skip threads that are already resolved (isResolved: true) and any thread whose first comment is one of planwerk-review's own inline findings.
+Skip threads that are already resolved (isResolved: true) and any thread whose first comment is one of planwerk-agent's own inline findings.
 
 ## What to do
 

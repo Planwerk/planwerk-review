@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/detect"
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/detect"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 // PrintBarePrompt is a package-level convenience that delegates to
@@ -24,7 +24,7 @@ func PrintBarePrompt(w io.Writer, opts Options, build BarePromptFn) error {
 // the prompt can carry concrete context — detected technologies and the
 // filtered review-pattern catalog (local + .planwerk/review_patterns/ +
 // --patterns sources), inlined so the manual Claude session that pastes this
-// prompt needs no access to planwerk-review or its pattern dirs.
+// prompt needs no access to planwerk-agent or its pattern dirs.
 //
 // The pasted-into session is expected to operate on its own checkout of the PR
 // head; the rendered prompt instructs it to perform the rebase, resolve

@@ -6,9 +6,9 @@ The generated Markdown report follows a fixed structure:
 # Review: owner/repo#123
 
 > *Feature: Add user authentication*
-> Reviewed by [planwerk-review](https://github.com/planwerk/planwerk-review) vX.Y.Z with Claude:claude-opus-4-8
+> Reviewed by [planwerk-agent](https://github.com/planwerk/planwerk-agent) vX.Y.Z with Claude:claude-opus-4-8
 
-<!-- planwerk-review: blocking=1 critical=2 warning=3 info=1 recommendation=HOLD -->
+<!-- planwerk-agent: blocking=1 critical=2 warning=3 info=1 recommendation=HOLD -->
 
 ## BLOCKING (1)
 
@@ -66,14 +66,14 @@ The PR introduces user authentication with a well-structured handler layer, but 
 ```
 
 The attribution line links back to the project repository —
-`[planwerk-review](https://github.com/planwerk/planwerk-review)` — and, right
+`[planwerk-agent](https://github.com/planwerk/planwerk-agent)` — and, right
 after the link, names the build that produced the report (the same string
-`planwerk-review --version` prints) and the exact Claude model —
+`planwerk-agent --version` prints) and the exact Claude model —
 `with Claude:claude-opus-4-8`, not the alias passed via `--claude-model`. The
 model id is read from the model the session reports at startup; when it is
 unavailable the clause falls back to a bare `with Claude`, and when the build
 version is unknown the repository link stands alone. Every artifact
-planwerk-review leaves on GitHub (issue bodies, pull request descriptions, review
+planwerk-agent leaves on GitHub (issue bodies, pull request descriptions, review
 comments, thread replies) carries the same self-attribution footer in this shape,
 so the report headers and the comment footers read identically.
 
@@ -113,7 +113,7 @@ The Markdown report includes an HTML comment with counts and recommendation
 verdict for machine consumption:
 
 ```html
-<!-- planwerk-review: blocking=1 critical=2 warning=0 info=3 recommendation=HOLD -->
+<!-- planwerk-agent: blocking=1 critical=2 warning=0 info=3 recommendation=HOLD -->
 ```
 
 Verdict values: `HOLD` (blockers/criticals present), `REVIEW` (warnings only),
@@ -139,7 +139,7 @@ Claude Code's own reported per-call cost. The line is omitted when a Run made no
 Claude call (for example `--version`, a dry run, or `--print-prompt`).
 
 When a review is posted (`--post-review` / `--inline`), the same totals are
-embedded in the `<!-- planwerk-review-data ... -->` comment as a `usage` object
+embedded in the `<!-- planwerk-agent-data ... -->` comment as a `usage` object
 for CI extraction, alongside the findings:
 
 ```json
@@ -184,8 +184,8 @@ fails CI. The [`schema` subcommand](/reference/cli#schema) prints the same files
 to stdout so consumers can validate piped JSON:
 
 ```bash
-planwerk-review review --format json owner/repo#123 > review.json
-planwerk-review schema review > report-result.schema.json
+planwerk-agent review --format json owner/repo#123 > review.json
+planwerk-agent schema review > report-result.schema.json
 check-jsonschema --schemafile report-result.schema.json review.json
 ```
 

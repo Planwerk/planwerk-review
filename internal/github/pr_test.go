@@ -20,23 +20,23 @@ func TestParseRef(t *testing.T) {
 	}{
 		{
 			name:   "URL form",
-			ref:    "https://github.com/planwerk/planwerk-review/pull/42",
+			ref:    "https://github.com/planwerk/planwerk-agent/pull/42",
 			owner:  "planwerk",
-			repo:   "planwerk-review",
+			repo:   "planwerk-agent",
 			number: 42,
 		},
 		{
 			name:   "short form",
-			ref:    "planwerk/planwerk-review#42",
+			ref:    "planwerk/planwerk-agent#42",
 			owner:  "planwerk",
-			repo:   "planwerk-review",
+			repo:   "planwerk-agent",
 			number: 42,
 		},
 		{
 			name:   "short form with whitespace",
-			ref:    "  planwerk/planwerk-review#42  ",
+			ref:    "  planwerk/planwerk-agent#42  ",
 			owner:  "planwerk",
-			repo:   "planwerk-review",
+			repo:   "planwerk-agent",
 			number: 42,
 		},
 		{
@@ -110,10 +110,10 @@ func TestParseRefBareNumberWithGitHubRepository(t *testing.T) {
 	}{
 		{
 			name:       "bare number resolves via GITHUB_REPOSITORY",
-			envRepo:    "planwerk/planwerk-review",
+			envRepo:    "planwerk/planwerk-agent",
 			ref:        "21",
 			wantOwner:  "planwerk",
-			wantRepo:   "planwerk-review",
+			wantRepo:   "planwerk-agent",
 			wantNumber: 21,
 		},
 		{

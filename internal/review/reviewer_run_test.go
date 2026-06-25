@@ -12,13 +12,13 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/cache"
-	"github.com/planwerk/planwerk-review/internal/capture"
-	"github.com/planwerk/planwerk-review/internal/claude"
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/planwerk"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/cache"
+	"github.com/planwerk/planwerk-agent/internal/capture"
+	"github.com/planwerk/planwerk-agent/internal/claude"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/planwerk"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // initGitRepoTwoCommits creates a git repo with two commits: the first adds
@@ -537,7 +537,7 @@ func TestRun_SkipSuppressionDropsUnchangedRepeats(t *testing.T) {
 	}
 	// The posted comment's data block still carries the full set so the next
 	// re-review can compare again.
-	if !strings.Contains(postedBody, "planwerk-review-data") {
+	if !strings.Contains(postedBody, "planwerk-agent-data") {
 		t.Error("posted comment must include the machine-readable data block")
 	}
 	// The data block also carries the per-Run Claude usage totals for CI

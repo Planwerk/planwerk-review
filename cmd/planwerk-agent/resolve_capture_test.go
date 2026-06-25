@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/cli"
+	"github.com/planwerk/planwerk-agent/internal/cli"
 )
 
 // TestResolveCaptureWiki locks the precedence of the capture write-back gate:

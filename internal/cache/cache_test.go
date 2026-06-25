@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 func TestKey(t *testing.T) {

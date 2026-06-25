@@ -1,6 +1,6 @@
 # CLI reference
 
-This page documents every user-facing `planwerk-review` subcommand and flag. A
+This page documents every user-facing `planwerk-agent` subcommand and flag. A
 PR/issue/repo reference can be a full URL or the short form (`owner/repo#123`,
 `owner/repo`).
 
@@ -36,16 +36,16 @@ The root command reviews a single GitHub pull request.
 
 ```bash
 # Simple invocation with PR URL
-planwerk-review https://github.com/owner/repo/pull/123
+planwerk-agent https://github.com/owner/repo/pull/123
 
 # Short form with owner/repo#number
-planwerk-review owner/repo#123
+planwerk-agent owner/repo#123
 
 # Post review as inline comments on the PR
-planwerk-review --inline owner/repo#123
+planwerk-agent --inline owner/repo#123
 
 # Write output to file
-planwerk-review owner/repo#123 > review.md
+planwerk-agent owner/repo#123 > review.md
 ```
 
 | Flag | Description | Default |
@@ -100,9 +100,9 @@ write-back from a trusted source — `implement` or `audit`. See
 Analyze a GitHub repository in depth and generate feature proposals.
 
 ```bash
-planwerk-review propose owner/repo
-planwerk-review propose --format issues owner/repo
-planwerk-review propose --create-issues owner/repo
+planwerk-agent propose owner/repo
+planwerk-agent propose --format issues owner/repo
+planwerk-agent propose --create-issues owner/repo
 ```
 
 | Flag | Description | Default |
@@ -127,9 +127,9 @@ planwerk-review propose --create-issues owner/repo
 Apply every loaded review pattern to an entire codebase.
 
 ```bash
-planwerk-review audit owner/repo
-planwerk-review audit --min-severity warning owner/repo
-planwerk-review audit --format json owner/repo
+planwerk-agent audit owner/repo
+planwerk-agent audit --min-severity warning owner/repo
+planwerk-agent audit --format json owner/repo
 ```
 
 | Flag | Description | Default |
@@ -182,10 +182,10 @@ There are three write modes:
   PR-creation path.
 - **`--local`** — write them directly into the current working tree's
   `.planwerk/review_patterns/` instead of opening a PR.
-- **`--to-catalog`** — anchor them into this `planwerk-review` checkout's
+- **`--to-catalog`** — anchor them into this `planwerk-agent` checkout's
   bundled review catalog (`internal/patterns/patterns/review/`), normalizing
   each pattern's frontmatter to the `review` category. This is the
-  maintainer/contribution path and must be run from a `planwerk-review`
+  maintainer/contribution path and must be run from a `planwerk-agent`
   checkout.
 
 By default the patterns are selected interactively (`y/N/q` per pattern). Pass
@@ -196,10 +196,10 @@ flags: the wiki is an untrusted, world-editable source, so it refuses to extract
 choice rather than failing open.
 
 ```bash
-planwerk-review extract owner/repo                       # interactive, opens a PR
-planwerk-review extract owner/repo --all                 # every pattern, opens a PR
-planwerk-review extract owner/repo --pattern my-rule --local
-planwerk-review extract owner/repo --all --to-catalog    # contribute to the bundled catalog
+planwerk-agent extract owner/repo                       # interactive, opens a PR
+planwerk-agent extract owner/repo --all                 # every pattern, opens a PR
+planwerk-agent extract owner/repo --pattern my-rule --local
+planwerk-agent extract owner/repo --all --to-catalog    # contribute to the bundled catalog
 ```
 
 | Flag | Description | Default |
@@ -242,10 +242,10 @@ there is no `--wiki`/`--no-wiki` here, only `--wiki-ref` to pin it. `sync` is
 scoped to whole-entry deletion; it does not edit entry contents.
 
 ```bash
-planwerk-review sync owner/repo                  # dry run: report only
-planwerk-review sync owner/repo --format json    # machine-readable report
-planwerk-review sync owner/repo --prune          # delete flagged entries (confirms first)
-planwerk-review sync owner/repo --prune --yes    # prune without the prompt (CI)
+planwerk-agent sync owner/repo                  # dry run: report only
+planwerk-agent sync owner/repo --format json    # machine-readable report
+planwerk-agent sync owner/repo --prune          # delete flagged entries (confirms first)
+planwerk-agent sync owner/repo --prune --yes    # prune without the prompt (CI)
 ```
 
 | Flag | Description | Default |
@@ -274,8 +274,8 @@ once it is committed as `CONTEXT.md`. See
 how the commands read it back.
 
 ```bash
-planwerk-review glossary owner/repo > CONTEXT.md
-planwerk-review glossary --local
+planwerk-agent glossary owner/repo > CONTEXT.md
+planwerk-agent glossary --local
 ```
 
 The output is a starter — review and edit it before committing. The command
@@ -294,9 +294,9 @@ Compare every Planwerk feature file under `.planwerk/completed/` in the target
 repo against the actual codebase and report incomplete implementations.
 
 ```bash
-planwerk-review gap-analysis owner/repo
-planwerk-review gap-analysis --feature CC-0042 owner/repo
-planwerk-review gap-analysis --file CC-0042-thing.json owner/repo
+planwerk-agent gap-analysis owner/repo
+planwerk-agent gap-analysis --feature CC-0042 owner/repo
+planwerk-agent gap-analysis --file CC-0042-thing.json owner/repo
 ```
 
 | Flag | Description | Default |
@@ -327,9 +327,9 @@ finding. This command reviews the spec only; it does not compare the spec to the
 codebase (use [`gap-analysis`](#gap-analysis) for that).
 
 ```bash
-planwerk-review review-prepared owner/repo
-planwerk-review review-prepared --feature PX-0028 owner/repo
-planwerk-review review-prepared --create-pr owner/repo
+planwerk-agent review-prepared owner/repo
+planwerk-agent review-prepared --feature PX-0028 owner/repo
+planwerk-agent review-prepared --create-pr owner/repo
 ```
 
 | Flag | Description | Default |
@@ -345,7 +345,7 @@ planwerk-review review-prepared --create-pr owner/repo
 | `--feature` | Limit review to a single feature by `feature_id` (e.g. `PX-0028`) | - |
 | `--file` | Limit review to a single feature file under `.planwerk/features/` (path or basename) | - |
 | `--create-pr` | After the review, commit improved feature JSON files on a fresh branch and open a pull request | `false` |
-| `--pr-branch` | Branch name for `--create-pr` | `planwerk-review/improve-prepared-features` |
+| `--pr-branch` | Branch name for `--create-pr` | `planwerk-agent/improve-prepared-features` |
 | `--pr-base` | Base branch for `--create-pr` | repo default branch |
 | `--local` | Operate on the current working directory instead of cloning into a temp dir | `false` |
 | `--force` | With `--local`, skip the confirmation prompt when the working tree is dirty | `false` |
@@ -360,16 +360,16 @@ description: it does not produce an engineering plan (that is `elaborate`).
 
 ```bash
 # Draft an issue for an explicit repository (prompts for the idea, then asks)
-planwerk-review draft owner/repo
+planwerk-agent draft owner/repo
 
 # Seed the idea on the command line
-planwerk-review draft owner/repo "add a dark mode toggle"
+planwerk-agent draft owner/repo "add a dark mode toggle"
 
 # File against the current checkout's origin (no repo-ref needed)
-planwerk-review draft --local "add a dark mode toggle"
+planwerk-agent draft --local "add a dark mode toggle"
 
 # Draft without the clarifying questions, and preview without filing
-planwerk-review draft --no-interactive --dry-run owner/repo "add a dark mode toggle"
+planwerk-agent draft --no-interactive --dry-run owner/repo "add a dark mode toggle"
 ```
 
 Without `--local`, the first positional is the repository reference
@@ -410,9 +410,9 @@ Expand a high-level GitHub issue into a detailed engineering plan grounded in
 the actual repository state.
 
 ```bash
-planwerk-review elaborate owner/repo#123
-planwerk-review elaborate --update-issue owner/repo#123
-planwerk-review elaborate --post-comment owner/repo#123
+planwerk-agent elaborate owner/repo#123
+planwerk-agent elaborate --update-issue owner/repo#123
+planwerk-agent elaborate --post-comment owner/repo#123
 ```
 
 | Flag | Description | Default |
@@ -451,13 +451,13 @@ Issue.
 
 ```bash
 # Preview the planned split without filing or linking anything
-planwerk-review meta --dry-run owner/repo#123
+planwerk-agent meta --dry-run owner/repo#123
 
 # Carve the Meta Issue into Sub Issues, link them, and sync the body
-planwerk-review meta owner/repo#123
+planwerk-agent meta owner/repo#123
 
 # Attach a label to each created Sub Issue
-planwerk-review meta --label enhancement owner/repo#123
+planwerk-agent meta --label enhancement owner/repo#123
 ```
 
 | Flag | Description | Default |
@@ -478,9 +478,9 @@ Deterministically render a copy-paste-ready Claude Code prompt for an existing
 GitHub issue. No Claude call is involved.
 
 ```bash
-planwerk-review prompt owner/repo#42
-planwerk-review prompt --mode fix owner/repo#42
-planwerk-review prompt --mode implement owner/repo#42
+planwerk-agent prompt owner/repo#42
+planwerk-agent prompt --mode fix owner/repo#42
+planwerk-agent prompt --mode implement owner/repo#42
 ```
 
 | Flag | Description | Default |
@@ -501,10 +501,10 @@ temp-dir and `--local` runs. Pass `--no-fixup` to append the fix as a fresh
 on-top follow-up commit and push without rewriting history.
 
 ```bash
-planwerk-review fix owner/repo#123
-planwerk-review fix --dry-run owner/repo#123
-planwerk-review fix --no-fixup owner/repo#123
-planwerk-review fix --local --force
+planwerk-agent fix owner/repo#123
+planwerk-agent fix --dry-run owner/repo#123
+planwerk-agent fix --no-fixup owner/repo#123
+planwerk-agent fix --local --force
 ```
 
 | Flag | Description | Default |
@@ -536,10 +536,10 @@ forked and report concrete per-commit adjustments — even where git produced no
 textual conflict. History is force-pushed only with `--push`.
 
 ```bash
-planwerk-review rebase owner/repo#123
-planwerk-review rebase --onto develop owner/repo#123
-planwerk-review rebase --dry-run owner/repo#123
-planwerk-review rebase --local --push
+planwerk-agent rebase owner/repo#123
+planwerk-agent rebase --onto develop owner/repo#123
+planwerk-agent rebase --dry-run owner/repo#123
+planwerk-agent rebase --local --push
 ```
 
 | Flag | Description | Default |
@@ -574,24 +574,24 @@ report is posted back onto the source issue as a comment on every run (use
 `--no-report-comment` to skip that), so the course of each implementation is
 recorded on the issue.
 
-A plan planwerk-review already posted on the issue (from an earlier run that
+A plan planwerk-agent already posted on the issue (from an earlier run that
 planned but was aborted before implementing) is reused by default: the planning
 session is skipped and no duplicate plan comment is posted. Use `--no-plan-reuse`
 to force a fresh planning session when the posted plan has gone stale.
 
 ```bash
-planwerk-review implement owner/repo#123
-planwerk-review implement --no-plan owner/repo#123
-planwerk-review implement --no-plan-reuse owner/repo#123
-planwerk-review implement --verify owner/repo#123
-planwerk-review implement --verify-adversarial owner/repo#123
-planwerk-review implement --verify --verify-adversarial owner/repo#123
-planwerk-review implement --no-simplify owner/repo#123
-planwerk-review implement --no-review owner/repo#123
-planwerk-review implement --wiki owner/repo#123
-planwerk-review implement --wiki --no-capture owner/repo#123
-planwerk-review implement --wiki --capture-wiki owner/repo#123
-planwerk-review implement --wiki --capture-wiki --yes owner/repo#123
+planwerk-agent implement owner/repo#123
+planwerk-agent implement --no-plan owner/repo#123
+planwerk-agent implement --no-plan-reuse owner/repo#123
+planwerk-agent implement --verify owner/repo#123
+planwerk-agent implement --verify-adversarial owner/repo#123
+planwerk-agent implement --verify --verify-adversarial owner/repo#123
+planwerk-agent implement --no-simplify owner/repo#123
+planwerk-agent implement --no-review owner/repo#123
+planwerk-agent implement --wiki owner/repo#123
+planwerk-agent implement --wiki --no-capture owner/repo#123
+planwerk-agent implement --wiki --capture-wiki owner/repo#123
+planwerk-agent implement --wiki --capture-wiki --yes owner/repo#123
 ```
 
 | Flag | Description | Default |
@@ -708,12 +708,12 @@ replies are best-effort and on by default, resolving is best-effort and off by
 default (it is outward-facing).
 
 ```bash
-planwerk-review address owner/repo#123
-planwerk-review address --all owner/repo#123
-planwerk-review address --thread PRRT_kwDOAbc123 owner/repo#123
-planwerk-review address --resolve owner/repo#123
-planwerk-review address --dry-run owner/repo#123
-planwerk-review address --local --force
+planwerk-agent address owner/repo#123
+planwerk-agent address --all owner/repo#123
+planwerk-agent address --thread PRRT_kwDOAbc123 owner/repo#123
+planwerk-agent address --resolve owner/repo#123
+planwerk-agent address --dry-run owner/repo#123
+planwerk-agent address --local --force
 ```
 
 | Flag | Description | Default |
@@ -748,10 +748,10 @@ background.
 
 ```bash
 # Show total entries, size, age distribution, and per-command breakdown
-planwerk-review cache stats
+planwerk-agent cache stats
 
 # Dump metadata and pretty-printed payload for one key
-planwerk-review cache inspect <key>
+planwerk-agent cache inspect <key>
 ```
 
 | Subcommand | Arguments | Description |
@@ -768,11 +768,11 @@ for the field-level contract.
 
 ```bash
 # Print the schema for review/audit JSON output
-planwerk-review schema review
+planwerk-agent schema review
 
 # Validate piped JSON against the schema (example with check-jsonschema)
-planwerk-review propose --format json owner/repo > proposals.json
-planwerk-review schema propose > proposal.schema.json
+planwerk-agent propose --format json owner/repo > proposals.json
+planwerk-agent schema propose > proposal.schema.json
 check-jsonschema --schemafile proposal.schema.json proposals.json
 ```
 

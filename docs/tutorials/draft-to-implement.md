@@ -15,7 +15,7 @@ Capture a rough idea as a clean issue. `draft` asks a few clarifying questions,
 then drafts a structured issue and files it on your confirmation:
 
 ```bash
-planwerk-review draft owner/repo "add a dark mode toggle to the settings page"
+planwerk-agent draft owner/repo "add a dark mode toggle to the settings page"
 ```
 
 Answer the clarifying questions, review the preview, and confirm with `y`. The
@@ -25,7 +25,7 @@ If you are sitting inside a checkout of the target repository, you can skip the
 repo-ref and let `draft` read it from `origin`:
 
 ```bash
-planwerk-review draft --local "add a dark mode toggle to the settings page"
+planwerk-agent draft --local "add a dark mode toggle to the settings page"
 ```
 
 `draft` deliberately stops at an initial description (title, Description,
@@ -37,7 +37,7 @@ Expand the captured idea into a detailed engineering plan grounded in the actual
 repository, and write the plan back onto the issue:
 
 ```bash
-planwerk-review elaborate owner/repo#42 --update-issue
+planwerk-agent elaborate owner/repo#42 --update-issue
 ```
 
 This clones the repo, walks the code, and rewrites the issue body with concrete
@@ -52,7 +52,7 @@ the diff up with automatic simplify and review passes, and then opens a draft
 pull request linked to the issue:
 
 ```bash
-planwerk-review implement owner/repo#42
+planwerk-agent implement owner/repo#42
 ```
 
 When it finishes, open the draft PR it created, review the diff, and take it

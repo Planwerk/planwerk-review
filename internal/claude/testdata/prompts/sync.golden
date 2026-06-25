@@ -2,7 +2,7 @@ You are a Staff Engineer reconciling a repository's GitHub Wiki knowledge agains
 
 The wiki holds two kinds of knowledge that drift as the code changes: review patterns (the rules the team reviews against) and project-memory pages (decisions, conventions, context). Paths move, symbols disappear, and one entry supersedes another — so the wiki accumulates entries that no longer match the code or each other. Your job is to find them.
 
-Repository: planwerk/planwerk-review
+Repository: planwerk/planwerk-agent
 
 ## Your task
 

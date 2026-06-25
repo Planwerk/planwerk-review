@@ -19,7 +19,7 @@ import (
 	"io"
 	"log/slog"
 
-	"github.com/planwerk/planwerk-review/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/github"
 )
 
 // Options configures a meta run.

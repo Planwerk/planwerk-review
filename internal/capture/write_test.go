@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 // fakeWikiWriter is an offline WikiWriter: it records what Clone and

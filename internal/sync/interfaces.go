@@ -1,8 +1,8 @@
 package sync
 
 import (
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 // ClaudeSyncer performs the read-only wiki-reconciliation analysis for a cloned

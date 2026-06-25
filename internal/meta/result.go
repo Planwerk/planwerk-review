@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
 )
 
 // SubIssue is one draft-depth Sub Issue carved out of a Meta Issue. The first

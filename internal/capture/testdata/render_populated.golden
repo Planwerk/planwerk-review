@@ -1,7 +1,7 @@
-# Captured Knowledge: planwerk/planwerk-review
+# Captured Knowledge: planwerk/planwerk-agent
 
-> Proposed by [planwerk-review](https://github.com/planwerk/planwerk-review) e1efd0d with Claude:claude-opus-4-8
-> Wiki: planwerk/planwerk-review.wiki @ abc1234
+> Proposed by [planwerk-agent](https://github.com/planwerk/planwerk-agent) e1efd0d with Claude:claude-opus-4-8
+> Wiki: planwerk/planwerk-agent.wiki @ abc1234
 
 ## Proposed review patterns (1)
 
@@ -14,7 +14,7 @@ Candidate review_patterns/ pages, deduplicated against the wiki and the pattern 
 The same fence-escaping fix recurred across the sync and capture prompt builders. [confidence: likely]
 
 ```markdown
-<!-- planwerk-review: captured from planwerk/planwerk-review#138 -->
+<!-- planwerk-agent: captured from planwerk/planwerk-agent#138 -->
 
 # Review Pattern: Escape untrusted fences
 
@@ -41,7 +41,7 @@ Candidate memory/ pages, deduplicated against the wiki and the pattern catalog.
 Durable design decision drawn from the plan and the implementation report.
 
 ```markdown
-<!-- planwerk-review: captured from planwerk/planwerk-review#138 -->
+<!-- planwerk-agent: captured from planwerk/planwerk-agent#138 -->
 
 The capture pass authors candidate wiki pages but never pushes them; the gated write-back is a separate step.
 ```

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/implement"
+	"github.com/planwerk/planwerk-agent/internal/implement"
 )
 
 // finalizeReportHeading is the heading every finalize report opens with.

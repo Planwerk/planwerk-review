@@ -1,6 +1,6 @@
 package glossary
 
-import "github.com/planwerk/planwerk-review/internal/github"
+import "github.com/planwerk/planwerk-agent/internal/github"
 
 // GenerateContext is the input to the glossary-generation prompt. The
 // vocabulary is extracted from the checkout itself, so the only field the

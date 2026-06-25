@@ -24,7 +24,7 @@ specific source wins on a name collision:
    when present it overrides the embedded copy.
 
 3. **Working-directory catalog** (`./patterns`) — picked up when running from a
-   planwerk-review checkout during development of the tool itself.
+   planwerk-agent checkout during development of the tool itself.
 
 4. **GitHub Wiki patterns** (`review_patterns/*.md` in the target repo's wiki)
    - The repo's GitHub Wiki, human-editable through the web UI and git-versioned independently of the code, so review knowledge accumulates without polluting code diffs
@@ -65,25 +65,25 @@ Examples:
 
 ```bash
 # Default branch of a GitHub repo
-planwerk-review --patterns github:planwerk/patterns owner/repo#123
+planwerk-agent --patterns github:planwerk/patterns owner/repo#123
 
 # Pinned tag, sub-directory inside the repo
-planwerk-review --patterns github:planwerk/patterns/security@v1.2.3 owner/repo#123
+planwerk-agent --patterns github:planwerk/patterns/security@v1.2.3 owner/repo#123
 
 # Generic git URL with ref + subpath (separator: ":" inside the fragment)
-planwerk-review --patterns git+https://gitlab.example.com/team/p.git#main:patterns/web owner/repo#123
+planwerk-agent --patterns git+https://gitlab.example.com/team/p.git#main:patterns/web owner/repo#123
 
 # Mix local + remote, in priority order
-planwerk-review --patterns ./local-overrides --patterns github:planwerk/patterns owner/repo#123
+planwerk-agent --patterns ./local-overrides --patterns github:planwerk/patterns owner/repo#123
 ```
 
 Anything that doesn't match `github:` or `git+http(s)://` is treated as a local
 path, so existing usage is unchanged.
 
 **Caching.** Remote sources are cloned into
-`<UserCacheDir>/planwerk-review/patterns/<hash>/repo/` (typically
-`~/.cache/planwerk-review/patterns/…` on Linux,
-`~/Library/Caches/planwerk-review/patterns/…` on macOS). A neighbouring
+`<UserCacheDir>/planwerk-agent/patterns/<hash>/repo/` (typically
+`~/.cache/planwerk-agent/patterns/…` on Linux,
+`~/Library/Caches/planwerk-agent/patterns/…` on macOS). A neighbouring
 `meta.json` records when the clone was last refreshed. The cache is keyed by the
 URI (excluding the subpath), so two URIs that differ only in their subpath share
 the same checkout.

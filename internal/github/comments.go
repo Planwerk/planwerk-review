@@ -14,7 +14,7 @@ const (
 	// maxCommentLen is the GitHub API limit for issue/PR comment bodies.
 	maxCommentLen = 65536
 	// commentSignature is appended to comments so we can detect duplicates.
-	commentSignature = "<!-- planwerk-review -->"
+	commentSignature = "<!-- planwerk-agent -->"
 )
 
 // truncationNotice is appended when a comment body is cut to fit within
@@ -25,13 +25,13 @@ var truncationNotice = fmt.Sprintf(
 )
 
 // PostPRComment posts a comment on a GitHub pull request via the gh CLI.
-// It detects and replaces any previous planwerk-review comment on the same PR.
+// It detects and replaces any previous planwerk-agent comment on the same PR.
 // Bodies exceeding maxCommentLen are truncated.
 func PostPRComment(owner, repo string, number int, body string) (string, error) {
 	fullName := fmt.Sprintf("%s/%s", owner, repo)
 	body = truncateComment(body + "\n" + commentSignature)
 
-	// Check for an existing planwerk-review comment to update.
+	// Check for an existing planwerk-agent comment to update.
 	existingID, err := findExistingComment(fullName, number)
 	if err != nil {
 		return "", fmt.Errorf("checking existing comments: %w", err)
@@ -59,7 +59,7 @@ func PostPRComment(owner, repo string, number int, body string) (string, error) 
 
 // AddPRComment posts a NEW comment on a pull request via the gh CLI, passing
 // the body on stdin so it is not subject to argv length limits or shell
-// quoting. Unlike PostPRComment it carries no planwerk-review signature and
+// quoting. Unlike PostPRComment it carries no planwerk-agent signature and
 // never replaces a prior comment: each call appends a fresh comment. The fix
 // loop uses it to record one comment per pushed fix iteration, so the history
 // of what each follow-up commit changed survives on the PR. (`gh issue
@@ -154,7 +154,7 @@ type ghComment struct {
 	Body string `json:"body"`
 }
 
-// findExistingComment returns the node ID of the prior planwerk-review comment
+// findExistingComment returns the node ID of the prior planwerk-agent comment
 // on the PR, or "" when none exists.
 func findExistingComment(repo string, number int) (string, error) {
 	c, err := fetchExistingComment(repo, number)
@@ -164,7 +164,7 @@ func findExistingComment(repo string, number int) (string, error) {
 	return c.ID, nil
 }
 
-// FetchReviewComment returns the body of the most recent planwerk-review
+// FetchReviewComment returns the body of the most recent planwerk-agent
 // comment on the PR. found is false when no such comment exists. It lets the
 // review pipeline read the data block from the previous review.
 func FetchReviewComment(owner, repo string, number int) (body string, found bool, err error) {
@@ -178,7 +178,7 @@ func FetchReviewComment(owner, repo string, number int) (body string, found bool
 	return c.Body, true, nil
 }
 
-// fetchExistingComment returns the most recent planwerk-review comment (id and
+// fetchExistingComment returns the most recent planwerk-agent comment (id and
 // body) on the PR, or a zero ghComment when none is found.
 func fetchExistingComment(repo string, number int) (ghComment, error) {
 	args := []string{"pr", "view", strconv.Itoa(number),

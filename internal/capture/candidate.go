@@ -3,8 +3,8 @@ package capture
 import (
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // CandidateFindings is the quality pre-filter applied before the proposal pass:

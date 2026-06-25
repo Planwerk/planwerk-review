@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/github"
 )
 
 // RunInteractiveThreadSelection walks the unresolved review threads, shows each

@@ -1,6 +1,6 @@
 # Concept & architecture
 
-planwerk-review is an AI-powered code review and codebase analysis tool for
+planwerk-agent is an AI-powered code review and codebase analysis tool for
 GitHub repositories. It uses Claude Code to automatically analyze PR changes
 and produce structured review results, to analyze entire repositories and
 generate actionable feature proposals, to audit an entire codebase against all
@@ -17,7 +17,7 @@ rendered. The diagrams below show the data flow for each workflow.
 ```text
 Review:
 ┌──────────────┐     ┌──────────────────┐     ┌───────────────┐     ┌──────────────┐
-│  GitHub PR   │────▶│  planwerk-review │────▶│  Claude Code  │────▶│  Markdown    │
+│  GitHub PR   │────▶│  planwerk-agent │────▶│  Claude Code  │────▶│  Markdown    │
 │  (URL/Ref)   │     │                  │     │  /review      │     │  Report      │
 └──────────────┘     └──────────────────┘     └───────────────┘     └──────────────┘
                             │                                              │
@@ -29,7 +29,7 @@ Review:
 
 Propose:
 ┌──────────────┐     ┌──────────────────┐     ┌───────────────┐     ┌──────────────┐
-│  GitHub Repo │────▶│  planwerk-review │────▶│  Claude Code  │────▶│  Proposals   │
+│  GitHub Repo │────▶│  planwerk-agent │────▶│  Claude Code  │────▶│  Proposals   │
 │  (URL/Ref)   │     │  propose         │     │  (analysis)   │     │  (MD/JSON)   │
 └──────────────┘     └──────────────────┘     └───────────────┘     └──────────────┘
                             │                        │                      │
@@ -41,7 +41,7 @@ Propose:
 
 Audit:
 ┌──────────────┐     ┌──────────────────┐     ┌───────────────┐     ┌──────────────┐
-│  GitHub Repo │────▶│  planwerk-review │────▶│  Claude Code  │────▶│  Findings    │
+│  GitHub Repo │────▶│  planwerk-agent │────▶│  Claude Code  │────▶│  Findings    │
 │  (URL/Ref)   │     │  audit           │     │  (full scan)  │     │  (MD/JSON)   │
 └──────────────┘     └──────────────────┘     └───────────────┘     └──────────────┘
                             │                        │
@@ -54,7 +54,7 @@ Audit:
 
 Elaborate:
 ┌──────────────┐     ┌──────────────────┐     ┌───────────────┐     ┌──────────────┐
-│  GitHub      │────▶│  planwerk-review │────▶│  Claude Code  │────▶│  Detailed    │
+│  GitHub      │────▶│  planwerk-agent │────▶│  Claude Code  │────▶│  Detailed    │
 │  Issue       │     │  elaborate       │     │  (repo walk)  │     │  Issue Body  │
 └──────────────┘     └──────────────────┘     └───────────────┘     └──────────────┘
                             │                        │                      │
@@ -66,7 +66,7 @@ Elaborate:
 
 Prompt:
 ┌──────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│  GitHub      │────▶│  planwerk-review │────▶│  Claude Code     │
+│  GitHub      │────▶│  planwerk-agent │────▶│  Claude Code     │
 │  Issue       │     │  prompt          │     │  prompt (stdout) │
 └──────────────┘     └──────────────────┘     └──────────────────┘
                             │

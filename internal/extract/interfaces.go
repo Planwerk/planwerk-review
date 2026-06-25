@@ -1,6 +1,6 @@
 package extract
 
-import "github.com/planwerk/planwerk-review/internal/github"
+import "github.com/planwerk/planwerk-agent/internal/github"
 
 // GitHubClient wraps the GitHub operations the extract pipeline needs: cloning
 // the target repo (for the default PR mode), using the current working tree

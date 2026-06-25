@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // structureReview calls Claude to convert unstructured review text into JSON.

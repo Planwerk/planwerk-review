@@ -1,6 +1,6 @@
 package meta
 
-import "github.com/planwerk/planwerk-review/internal/github"
+import "github.com/planwerk/planwerk-agent/internal/github"
 
 // Context is the input for the Claude meta-split prompt: the Meta Issue to
 // decompose. The meta command reads the issue and decides the breakdown on its

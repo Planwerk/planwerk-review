@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/meta"
+	"github.com/planwerk/planwerk-agent/internal/meta"
 )
 
 // Meta carves a Meta Issue into the fewest sensible draft-depth Sub Issues. It

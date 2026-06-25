@@ -1,5 +1,5 @@
 // Package schema holds the JSON Schema documents that describe
-// planwerk-review's machine-readable (--format json) output. The schemas are
+// planwerk-agent's machine-readable (--format json) output. The schemas are
 // embedded at compile time so the `schema` subcommand can emit them verbatim
 // and downstream consumers can validate piped JSON against a declared
 // contract. The schemas are the source of truth: the report and propose

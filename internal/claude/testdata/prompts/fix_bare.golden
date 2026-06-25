@@ -53,7 +53,7 @@ Apply these task-specific thinking patterns on top of the baseline above:
 
 ## Pull Request
 
-- Repository: planwerk/planwerk-review
+- Repository: planwerk/planwerk-agent
 - PR #42
 
 Detected technologies in the target repo (used to filter the pattern catalog below): go
@@ -62,12 +62,12 @@ You are already running inside a checkout of this PR's head branch. Do NOT re-ch
 
 ## Project Review Patterns to Honor
 
-planwerk-review identified the patterns below as relevant to the technologies in the target repo (the catalog has already been filtered by the detected technology tags above). Treat them as binding context: your work MUST stay consistent with them, and when the change touches an area covered by a pattern, prefer the resolution the pattern endorses.
+planwerk-agent identified the patterns below as relevant to the technologies in the target repo (the catalog has already been filtered by the detected technology tags above). Treat them as binding context: your work MUST stay consistent with them, and when the change touches an area covered by a pattern, prefer the resolution the pattern endorses.
 
-To load each pattern, fetch its URL — use the WebFetch tool when available, or `curl -fsSL <URL>` otherwise. Read the markdown body in full; each file follows the planwerk-review pattern schema (`# Review Pattern: …` header, `**Review-Area**`, `**Detection-Hint**`, `**Severity**`, `**Category**`, `**Applies-When**`, optional `**Sources**`, then the rule body). Patterns marked with a checkout path live inside the working tree you are already in and need no fetch — open them directly.
+To load each pattern, fetch its URL — use the WebFetch tool when available, or `curl -fsSL <URL>` otherwise. Read the markdown body in full; each file follows the planwerk-agent pattern schema (`# Review Pattern: …` header, `**Review-Area**`, `**Detection-Hint**`, `**Severity**`, `**Category**`, `**Applies-When**`, optional `**Sources**`, then the rule body). Patterns marked with a checkout path live inside the working tree you are already in and need no fetch — open them directly.
 
 <review-pattern-catalog>
-- **Hardcoded secrets** (CRITICAL) — fetch https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns/hardcoded-secrets.md  
+- **Hardcoded secrets** (CRITICAL) — fetch https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns/hardcoded-secrets.md  
   category=design-principle; area=security
 </review-pattern-catalog>
 
@@ -78,7 +78,7 @@ Do NOT guess what is failing. Use the GitHub CLI to enumerate the PR's check run
 1. List the checks for the PR:
 
 ```
-gh pr checks 42 --repo planwerk/planwerk-review
+gh pr checks 42 --repo planwerk/planwerk-agent
 ```
 
 2. For each check reported as "fail" / "failure", record its name, conclusion, and the link to the run / job.
@@ -86,7 +86,7 @@ gh pr checks 42 --repo planwerk/planwerk-review
 3. For each Actions-backed failing check, fetch the failed-step logs:
 
 ```
-gh run view <run-id> --repo planwerk/planwerk-review --log-failed
+gh run view <run-id> --repo planwerk/planwerk-agent --log-failed
 ```
 
    The failure tail is what matters — CI logs cluster errors at the end. Read to the bottom of each log.
@@ -125,7 +125,7 @@ Run these steps for EACH failing check before editing any code:
 6. Determine the PR's base branch so you can bound the fold to this branch's
    own commits, then fetch it so origin/<base> exists:
 
-   gh pr view 42 --repo planwerk/planwerk-review --json baseRefName -q .baseRefName
+   gh pr view 42 --repo planwerk/planwerk-agent --json baseRefName -q .baseRefName
    git fetch origin <base>
 
    Use the printed name wherever <base> appears below.
@@ -193,7 +193,7 @@ EVERY commit you create MUST end with exactly these two trailers, in this order:
 
 - Pass `-s` to `git commit` so git appends the `Signed-off-by` line from the committer identity. It MUST be the very last line of the message.
 - Add an `Assisted-by: Claude` trailer naming yourself as the assistant. Append your exact model id when your runtime context provides it (e.g. `Assisted-by: Claude:claude-opus-4-8`); otherwise emit `Assisted-by: Claude` alone — never guess the id. Pass it as the final `-m` paragraph, NOT via `--trailer` (git places `--trailer` values after the sign-off), so it lands directly above `Signed-off-by`.
-- NEVER add a `Co-authored-by` trailer — not for Claude, not for planwerk-review, not for anyone.
+- NEVER add a `Co-authored-by` trailer — not for Claude, not for planwerk-agent, not for anyone.
 
 ## Hard rules
 

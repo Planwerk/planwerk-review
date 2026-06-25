@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/claude"
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/planwerk"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/claude"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/planwerk"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // mockGitHub is a configurable in-memory GitHubClient used by renderResult tests.
@@ -135,7 +135,7 @@ func TestRenderResult_PostReview(t *testing.T) {
 	if !strings.Contains(postedBody, out.String()[:50]) {
 		t.Error("posted body should contain stdout content")
 	}
-	if !strings.Contains(postedBody, "planwerk-review-data") {
+	if !strings.Contains(postedBody, "planwerk-agent-data") {
 		t.Error("posted body should contain machine-readable data block")
 	}
 }
@@ -277,7 +277,7 @@ index abc..def 100644
 	}
 
 	// Data block should be in the body
-	if !strings.Contains(submittedBody, "planwerk-review-data") {
+	if !strings.Contains(submittedBody, "planwerk-agent-data") {
 		t.Error("submitted body should contain data block")
 	}
 }

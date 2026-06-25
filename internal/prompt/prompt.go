@@ -5,8 +5,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
-	"github.com/planwerk/planwerk-review/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/github"
 )
 
 // Options configures the prompt pipeline.
@@ -81,7 +81,7 @@ func Build(issue *github.Issue, mode Mode, version string) string {
 	}
 	var sb strings.Builder
 
-	fmt.Fprintf(&sb, "<!-- planwerk-review prompt %s for %s/%s#%d -->\n\n",
+	fmt.Fprintf(&sb, "<!-- planwerk-agent prompt %s for %s/%s#%d -->\n\n",
 		modeName(mode), issue.Owner, issue.Name, issue.Number)
 
 	switch mode {
@@ -130,7 +130,7 @@ func modeName(m Mode) string {
 }
 
 func writeFixHeader(sb *strings.Builder) {
-	sb.WriteString(`You are a senior engineer fixing a finding raised by planwerk-review's audit. Apply the suggested fix faithfully — do not enlarge the scope.
+	sb.WriteString(`You are a senior engineer fixing a finding raised by planwerk-agent's audit. Apply the suggested fix faithfully — do not enlarge the scope.
 
 Workflow:
 

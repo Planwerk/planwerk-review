@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/planwerk/planwerk-review/internal/doccheck"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/doccheck"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 func TestStripMarkdownFences(t *testing.T) {

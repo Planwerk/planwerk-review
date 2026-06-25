@@ -46,7 +46,7 @@ Apply these task-specific thinking patterns on top of the baseline above:
 
 ## Pull Request
 
-- Repository: planwerk/planwerk-review
+- Repository: planwerk/planwerk-agent
 - PR #42
 - Rebased onto: origin/main
 - Head branch: feat/snapshot-tests

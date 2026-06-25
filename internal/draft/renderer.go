@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
 )
 
 // Renderer writes a drafted issue to an output stream as Markdown or JSON.

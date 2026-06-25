@@ -164,35 +164,35 @@ func TestParseWikiURI(t *testing.T) {
 	}{
 		{
 			name:      "basic owner/repo derives .wiki.git",
-			in:        "wiki:planwerk/planwerk-review",
-			wantClone: "https://github.com/planwerk/planwerk-review.wiki.git",
+			in:        "wiki:planwerk/planwerk-agent",
+			wantClone: "https://github.com/planwerk/planwerk-agent.wiki.git",
 		},
 		{
 			name:      "trailing .git on repo is stripped before deriving",
-			in:        "wiki:planwerk/planwerk-review.git",
-			wantClone: "https://github.com/planwerk/planwerk-review.wiki.git",
+			in:        "wiki:planwerk/planwerk-agent.git",
+			wantClone: "https://github.com/planwerk/planwerk-agent.wiki.git",
 		},
 		{
 			name:      "owner and repo casing is preserved",
-			in:        "wiki:Planwerk/Planwerk-Review",
-			wantClone: "https://github.com/Planwerk/Planwerk-Review.wiki.git",
+			in:        "wiki:Planwerk/Planwerk-Agent",
+			wantClone: "https://github.com/Planwerk/Planwerk-Agent.wiki.git",
 		},
 		{
 			name:      "ref after @",
-			in:        "wiki:planwerk/planwerk-review@v1.2.3",
-			wantClone: "https://github.com/planwerk/planwerk-review.wiki.git",
+			in:        "wiki:planwerk/planwerk-agent@v1.2.3",
+			wantClone: "https://github.com/planwerk/planwerk-agent.wiki.git",
 			wantRef:   "v1.2.3",
 		},
 		{
 			name:        "subpath inside the wiki",
-			in:          "wiki:planwerk/planwerk-review/review_patterns",
-			wantClone:   "https://github.com/planwerk/planwerk-review.wiki.git",
+			in:          "wiki:planwerk/planwerk-agent/review_patterns",
+			wantClone:   "https://github.com/planwerk/planwerk-agent.wiki.git",
 			wantSubpath: "review_patterns",
 		},
 		{
 			name:        "subpath and ref together",
-			in:          "wiki:planwerk/planwerk-review/review_patterns@main",
-			wantClone:   "https://github.com/planwerk/planwerk-review.wiki.git",
+			in:          "wiki:planwerk/planwerk-agent/review_patterns@main",
+			wantClone:   "https://github.com/planwerk/planwerk-agent.wiki.git",
 			wantRef:     "main",
 			wantSubpath: "review_patterns",
 		},
@@ -240,13 +240,13 @@ func TestResolveRemote_WikiSchemeReachesFetch(t *testing.T) {
 	})
 	defer restore()
 
-	if _, err := ResolveRemote("wiki:planwerk/planwerk-review", RemoteOptions{CacheDir: cacheDir}); err != nil {
+	if _, err := ResolveRemote("wiki:planwerk/planwerk-agent", RemoteOptions{CacheDir: cacheDir}); err != nil {
 		t.Fatalf("ResolveRemote: %v", err)
 	}
 	if gotScheme != schemeWiki {
 		t.Errorf("fetch scheme = %q, want wiki", gotScheme)
 	}
-	if want := "https://github.com/planwerk/planwerk-review.wiki.git"; gotURL != want {
+	if want := "https://github.com/planwerk/planwerk-agent.wiki.git"; gotURL != want {
 		t.Errorf("fetch cloneURL = %q, want %q", gotURL, want)
 	}
 }

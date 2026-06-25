@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/propose"
+	"github.com/planwerk/planwerk-agent/internal/propose"
 )
 
 func TestBuildAnalysisPromptFencesOutOfScope(t *testing.T) {

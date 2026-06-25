@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitepress'
 
-// VitePress configuration for the planwerk-review documentation site.
+// VitePress configuration for the planwerk-agent documentation site.
 //
 // The site is organized along the Diátaxis framework
 // (https://diataxis.fr/): Tutorials (learning), How-to guides (tasks),
@@ -9,7 +9,7 @@ import { defineConfig } from 'vitepress'
 // is derived from the repository name; without a matching base the asset and
 // link URLs 404 on the published site.
 export default defineConfig({
-  title: 'planwerk-review',
+  title: 'planwerk-agent',
   description:
     'AI-powered code review and codebase analysis for GitHub repositories.',
   base: '/planwerk-agent/',
@@ -152,13 +152,13 @@ export default defineConfig({
     socialLinks: [
       {
         icon: 'github',
-        link: 'https://github.com/planwerk/planwerk-review',
+        link: 'https://github.com/planwerk/planwerk-agent',
       },
     ],
 
     editLink: {
       pattern:
-        'https://github.com/planwerk/planwerk-review/edit/main/docs/:path',
+        'https://github.com/planwerk/planwerk-agent/edit/main/docs/:path',
       text: 'Edit this page on GitHub',
     },
   },

@@ -17,7 +17,7 @@ Describe each Sub Issue by the behavior and interfaces it changes — what users
 ## Source Issue
 
 **Issue #78**: Restructure the documentation site
-**URL**: https://github.com/planwerk/planwerk-review/issues/78
+**URL**: https://github.com/planwerk/planwerk-agent/issues/78
 
 <issue-body>
 Split the docs overhaul into lettered workstreams.

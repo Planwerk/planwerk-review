@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/cli"
+	"github.com/planwerk/planwerk-agent/internal/cli"
 )
 
 func boolPtr(b bool) *bool    { return &b }

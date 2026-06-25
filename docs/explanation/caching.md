@@ -1,6 +1,6 @@
 # Caching model
 
-planwerk-review caches the result of every expensive Claude analysis on disk so
+planwerk-agent caches the result of every expensive Claude analysis on disk so
 that re-running a command against an unchanged input is free. The cache is
 shared by `review`, `propose`, `audit`, `elaborate`, and `gap-analysis`, and is
 keyed by repository plus a content fingerprint plus the flags that affect the

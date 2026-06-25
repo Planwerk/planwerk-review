@@ -27,25 +27,25 @@ jobs:
         run: |
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build \
             -ldflags "-s -w -X main.version=${{ steps.version.outputs.version }}" \
-            -o planwerk-review \
-            ./cmd/planwerk-review
+            -o planwerk-agent \
+            ./cmd/planwerk-agent
       - name: Create archive
-        run: tar czf planwerk-review_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz planwerk-review
+        run: tar czf planwerk-agent_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz planwerk-agent
       - uses: anchore/sbom-action/download-syft@v0
       - name: Generate SBOM
         run: >
           syft
-          planwerk-review_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz
-          --output spdx-json=planwerk-review_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz.sbom.spdx.json
+          planwerk-agent_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz
+          --output spdx-json=planwerk-agent_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz.sbom.spdx.json
       - name: Generate checksum
-        run: shasum -a 256 planwerk-review_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz >> planwerk-review_${{ steps.version.outputs.version }}_checksums.txt
+        run: shasum -a 256 planwerk-agent_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz >> planwerk-agent_${{ steps.version.outputs.version }}_checksums.txt
       - uses: actions/upload-artifact@v4
         with:
           name: darwin-artifacts
           path: |
-            planwerk-review_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz
-            planwerk-review_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz.sbom.spdx.json
-            planwerk-review_${{ steps.version.outputs.version }}_checksums.txt
+            planwerk-agent_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz
+            planwerk-agent_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz.sbom.spdx.json
+            planwerk-agent_${{ steps.version.outputs.version }}_checksums.txt
 
   release:
     runs-on: ubuntu-latest
@@ -75,7 +75,7 @@ jobs:
       - name: Upload Darwin artifacts to release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ github.ref_name }} planwerk-review_*_darwin_arm64.* planwerk-review_*_checksums.txt --repo ${{ github.repository }}
+        run: gh release upload ${{ github.ref_name }} planwerk-agent_*_darwin_arm64.* planwerk-agent_*_checksums.txt --repo ${{ github.repository }}
 
   provenance:
     needs: [release, attach-darwin]

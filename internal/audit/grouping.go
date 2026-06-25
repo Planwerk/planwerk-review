@@ -3,7 +3,7 @@ package audit
 import (
 	"sort"
 
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // FindingGroup bundles findings that share the same pattern and file. All

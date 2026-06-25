@@ -5,25 +5,25 @@ feature proposals suitable for GitHub issues.
 
 ```bash
 # Analyze a repository and generate feature proposals
-planwerk-review propose https://github.com/owner/repo
+planwerk-agent propose https://github.com/owner/repo
 
 # Short form
-planwerk-review propose owner/repo
+planwerk-agent propose owner/repo
 
 # Output as JSON
-planwerk-review propose --format json owner/repo
+planwerk-agent propose --format json owner/repo
 
 # Output as GitHub issue templates
-planwerk-review propose --format issues owner/repo
+planwerk-agent propose --format issues owner/repo
 
 # Force fresh analysis (ignore cache)
-planwerk-review propose --no-cache owner/repo
+planwerk-agent propose --no-cache owner/repo
 
 # Interactively create GitHub issues from proposals
-planwerk-review propose --create-issues owner/repo
+planwerk-agent propose --create-issues owner/repo
 
 # Write proposals to file
-planwerk-review propose owner/repo > proposals.md
+planwerk-agent propose owner/repo > proposals.md
 ```
 
 See the [CLI reference](/reference/cli#propose) for every flag.

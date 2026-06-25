@@ -46,7 +46,7 @@ Apply these task-specific thinking patterns on top of the baseline above:
 
 ## Pull Request
 
-- Repository: planwerk/planwerk-review
+- Repository: planwerk/planwerk-agent
 - PR #42
 - Rebase onto: main
 
@@ -56,12 +56,12 @@ You are already running inside a checkout of this PR's head branch. Do NOT re-ch
 
 ## Project Review Patterns to Honor
 
-planwerk-review identified the patterns below as relevant to the technologies in the target repo (the catalog has already been filtered by the detected technology tags above). Treat them as binding context: your work MUST stay consistent with them, and when the change touches an area covered by a pattern, prefer the resolution the pattern endorses.
+planwerk-agent identified the patterns below as relevant to the technologies in the target repo (the catalog has already been filtered by the detected technology tags above). Treat them as binding context: your work MUST stay consistent with them, and when the change touches an area covered by a pattern, prefer the resolution the pattern endorses.
 
-To load each pattern, fetch its URL — use the WebFetch tool when available, or `curl -fsSL <URL>` otherwise. Read the markdown body in full; each file follows the planwerk-review pattern schema (`# Review Pattern: …` header, `**Review-Area**`, `**Detection-Hint**`, `**Severity**`, `**Category**`, `**Applies-When**`, optional `**Sources**`, then the rule body). Patterns marked with a checkout path live inside the working tree you are already in and need no fetch — open them directly.
+To load each pattern, fetch its URL — use the WebFetch tool when available, or `curl -fsSL <URL>` otherwise. Read the markdown body in full; each file follows the planwerk-agent pattern schema (`# Review Pattern: …` header, `**Review-Area**`, `**Detection-Hint**`, `**Severity**`, `**Category**`, `**Applies-When**`, optional `**Sources**`, then the rule body). Patterns marked with a checkout path live inside the working tree you are already in and need no fetch — open them directly.
 
 <review-pattern-catalog>
-- **Hardcoded secrets** (CRITICAL) — fetch https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns/hardcoded-secrets.md  
+- **Hardcoded secrets** (CRITICAL) — fetch https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns/hardcoded-secrets.md  
   category=design-principle; area=security
 </review-pattern-catalog>
 

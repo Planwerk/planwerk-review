@@ -46,14 +46,14 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Build planwerk-review from source
-        run: go build -o ./planwerk-review ./cmd/planwerk-review
+      - name: Build planwerk-agent from source
+        run: go build -o ./planwerk-agent ./cmd/planwerk-agent
 
-      - name: Run Planwerk Review action
+      - name: Run Planwerk Agent action
         id: review
         uses: ./
         with:
-          binary-path: ${{ github.workspace }}/planwerk-review
+          binary-path: ${{ github.workspace }}/planwerk-agent
           min-severity: warning
           post-inline: 'true'
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

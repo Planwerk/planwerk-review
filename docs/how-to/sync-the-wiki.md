@@ -14,7 +14,7 @@ The default mode is read-only. It clones the repo and its wiki, runs the analysi
 pass, and reports what it found without changing anything:
 
 ```bash
-planwerk-review sync owner/repo
+planwerk-agent sync owner/repo
 ```
 
 The report lists each flagged entry under a **Stale** or **Redundant** section
@@ -23,7 +23,7 @@ superseding entry for a redundant one. Use `--format json` for a machine-readabl
 report:
 
 ```bash
-planwerk-review sync owner/repo --format json
+planwerk-agent sync owner/repo --format json
 ```
 
 Nothing is ever deleted in this mode, so it is safe to run on any repo whose wiki
@@ -36,7 +36,7 @@ report: it deletes the flagged entries on the wiki and pushes. The deletion is
 never part of the read-only analysis.
 
 ```bash
-planwerk-review sync owner/repo --prune
+planwerk-agent sync owner/repo --prune
 ```
 
 The write phase lists exactly what it will delete and asks you to confirm before
@@ -47,7 +47,7 @@ moved since the analysis — commits, and pushes to the wiki's default branch.
 To prune without the prompt (for example in CI), pass `--yes`:
 
 ```bash
-planwerk-review sync owner/repo --prune --yes
+planwerk-agent sync owner/repo --prune --yes
 ```
 
 Without `--yes`, a non-interactive run (no TTY) refuses to prune rather than

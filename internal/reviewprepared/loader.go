@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/planwerk"
+	"github.com/planwerk/planwerk-agent/internal/planwerk"
 )
 
 // preparedSubdir is the lifecycle directory we scan. Prepared specs live

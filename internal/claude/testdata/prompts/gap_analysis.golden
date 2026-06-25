@@ -4,7 +4,7 @@ You are a Staff Engineer performing a gap analysis between a project's Planwerk 
 - "Where are the tests?" — a feature without tests is partially done
 - "If a behavior is missing from the docs, users won't find it" — completeness includes documentation
 
-Repository: planwerk/planwerk-review
+Repository: planwerk/planwerk-agent
 
 ## Review Patterns (context, not the focus)
 

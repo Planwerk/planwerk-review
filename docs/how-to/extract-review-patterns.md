@@ -4,7 +4,7 @@ A target repository's [GitHub Wiki](/reference/review-patterns#github-wiki) is a
 fast-moving, world-editable place to draft and iterate on review patterns. Once
 a wiki pattern proves itself, `extract` anchors it into a committed, reproducible
 location — either the repo's own `.planwerk/review_patterns/` (PR-gated and
-code-coupled) or `planwerk-review`'s bundled catalog (so every project benefits).
+code-coupled) or `planwerk-agent`'s bundled catalog (so every project benefits).
 
 The command is mechanical: it never calls Claude. It reads the wiki's
 `review_patterns/` directory, lets you choose which entries to anchor, and writes
@@ -16,15 +16,15 @@ The default mode writes the selected patterns into the target repo's
 `.planwerk/review_patterns/` and opens a pull request:
 
 ```bash
-planwerk-review extract owner/repo
+planwerk-agent extract owner/repo
 ```
 
 You are prompted for each wiki pattern (`y/N/q`). To skip the prompt, take every
 pattern with `--all`, or name specific patterns by their filename stem:
 
 ```bash
-planwerk-review extract owner/repo --all
-planwerk-review extract owner/repo --pattern no-raw-sql --pattern bounded-retries
+planwerk-agent extract owner/repo --all
+planwerk-agent extract owner/repo --pattern no-raw-sql --pattern bounded-retries
 ```
 
 Review the resulting PR like any other change — the patterns become
@@ -38,7 +38,7 @@ tree's `.planwerk/review_patterns/` and no PR is opened. The repository
 reference is inferred from the `origin` remote when omitted:
 
 ```bash
-planwerk-review extract --local --all
+planwerk-agent extract --local --all
 ```
 
 A dirty working tree prompts for confirmation first; pass `--force` to skip it.
@@ -46,19 +46,19 @@ See [Use local mode](/how-to/use-local-mode) for the shared `--local` behavior.
 
 ## Contribute a pattern to the bundled catalog
 
-With `--to-catalog`, the patterns are anchored into this `planwerk-review`
+With `--to-catalog`, the patterns are anchored into this `planwerk-agent`
 checkout's bundled review catalog (`internal/patterns/patterns/review/`), with
 each pattern's frontmatter `**Category**:` normalized to `review` so it loads as
 a first-class [review pattern](/reference/review-patterns#pattern-categories).
 This is the maintainer/contribution path and must be run from a
-`planwerk-review` checkout:
+`planwerk-agent` checkout:
 
 ```bash
-planwerk-review extract owner/repo --all --to-catalog
+planwerk-agent extract owner/repo --all --to-catalog
 ```
 
 The selected files land under `internal/patterns/patterns/review/`; commit them
-and open a PR against `planwerk-review` so the patterns ship to every project.
+and open a PR against `planwerk-agent` so the patterns ship to every project.
 
 ## Selecting which patterns to anchor
 

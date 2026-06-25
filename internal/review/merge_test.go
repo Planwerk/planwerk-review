@@ -3,7 +3,7 @@ package review
 import (
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 func TestMergeResults_NilAdversarial(t *testing.T) {

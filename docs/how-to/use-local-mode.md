@@ -64,13 +64,13 @@ This unlocks three workflows the temp-dir clone blocks:
 
 ```bash
 # Review the PR for the current branch, using this checkout
-planwerk-review --local
+planwerk-agent --local
 
 # Audit the repo whose origin is this checkout (no clone)
-planwerk-review audit --local
+planwerk-agent audit --local
 
 # Fix the current branch's PR, proceeding even if the tree is dirty
-planwerk-review fix --local --force
+planwerk-agent fix --local --force
 ```
 
 `--local` does not change cache behavior, `gh` authentication, or the

@@ -2,13 +2,13 @@
 
 The repo ships a composite GitHub Action at the root (`action.yml`) that wraps
 the `review` command for use on pull requests. It installs Claude Code,
-downloads the planwerk-review release binary, runs the review against the PR
+downloads the planwerk-agent release binary, runs the review against the PR
 that triggered the workflow, and posts a summary plus inline review comments.
 
 Minimal example workflow:
 
 ```yaml
-name: Planwerk Review
+name: Planwerk Agent
 
 on:
   pull_request:
@@ -21,14 +21,14 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: Planwerk/planwerk-review@v1
+      - uses: Planwerk/planwerk-agent@v1
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
 The major-version tag (`@v1`) follows the standard GitHub Action convention and
 is updated alongside each minor/patch release. To pin a specific version, use
-the `version` input or a full tag (`Planwerk/planwerk-review@v1.2.3`).
+the `version` input or a full tag (`Planwerk/planwerk-agent@v1.2.3`).
 
 For the complete list of inputs and outputs, see the
 [GitHub Action reference](/reference/github-action).
@@ -44,7 +44,7 @@ gated on `pull_request.head.repo.full_name == github.repository` so forked PRs
 `actions/checkout` already places the repository in the runner workspace before
 the action runs, so the default behavior clones the same repo a second time into
 a temp dir — on a moderate repo this doubles the cold-start time and the
-dominant network cost. Set `local: true` to point planwerk-review at the
+dominant network cost. Set `local: true` to point planwerk-agent at the
 existing checkout instead (it passes `--local`), skipping the redundant clone:
 
 ```yaml
@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: Planwerk/planwerk-review@v1
+      - uses: Planwerk/planwerk-agent@v1
         with:
           local: true
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

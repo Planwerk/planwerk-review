@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
 )
 
 // emDashPlaceholder is rendered in cells/fields that have no value.
@@ -47,7 +47,7 @@ func (r *Renderer) RenderMarkdown(result ReviewResult, pr PRInfo, minSeverity Se
 	_, _ = fmt.Fprintln(r.w)
 
 	// Machine-readable summary for tooling (Claude Code, CI scripts, etc.)
-	_, _ = fmt.Fprintf(r.w, "<!-- planwerk-review: blocking=%d critical=%d warning=%d info=%d unverified=%d recommendation=%s -->\n\n",
+	_, _ = fmt.Fprintf(r.w, "<!-- planwerk-agent: blocking=%d critical=%d warning=%d info=%d unverified=%d recommendation=%s -->\n\n",
 		len(cf.Blocking), len(cf.Critical), len(cf.Warning), len(cf.Info), len(cf.Unverified),
 		r.recommendationKey(cf, result.Recommendation))
 
@@ -355,5 +355,5 @@ func RenderDataBlock(result ReviewResult, commitSHA string, usage Usage) string 
 	if err != nil {
 		return ""
 	}
-	return fmt.Sprintf("\n<!-- planwerk-review-data\n%s\n-->\n", string(data))
+	return fmt.Sprintf("\n<!-- planwerk-agent-data\n%s\n-->\n", string(data))
 }

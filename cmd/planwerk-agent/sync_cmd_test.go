@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/cli"
+	"github.com/planwerk/planwerk-agent/internal/cli"
 )
 
 // runSyncCmd executes the sync subcommand hermetically: it exercises only the

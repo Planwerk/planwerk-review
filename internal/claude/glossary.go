@@ -3,7 +3,7 @@ package claude
 import (
 	"fmt"
 
-	"github.com/planwerk/planwerk-review/internal/glossary"
+	"github.com/planwerk/planwerk-agent/internal/glossary"
 )
 
 // GenerateGlossary runs a single Claude session in the checkout dir to produce a

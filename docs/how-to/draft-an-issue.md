@@ -13,22 +13,22 @@ step.
 ```bash
 # Draft an issue for a repository — prompts for the idea, then asks a few
 # clarifying questions
-planwerk-review draft owner/repo
+planwerk-agent draft owner/repo
 
 # Seed the idea up front
-planwerk-review draft owner/repo "add a dark mode toggle to the settings page"
+planwerk-agent draft owner/repo "add a dark mode toggle to the settings page"
 
 # File against the current checkout's origin (no repo-ref needed)
-planwerk-review draft --local "add a dark mode toggle"
+planwerk-agent draft --local "add a dark mode toggle"
 
 # Draft straight from the seed, skipping the clarifying questions
-planwerk-review draft --no-interactive owner/repo "add a dark mode toggle"
+planwerk-agent draft --no-interactive owner/repo "add a dark mode toggle"
 
 # Preview the drafted issue without filing it
-planwerk-review draft --dry-run owner/repo "add a dark mode toggle"
+planwerk-agent draft --dry-run owner/repo "add a dark mode toggle"
 
 # Attach labels to the created issue (repeatable)
-planwerk-review draft --label enhancement --label needs-triage owner/repo "add a dark mode toggle"
+planwerk-agent draft --label enhancement --label needs-triage owner/repo "add a dark mode toggle"
 ```
 
 ## The interactive flow
@@ -79,7 +79,7 @@ The editor is resolved with the same precedence `git` uses — `$VISUAL`, then
 ```bash
 # Use VS Code (it must block until the file is closed) for the composer escape
 export VISUAL="code --wait"
-planwerk-review draft owner/repo
+planwerk-agent draft owner/repo
 ```
 
 The composer engages only when **both** stdin and stderr are a terminal. When
@@ -94,7 +94,7 @@ falls back to single-line reads, so piped input, `--format json`, and
 
 ```bash
 cd ~/code/my-project
-planwerk-review draft --local "add a dark mode toggle"
+planwerk-agent draft --local "add a dark mode toggle"
 ```
 
 Unlike the other repo-facing commands, `draft` needs only the `origin`
@@ -109,10 +109,10 @@ Once the issue exists, take it through the rest of the pipeline:
 
 ```bash
 # Expand the captured idea into a detailed engineering plan
-planwerk-review elaborate owner/repo#NN --update-issue
+planwerk-agent elaborate owner/repo#NN --update-issue
 
 # Implement the elaborated issue end to end and open a draft PR
-planwerk-review implement owner/repo#NN
+planwerk-agent implement owner/repo#NN
 ```
 
 See the [Draft to implement](/tutorials/draft-to-implement) tutorial for the

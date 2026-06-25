@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/planwerk/planwerk-review/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/github"
 )
 
 // fakeGitHub is a scripted GitHubClient. checkResponses[i] is what the i-th

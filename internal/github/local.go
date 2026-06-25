@@ -10,7 +10,7 @@ import (
 	"os/exec"
 	"strconv"
 
-	"github.com/planwerk/planwerk-review/internal/workspace"
+	"github.com/planwerk/planwerk-agent/internal/workspace"
 )
 
 // ErrOriginMismatch is returned when an explicit owner/repo reference does not

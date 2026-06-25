@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/fix"
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/fix"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 // Fix runs a fresh Claude Code session inside the given checkout directory
@@ -255,7 +255,7 @@ Run these steps for EACH failing check above before editing any code:
 // The orchestrator clones the target repo at prompt-build time so this
 // prompt can ship with the detected technology tags AND the tech-filtered
 // review-pattern catalog inlined — the manual Claude session does not need
-// access to planwerk-review or its pattern dirs.
+// access to planwerk-agent or its pattern dirs.
 func BuildBareFixPrompt(ctx fix.BareContext) string {
 	var sb strings.Builder
 

@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 // mdExt is the markdown file extension wiki review patterns use.

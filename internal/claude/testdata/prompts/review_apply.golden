@@ -49,7 +49,7 @@ Apply these task-specific thinking patterns on top of the baseline above:
 
 ## Branch
 
-- Repository: planwerk/planwerk-review
+- Repository: planwerk/planwerk-agent
 - Base branch: main — fold fixes into this branch's own commits, the range origin/main..HEAD
 - You are on the feature branch the implement session committed. No PR exists yet; do NOT push or open one.
 
@@ -153,7 +153,7 @@ EVERY commit you create MUST end with exactly these two trailers, in this order:
 
 - Pass `-s` to `git commit` so git appends the `Signed-off-by` line from the committer identity. It MUST be the very last line of the message.
 - Add an `Assisted-by: Claude` trailer naming yourself as the assistant. Append your exact model id when your runtime context provides it (e.g. `Assisted-by: Claude:claude-opus-4-8`); otherwise emit `Assisted-by: Claude` alone — never guess the id. Pass it as the final `-m` paragraph, NOT via `--trailer` (git places `--trailer` values after the sign-off), so it lands directly above `Signed-off-by`.
-- NEVER add a `Co-authored-by` trailer — not for Claude, not for planwerk-review, not for anyone.
+- NEVER add a `Co-authored-by` trailer — not for Claude, not for planwerk-agent, not for anyone.
 
 ## Hard rules
 
