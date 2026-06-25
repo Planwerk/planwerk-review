@@ -1,13 +1,30 @@
 package elaborate
 
+// Story anchors a cluster of acceptance criteria to who benefits and why,
+// rendered as "As a {role}, I want {want}, so that {so_that}". Its fields and
+// JSON tags mirror planwerk.Story so the vocabulary stays consistent with the
+// feature-file parser and the reviewprepared validator; it is a local type so
+// the elaborate package stays decoupled from the feature-file parser.
+type Story struct {
+	Role     string   `json:"role"`
+	Want     string   `json:"want"`
+	SoThat   string   `json:"so_that"`
+	Criteria []string `json:"criteria"`
+}
+
 // Result is the structured output of an elaboration run. Body is the
 // rendered Markdown ready to drop into a GitHub issue; the individual
 // sections are kept separately so callers can introspect, log, or reformat
 // them without re-parsing the rendered string.
 type Result struct {
-	Title              string   `json:"title"`
-	Description        string   `json:"description"`
-	Motivation         string   `json:"motivation"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Motivation  string `json:"motivation"`
+	// UserStories anchors clusters of acceptance criteria to who benefits and
+	// why (role / want / so_that). Optional and proportional: omitted entirely
+	// for purely mechanical or infrastructure work that serves no distinct
+	// persona, never padded with a synthetic one.
+	UserStories        []Story  `json:"user_stories,omitempty"`
 	AffectedAreas      []string `json:"affected_areas"`
 	AcceptanceCriteria []string `json:"acceptance_criteria"`
 	NonGoals           []string `json:"non_goals"`

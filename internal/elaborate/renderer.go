@@ -21,8 +21,9 @@ func RenderMarkdown(w io.Writer, repoFullName string, issueNumber int, version s
 
 // BuildIssueBody renders the canonical issue body for the elaboration.
 // Section headers and ordering match the example issue style
-// (plexsphere/plexsphere#10): Description, Motivation, Affected Areas,
-// Acceptance Criteria, Non-Goals, References, plus a generated-by footer.
+// (plexsphere/plexsphere#10): Description, Motivation, an optional User
+// Stories section, Affected Areas, Acceptance Criteria, Non-Goals,
+// References, plus a generated-by footer.
 //
 // Description and Motivation are emitted verbatim — Claude is responsible
 // for the prose density and depth. List sections are normalised so the
@@ -40,6 +41,31 @@ func BuildIssueBody(r *Result) string {
 		fmt.Fprint(&b, "**Motivation:**\n\n")
 		fmt.Fprintln(&b, m)
 		fmt.Fprintln(&b)
+	}
+
+	if len(r.UserStories) > 0 {
+		var stories strings.Builder
+		for _, s := range r.UserStories {
+			role := strings.TrimSpace(s.Role)
+			want := strings.TrimSpace(s.Want)
+			soThat := strings.TrimSpace(s.SoThat)
+			if role == "" && want == "" && soThat == "" {
+				continue
+			}
+			fmt.Fprintf(&stories, "- As a %s, I want %s, so that %s\n", role, want, soThat)
+			for _, c := range s.Criteria {
+				c = strings.TrimSpace(c)
+				if c == "" {
+					continue
+				}
+				fmt.Fprintf(&stories, "  - %s\n", c)
+			}
+		}
+		if stories.Len() > 0 {
+			fmt.Fprint(&b, "**User Stories:**\n\n")
+			b.WriteString(stories.String())
+			fmt.Fprintln(&b)
+		}
 	}
 
 	if len(r.AffectedAreas) > 0 {
