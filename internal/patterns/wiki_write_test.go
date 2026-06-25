@@ -16,6 +16,14 @@ func stubPushWiki(fn func(dir string, relPaths []string, commitMsg, token string
 	return func() { pushWiki = old }
 }
 
+// stubPushWikiAdditions swaps the package-level pushWikiAdditions seam with a
+// test fake and returns a restore function, mirroring stubPushWiki.
+func stubPushWikiAdditions(fn func(dir string, files []WikiFile, commitMsg, token string) error) func() {
+	old := pushWikiAdditions
+	pushWikiAdditions = fn
+	return func() { pushWikiAdditions = old }
+}
+
 func TestCloneWikiAuthenticated_DerivesWikiURLAndHead(t *testing.T) {
 	var gotScheme, gotURL, gotRef string
 	restore := stubFetch(func(p parsedURI, dest string) error {
@@ -167,6 +175,178 @@ func TestPushWiki_RemovesCommitsAndPushes(t *testing.T) {
 	}
 	if !strings.Contains(tree, "keep.md") {
 		t.Errorf("keep.md should still be present in the remote HEAD tree:\n%s", tree)
+	}
+}
+
+func TestPushWikiAdditions_ForwardsToSeam(t *testing.T) {
+	var gotDir, gotMsg string
+	var gotFiles []WikiFile
+	restore := stubPushWikiAdditions(func(dir string, files []WikiFile, commitMsg, token string) error {
+		gotDir, gotFiles, gotMsg = dir, files, commitMsg
+		return nil
+	})
+	defer restore()
+
+	files := []WikiFile{
+		{Path: "review_patterns/new.md", Content: "pattern body\n"},
+		{Path: "memory/decision.md", Content: "memory body\n"},
+	}
+	if err := PushWikiAdditions("/tmp/wiki", files, "capture two pages"); err != nil {
+		t.Fatalf("PushWikiAdditions: %v", err)
+	}
+	if gotDir != "/tmp/wiki" || gotMsg != "capture two pages" {
+		t.Errorf("forwarded dir=%q msg=%q, want /tmp/wiki / capture two pages", gotDir, gotMsg)
+	}
+	if len(gotFiles) != 2 || gotFiles[0].Path != files[0].Path || gotFiles[1].Content != files[1].Content {
+		t.Errorf("forwarded files = %+v, want %+v", gotFiles, files)
+	}
+}
+
+func TestPushWikiAdditions_EmptyFilesIsError(t *testing.T) {
+	restore := stubPushWikiAdditions(func(string, []WikiFile, string, string) error {
+		t.Fatal("the seam must not run when there is nothing to write")
+		return nil
+	})
+	defer restore()
+
+	if err := PushWikiAdditions("/tmp/wiki", nil, "noop"); err == nil {
+		t.Fatal("expected an error for an empty additions list")
+	}
+}
+
+// TestPushWikiAdditions_WritesCommitsAndPushes exercises the real git
+// add/commit/push against a local bare remote (no network), proving the new and
+// updated pages reach the remote's HEAD tree with their content.
+func TestPushWikiAdditions_WritesCommitsAndPushes(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	bare := t.TempDir()
+	git(t, bare, "init", "--bare", "-q")
+
+	// Seed the bare remote with one page so the test also covers updating an
+	// existing page in place (the stable-slug convention).
+	seed := t.TempDir()
+	git(t, seed, "clone", "-q", bare, ".")
+	git(t, seed, "config", "user.email", "t@example.com")
+	git(t, seed, "config", "user.name", "tester")
+	mustWrite(t, filepath.Join(seed, "review_patterns", "existing.md"), "old\n")
+	git(t, seed, "add", "-A")
+	git(t, seed, "commit", "-q", "-m", "seed")
+	git(t, seed, "push", "-q", "origin", "HEAD")
+
+	// Fresh clone the additions are applied to.
+	clone := t.TempDir()
+	git(t, clone, "clone", "-q", bare, ".")
+
+	files := []WikiFile{
+		{Path: "review_patterns/existing.md", Content: "updated\n"},
+		{Path: "memory/fresh.md", Content: "brand new page\n"},
+	}
+	if err := pushWikiAdditions(clone, files, "capture pages", ""); err != nil {
+		t.Fatalf("pushWikiAdditions: %v", err)
+	}
+
+	tree := gitOut(t, bare, "ls-tree", "-r", "--name-only", "HEAD")
+	if !strings.Contains(tree, "memory/fresh.md") {
+		t.Errorf("memory/fresh.md should be in the remote HEAD tree:\n%s", tree)
+	}
+	if got := gitOut(t, bare, "show", "HEAD:review_patterns/existing.md"); got != "updated\n" {
+		t.Errorf("existing.md should be updated in place, got %q", got)
+	}
+	if got := gitOut(t, bare, "show", "HEAD:memory/fresh.md"); got != "brand new page\n" {
+		t.Errorf("fresh.md content = %q, want the authored bytes", got)
+	}
+}
+
+// TestPushWikiAdditions_CreatesInitialCommitOnEmptyWiki proves the
+// uninitialized-wiki case: a clone of a bare remote that has never been written
+// has no commits, so the first page must create the wiki's initial commit and
+// the push must create its default branch.
+func TestPushWikiAdditions_CreatesInitialCommitOnEmptyWiki(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	bare := t.TempDir()
+	git(t, bare, "init", "--bare", "-q")
+
+	// Clone the empty remote — no seed commit, so the clone has an unborn branch.
+	clone := t.TempDir()
+	git(t, clone, "clone", "-q", bare, ".")
+
+	files := []WikiFile{{Path: "memory/first.md", Content: "the very first page\n"}}
+	if err := pushWikiAdditions(clone, files, "capture first page", ""); err != nil {
+		t.Fatalf("pushWikiAdditions on empty wiki: %v", err)
+	}
+
+	if got := gitOut(t, bare, "show", "HEAD:memory/first.md"); got != "the very first page\n" {
+		t.Errorf("first.md content = %q, want the authored bytes on the wiki's first commit", got)
+	}
+}
+
+// TestPushWikiAdditions_RebasesOnNonFastForward proves a concurrent run that
+// advanced the wiki between our clone and our push does not drop this run's pages:
+// the non-fast-forward push is rebased onto the updated remote HEAD and retried,
+// so both the concurrent commit and our page end up in the remote HEAD tree.
+func TestPushWikiAdditions_RebasesOnNonFastForward(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	bare := t.TempDir()
+	git(t, bare, "init", "--bare", "-q")
+
+	// Seed the bare remote so both clones share a base commit.
+	seed := t.TempDir()
+	git(t, seed, "clone", "-q", bare, ".")
+	git(t, seed, "config", "user.email", "t@example.com")
+	git(t, seed, "config", "user.name", "tester")
+	mustWrite(t, filepath.Join(seed, "memory", "base.md"), "base\n")
+	git(t, seed, "add", "-A")
+	git(t, seed, "commit", "-q", "-m", "seed")
+	git(t, seed, "push", "-q", "origin", "HEAD")
+
+	// Our clone, based on the seed HEAD.
+	clone := t.TempDir()
+	git(t, clone, "clone", "-q", bare, ".")
+
+	// A concurrent run advances the remote after we cloned, so our push will be a
+	// non-fast-forward rejection.
+	other := t.TempDir()
+	git(t, other, "clone", "-q", bare, ".")
+	git(t, other, "config", "user.email", "o@example.com")
+	git(t, other, "config", "user.name", "other")
+	mustWrite(t, filepath.Join(other, "memory", "concurrent.md"), "concurrent\n")
+	git(t, other, "add", "-A")
+	git(t, other, "commit", "-q", "-m", "concurrent")
+	git(t, other, "push", "-q", "origin", "HEAD")
+
+	files := []WikiFile{{Path: "memory/ours.md", Content: "our page\n"}}
+	if err := pushWikiAdditions(clone, files, "capture our page", ""); err != nil {
+		t.Fatalf("pushWikiAdditions should rebase and retry on non-fast-forward: %v", err)
+	}
+
+	tree := gitOut(t, bare, "ls-tree", "-r", "--name-only", "HEAD")
+	for _, want := range []string{"memory/ours.md", "memory/concurrent.md", "memory/base.md"} {
+		if !strings.Contains(tree, want) {
+			t.Errorf("%s missing from the remote HEAD tree after rebase+retry:\n%s", want, tree)
+		}
+	}
+}
+
+// TestPushWikiAdditions_RefusesTraversalPath is the defence-in-depth guard: even
+// if a "../" path slipped past the capture write phase, pushWikiAdditions refuses
+// to write outside the clone root rather than letting os.WriteFile escape it.
+func TestPushWikiAdditions_RefusesTraversalPath(t *testing.T) {
+	dir := t.TempDir()
+	files := []WikiFile{{Path: "../escape.md", Content: "should never be written\n"}}
+	if err := pushWikiAdditions(dir, files, "capture", ""); err == nil {
+		t.Fatal("pushWikiAdditions accepted a traversal path, want a refusal")
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(dir), "escape.md")); err == nil {
+		t.Error("a traversal path must not be written outside the clone root")
 	}
 }
 

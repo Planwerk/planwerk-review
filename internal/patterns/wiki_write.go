@@ -6,16 +6,18 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
-// wikiPushTimeout bounds the git rm/commit/push that write a wiki reconciliation
-// back to the remote.
+// wikiPushTimeout bounds the git add/rm/commit/push that write a wiki
+// reconciliation or capture back to the remote.
 const wikiPushTimeout = 2 * time.Minute
 
 // Wiki write-back commits are authored by the tool, not a human: the temp clone
-// the deletions are applied in carries no user identity, so the committer is
-// pinned here rather than relying on ambient git config (absent in CI).
+// the deletions or additions are applied in carries no user identity, so the
+// committer is pinned here rather than relying on ambient git config (absent in
+// CI).
 const (
 	wikiCommitterName  = "planwerk-review"
 	wikiCommitterEmail = "planwerk-review@users.noreply.github.com"
@@ -95,6 +97,102 @@ var pushWiki = func(dir string, relPaths []string, commitMsg, token string) erro
 
 	if err := runWikiGit(ctx, wikiPushEnv(token), "-C", dir, "push", "origin", "HEAD"); err != nil {
 		return fmt.Errorf("git push origin HEAD: %w", err)
+	}
+	return nil
+}
+
+// WikiFile is one page to write into the wiki clone: a wiki-relative slash path
+// (e.g. "review_patterns/<slug>.md") and the full page bytes (provenance marker
+// included). It is the additive counterpart to the relPaths PushWikiDeletions
+// removes.
+type WikiFile struct {
+	Path    string
+	Content string
+}
+
+// PushWikiAdditions writes files into the clone at dir, commits them with
+// commitMsg, and pushes to the wiki's default branch — the additive counterpart
+// to PushWikiDeletions. The clone's .git/config holds no credential
+// (CloneWikiAuthenticated injects the token transiently), so the push re-injects
+// a `gh auth token` via the GIT_CONFIG_* http.extraHeader, keeping it out of
+// argv and the clone config. A public wiki pushes anonymously when no token is
+// available, which a private wiki rejects with an authentication error the
+// caller surfaces.
+//
+// Unlike deletions, additions handle the uninitialized-wiki case: a wiki that
+// has never been written has an empty clone with no commits, so write+add+commit
+// creates its first commit and the push creates the default branch.
+func PushWikiAdditions(dir string, files []WikiFile, commitMsg string) error {
+	if len(files) == 0 {
+		return fmt.Errorf("no wiki pages to write")
+	}
+	return pushWikiAdditions(dir, files, commitMsg, ghAuthToken(context.Background()))
+}
+
+// pushWikiAdditions performs the write/add/commit/push for PushWikiAdditions. It
+// is a package variable so tests can substitute an offline fake, mirroring
+// pushWiki.
+var pushWikiAdditions = func(dir string, files []WikiFile, commitMsg, token string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), wikiPushTimeout)
+	defer cancel()
+
+	paths := make([]string, 0, len(files))
+	for _, f := range files {
+		dest := filepath.Join(dir, filepath.FromSlash(f.Path))
+		// Defence in depth against a traversal path the capture write phase should
+		// already have rejected: filepath.Join Cleans the result, so a "../" path
+		// resolves outside dir. Refuse anything not contained by the clone root
+		// before os.WriteFile can put it on disk.
+		if rel, err := filepath.Rel(dir, dest); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+			return fmt.Errorf("refusing to write wiki page %q outside the clone root", f.Path)
+		}
+		if err := os.MkdirAll(filepath.Dir(dest), 0o750); err != nil {
+			return fmt.Errorf("creating wiki page directory for %q: %w", f.Path, err)
+		}
+		if err := os.WriteFile(dest, []byte(f.Content), 0o600); err != nil {
+			return fmt.Errorf("writing wiki page %q: %w", f.Path, err)
+		}
+		paths = append(paths, f.Path)
+	}
+
+	// paths are caller-supplied wiki-relative pathspecs the capture write phase
+	// rendered, not options, so the plain `--` separator is the correct guard:
+	// git reads the tokens after it as pathspecs. Mirrors pushWiki's `git rm`.
+	addArgs := append([]string{"-C", dir, "add", "--"}, paths...)
+	if err := runWikiGit(ctx, nil, addArgs...); err != nil {
+		return fmt.Errorf("git add: %w", err)
+	}
+
+	commitArgs := []string{
+		"-C", dir,
+		"-c", "user.name=" + wikiCommitterName,
+		"-c", "user.email=" + wikiCommitterEmail,
+		"commit", "-m", commitMsg,
+	}
+	if err := runWikiGit(ctx, nil, commitArgs...); err != nil {
+		return fmt.Errorf("git commit: %w", err)
+	}
+
+	if err := runWikiGit(ctx, wikiPushEnv(token), "-C", dir, "push", "origin", "HEAD"); err != nil {
+		// A concurrent --capture-wiki run can advance the wiki between our fresh
+		// clone and this push, rejecting it as a non-fast-forward. Rebase our commit
+		// onto the updated remote HEAD and retry the push once so this run's pages
+		// are not silently dropped. The committer identity is pinned for the rebase
+		// the same way the commit pins it, since the clone carries no ambient git
+		// config. A still-failing retry (e.g. a rebase conflict from a same-path
+		// concurrent write) surfaces an error that names the dropped pages.
+		rebaseArgs := []string{
+			"-C", dir,
+			"-c", "user.name=" + wikiCommitterName,
+			"-c", "user.email=" + wikiCommitterEmail,
+			"pull", "--rebase", "origin", "HEAD",
+		}
+		if rebaseErr := runWikiGit(ctx, wikiPushEnv(token), rebaseArgs...); rebaseErr != nil {
+			return fmt.Errorf("git push origin HEAD rejected and rebasing onto the updated wiki failed, so this run's pages were not written: %w", err)
+		}
+		if err := runWikiGit(ctx, wikiPushEnv(token), "-C", dir, "push", "origin", "HEAD"); err != nil {
+			return fmt.Errorf("git push origin HEAD still rejected after rebasing onto the updated wiki, so this run's pages were not written: %w", err)
+		}
 	}
 	return nil
 }
