@@ -18,6 +18,7 @@ import (
 	"github.com/planwerk/planwerk-agent/internal/report"
 	"github.com/planwerk/planwerk-agent/internal/review"
 	"github.com/planwerk/planwerk-agent/internal/reviewprepared"
+	"github.com/planwerk/planwerk-agent/internal/ship"
 	"github.com/planwerk/planwerk-agent/internal/sync"
 )
 
@@ -315,6 +316,84 @@ func (c FixConfig) ToFixOptions(version string) fix.Options {
 		Local:           c.Local,
 		Force:           c.Force,
 		NoFixup:         c.NoFixup,
+	}
+}
+
+// ShipConfig holds configuration for the ship command. It carries ship's own
+// loop controls plus the implement-analogous and fix-loop flags ship threads
+// into the per–Sub Issue implement and fix runs.
+type ShipConfig struct {
+	IssueRef    string
+	DryRun      bool
+	NoMerge     bool
+	MergeMethod string // rebase | squash | merge
+	StartAt     int    // Sub Issue number to begin from; 0 = from the top
+
+	// implement-analogous flags, threaded into each per–Sub Issue implement run.
+	NoSimplify        bool
+	NoReview          bool
+	Verify            bool
+	VerifyAdversarial bool
+	NoPlan            bool
+	NoPlanReuse       bool
+	NoPlanComment     bool
+
+	// fix-loop controls, threaded into each per-PR CI self-heal run.
+	MaxFixIterations int
+	Interval         time.Duration
+
+	// pattern flags, shared by the implement and fix runs.
+	PatternDirs     []string
+	NoRepoPatterns  bool
+	NoLocalPatterns bool
+	MaxPatterns     int
+}
+
+// ToShipOptions maps the CLI config to ship.Options — ship's own orchestration
+// surface. The per–Sub Issue implement and fix options are built separately via
+// ToShipImplementOptions / ToShipFixOptions.
+func (c ShipConfig) ToShipOptions() ship.Options {
+	return ship.Options{
+		IssueRef:    c.IssueRef,
+		DryRun:      c.DryRun,
+		NoMerge:     c.NoMerge,
+		MergeMethod: c.MergeMethod,
+		StartAt:     c.StartAt,
+	}
+}
+
+// ToShipImplementOptions builds the implement.Options ship hands to each per–Sub
+// Issue implement run. It mirrors implement's --no-simplify / --no-review /
+// verify / planning / pattern surface; ship's own --dry-run short-circuits before
+// any implement run, so DryRun is left false here.
+func (c ShipConfig) ToShipImplementOptions(version string) implement.Options {
+	return implement.Options{
+		NoSimplify:        c.NoSimplify,
+		NoReview:          c.NoReview,
+		Verify:            c.Verify,
+		VerifyAdversarial: c.VerifyAdversarial,
+		NoPlan:            c.NoPlan,
+		NoPlanReuse:       c.NoPlanReuse,
+		NoPlanComment:     c.NoPlanComment,
+		Version:           version,
+		PatternDirs:       c.PatternDirs,
+		NoRepoPatterns:    c.NoRepoPatterns,
+		NoLocalPatterns:   c.NoLocalPatterns,
+		MaxPatterns:       c.MaxPatterns,
+	}
+}
+
+// ToShipFixOptions builds the fix.Options ship hands to each per-PR CI self-heal
+// run, mapping --max-fix-iterations / --interval and the shared pattern flags.
+func (c ShipConfig) ToShipFixOptions(version string) fix.Options {
+	return fix.Options{
+		PollInterval:    c.Interval,
+		MaxIterations:   c.MaxFixIterations,
+		Version:         version,
+		PatternDirs:     c.PatternDirs,
+		NoRepoPatterns:  c.NoRepoPatterns,
+		NoLocalPatterns: c.NoLocalPatterns,
+		MaxPatterns:     c.MaxPatterns,
 	}
 }
 
