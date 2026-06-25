@@ -101,6 +101,7 @@ Apply these thinking patterns:
 
 - **Description**: Multi-paragraph prose. Include numbered "concrete boundaries" subsections that pair "already exists" facts (with file path citations) against "this issue adds". This is the densest section — the example issue we model after had ~9 numbered concrete-boundaries items. Do not be afraid of length when each line carries information.
 - **Motivation**: 2-4 paragraphs. Open on the concrete problem and its impact — never on background ("Background: the system has many components…" is throat-clearing; cut it). Structure it as a short arc: the current state → the gap this issue addresses (the "however") → what this change does about it. Why does this matter NOW? What downstream work depends on it? What goes wrong if we skip it?
+- **User Stories** (optional): Group the acceptance criteria under user stories, each written as "As a {role}, I want {want}, so that {so_that}" followed by the acceptance criteria that serve it, so the work is anchored to who benefits and why. Proportionality is the rule: generate exactly as many stories as the issue REQUIRES — never pad with redundant stories to reach a minimum, and never omit a needed one. This is a developer CLI, not an end-user product: for purely mechanical or infrastructure work (dependency bumps, formatter sweeps, CI fixes, rebases, refactors) emit ZERO stories and omit the section entirely. Never invent a synthetic persona to fill it — "As a developer, I want clean code" is noise, not a story.
 - **Affected Areas**: Bullet list of every file, package, or directory that will be touched, with a parenthetical describing what changes there.
 - **Acceptance Criteria**: Bullet checklist (each item starts with a verb and describes an observable check).
 - **Non-Goals**: Bullet list of explicitly-out-of-scope items, each with one sentence explaining why.
@@ -153,7 +154,7 @@ Before you output the elaborated issue, review your own draft and fix what you f
 
 `)
 
-	sb.WriteString("\nNow walk the repository, then produce the elaborated issue. Use the section headings above (**Description**, **Motivation**, **Affected Areas**, **Acceptance Criteria**, **Non-Goals**, **References**) so the structuring step can extract them reliably.\n")
+	sb.WriteString("\nNow walk the repository, then produce the elaborated issue. Use the section headings above (**Description**, **Motivation**, **User Stories**, **Affected Areas**, **Acceptance Criteria**, **Non-Goals**, **References**) so the structuring step can extract them reliably.\n")
 
 	return sb.String()
 }
@@ -185,6 +186,7 @@ func buildElaborateStructurePrompt(rawElaboration string, ctx elaborate.Context)
   "title": "Issue title — keep the source title verbatim unless the elaboration explicitly proposes a sharper one",
   "description": "Full Description section as Markdown (preserve formatting, lists, numbered subsections, code references)",
   "motivation": "Full Motivation section as Markdown",
+  "user_stories": [{"role": "who benefits", "want": "the capability", "so_that": "the benefit", "criteria": ["Acceptance criterion serving this story"]}],
   "affected_areas": ["path/to/file.go (what changes)", "package/name (what changes)"],
   "acceptance_criteria": ["Observable check 1", "Observable check 2"],
   "non_goals": ["Out-of-scope item 1 with one-sentence reason", "Out-of-scope item 2 with reason"],
@@ -194,6 +196,7 @@ func buildElaborateStructurePrompt(rawElaboration string, ctx elaborate.Context)
 Field rules:
 - "title": If the elaboration does not change the title, copy this exact source title: ` + jsonString(title) + `.
 - "description" and "motivation": Preserve the Markdown structure (bold subheadings, bullet lists, numbered items, inline code) so the issue body renders the same way the example does.
+- "user_stories": Populate ONLY if the elaboration emitted a User Stories section; each entry needs role/want/so_that and at least one criterion. Emit [] when the elaboration has none (purely mechanical or infrastructure work) — never synthesize a story the elaboration did not write.
 - "affected_areas", "acceptance_criteria", "non_goals", "references": Plain strings, one per array entry. No leading bullets — the renderer adds them.
 - Do NOT invent fields beyond the schema.
 
