@@ -1,8 +1,8 @@
 package propose
 
 import (
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 // AnalysisContext carries the inputs the analysis prompt grounds itself in.

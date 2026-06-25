@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/cache"
-	"github.com/planwerk/planwerk-review/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/cache"
+	"github.com/planwerk/planwerk-agent/internal/github"
 )
 
 type fakeGitHub struct {
@@ -585,7 +585,7 @@ func TestBuildIssueBodySectionsAndOrder(t *testing.T) {
 	if strings.Contains(body, "- \n") {
 		t.Errorf("blank affected-area entry should be skipped:\n%s", body)
 	}
-	if !strings.Contains(body, "_Elaborated by [planwerk-review]") {
+	if !strings.Contains(body, "_Elaborated by [planwerk-agent]") {
 		t.Errorf("missing footer:\n%s", body)
 	}
 }

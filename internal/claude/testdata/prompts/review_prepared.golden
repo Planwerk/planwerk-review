@@ -7,7 +7,7 @@ Apply these thinking patterns:
 - "Implementation_notes is a contract, not prose" — concrete file paths, function names, pitfalls; quality is judged by the spec, not by checking whether they exist yet
 - "Internal consistency over external truth" — every cross-reference (REQ-IDs in stories/tasks/tests) must resolve INSIDE this spec; do not look outside
 
-Repository: planwerk/planwerk-review
+Repository: planwerk/planwerk-agent
 
 ## Review Patterns (context, not the focus)
 

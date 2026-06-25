@@ -5,22 +5,22 @@ structured report.
 
 ```bash
 # Simple invocation with PR URL
-planwerk-review https://github.com/owner/repo/pull/123
+planwerk-agent https://github.com/owner/repo/pull/123
 
 # Short form with owner/repo#number
-planwerk-review owner/repo#123
+planwerk-agent owner/repo#123
 
 # With an explicit pattern directory
-planwerk-review --patterns ./custom-patterns owner/repo#123
+planwerk-agent --patterns ./custom-patterns owner/repo#123
 
 # Only output specific severity levels
-planwerk-review --min-severity warning owner/repo#123
+planwerk-agent --min-severity warning owner/repo#123
 
 # Post review as inline comments on the PR
-planwerk-review --inline owner/repo#123
+planwerk-agent --inline owner/repo#123
 
 # Write output to file
-planwerk-review owner/repo#123 > review.md
+planwerk-agent owner/repo#123 > review.md
 ```
 
 `--post-review` posts (and updates) a single summary comment on the PR;
@@ -34,7 +34,7 @@ report, see [Output format](/reference/output-format).
 1. **PR Input**: The tool receives a GitHub PR as input (URL or `owner/repo#number`).
 2. **Checkout**: The PR is checked out locally (diff between base and head). PR title and description are fetched for scope analysis.
 3. **Load Review Patterns**: Patterns are loaded from two sources:
-   - the planwerk-review pattern catalog, embedded in the binary (source: `internal/patterns/patterns/`)
+   - the planwerk-agent pattern catalog, embedded in the binary (source: `internal/patterns/patterns/`)
    - `.planwerk/review_patterns/` in the target repository (repo-specific patterns)
 4. **Claude Code Review**: `claude /review` is executed with a structured prompt that includes persona framing, scope analysis, a two-pass checklist, suppression rules, and review patterns.
 5. **Result Aggregation**: Review results are collected, deduplicated, categorized by severity, and classified by actionability. Findings are enriched with code snippets, suggested fixes, confidence levels, and cross-references.
@@ -65,10 +65,10 @@ clears the bar.
 
 ```bash
 # Propose patterns from the review (default with --wiki)
-planwerk-review --wiki owner/repo#123
+planwerk-agent --wiki owner/repo#123
 
 # Skip the capture pass
-planwerk-review --wiki --no-capture owner/repo#123
+planwerk-agent --wiki --no-capture owner/repo#123
 ```
 
 See [Use the GitHub Wiki](/how-to/use-the-github-wiki#capture-knowledge-from-a-findings-producing-run-propose-only)

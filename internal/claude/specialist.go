@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // Specialist is one domain reviewer in the fan-out. Each runs an independent,

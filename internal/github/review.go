@@ -28,7 +28,7 @@ type ReviewRequest struct {
 	Comments []ReviewComment `json:"comments"`
 }
 
-const reviewSignature = "<!-- planwerk-review-inline -->"
+const reviewSignature = "<!-- planwerk-agent-inline -->"
 
 // ReviewThreadComment is a single comment within a PR review thread, flattened
 // for the address command: the author login, the comment body, and when it was
@@ -197,7 +197,7 @@ func parseReviewThreads(raw []byte) (threads []ReviewThread, hasNextPage bool, e
 
 // FilterReviewThreads drops the threads the address command should not offer:
 // resolved threads (unless includeResolved) and any thread whose first comment
-// carries planwerk-review's inline signature, so address never tries to address
+// carries planwerk-agent's inline signature, so address never tries to address
 // the tool's own findings. Threads with no comments are dropped as well — there
 // is nothing to address. The input order is preserved.
 func FilterReviewThreads(threads []ReviewThread, includeResolved bool) []ReviewThread {

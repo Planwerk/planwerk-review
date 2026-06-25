@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/planwerk"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/planwerk"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // FeatureCompliance runs a Claude call that checks the PR implementation against

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 // designPrincipleCategory is the Category value the cross-cutting pattern

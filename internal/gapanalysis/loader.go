@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/planwerk"
+	"github.com/planwerk/planwerk-agent/internal/planwerk"
 )
 
 // completedSubdir is the only Planwerk lifecycle directory the gap-analysis

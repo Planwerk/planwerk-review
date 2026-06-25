@@ -11,7 +11,7 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-// DefaultConfigPath is the relative path where planwerk-review looks for
+// DefaultConfigPath is the relative path where planwerk-agent looks for
 // its repo-level configuration file.
 const DefaultConfigPath = ".planwerk/config.yaml"
 

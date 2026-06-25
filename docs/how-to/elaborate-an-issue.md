@@ -10,19 +10,19 @@ Motivation, Affected Areas, Acceptance Criteria, Non-Goals, References).
 
 ```bash
 # Render the elaborated body to stdout
-planwerk-review elaborate https://github.com/owner/repo/issues/123
+planwerk-agent elaborate https://github.com/owner/repo/issues/123
 
 # Short form
-planwerk-review elaborate owner/repo#123
+planwerk-agent elaborate owner/repo#123
 
 # JSON for automation
-planwerk-review elaborate --format json owner/repo#123
+planwerk-agent elaborate --format json owner/repo#123
 
 # Replace the issue body with the elaborated body
-planwerk-review elaborate --update-issue owner/repo#123
+planwerk-agent elaborate --update-issue owner/repo#123
 
 # Or post the elaboration as a new comment instead
-planwerk-review elaborate --post-comment owner/repo#123
+planwerk-agent elaborate --post-comment owner/repo#123
 ```
 
 `--update-issue` and `--post-comment` are mutually exclusive — pick the one that

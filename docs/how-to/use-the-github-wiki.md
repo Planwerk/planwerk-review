@@ -70,13 +70,13 @@ The wiki is **off by default**. You opt in per run:
 
 ```bash
 # Off by default: no wiki is read
-planwerk-review review owner/repo#123
+planwerk-agent review owner/repo#123
 
 # Turn it on for one run
-planwerk-review review --wiki owner/repo#123
+planwerk-agent review --wiki owner/repo#123
 
 # Pin the wiki to a fixed commit, tag, or branch for a reproducible run
-planwerk-review review --wiki --wiki-ref v1.4.0 owner/repo#123
+planwerk-agent review --wiki --wiki-ref v1.4.0 owner/repo#123
 ```
 
 Or set defaults in `.planwerk/config.yaml`:
@@ -134,7 +134,7 @@ maintain by hand or by a later automated write-back:
   the same `memory/<slug>.md` path, so it **updates the page in place** rather
   than appending a near-duplicate.
 - **A provenance marker.** Each proposed page begins with an HTML comment —
-  `<!-- planwerk-review: captured from owner/repo#123 -->` — that marks it as
+  `<!-- planwerk-agent: captured from owner/repo#123 -->` — that marks it as
   tool-authored (rather than hand-authored) and names the issue it came from. The
   marker is fixed for a given source, so a re-run does not churn the page.
 
@@ -143,7 +143,7 @@ maintain by hand or by a later automated write-back:
 By default the capture pass writes nothing — it only proposes. Pass
 `--capture-wiki` to turn the accepted pages into real wiki growth: a separate,
 mechanical write phase clones the wiki fresh, writes each page (provenance marker
-included) under the pinned `planwerk-review` identity, and pushes. When the wiki
+included) under the pinned `planwerk-agent` identity, and pushes. When the wiki
 has never been initialized, the first page creates its initial commit.
 
 The write-back is available only from a **trusted source** — `implement` (your own
@@ -155,9 +155,9 @@ injection. Capture patterns from a review by reading its proposals and adding th
 ones worth keeping by hand.
 
 ```bash
-planwerk-review implement --wiki --capture-wiki owner/repo#123          # confirms, then pushes
-planwerk-review implement --wiki --capture-wiki --yes owner/repo#123    # non-interactive (CI)
-planwerk-review audit --wiki --capture-wiki owner/repo                  # from a standalone audit
+planwerk-agent implement --wiki --capture-wiki owner/repo#123          # confirms, then pushes
+planwerk-agent implement --wiki --capture-wiki --yes owner/repo#123    # non-interactive (CI)
+planwerk-agent audit --wiki --capture-wiki owner/repo                  # from a standalone audit
 ```
 
 The write is gated to match the rest of the wiki surface. Claude never pushes: it

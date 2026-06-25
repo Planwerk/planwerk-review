@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
 )
 
 func TestApplyMetaReferences(t *testing.T) {
@@ -62,7 +62,7 @@ func TestBuildSubIssueBody(t *testing.T) {
 		"**Category**: feature | **Scope**: Large",
 		"## Description\n\nLay the groundwork.",
 		"## Motivation\n\nEverything else builds on it.",
-		"_Split from #525 by [planwerk-review](https://github.com/planwerk/planwerk-review) with Claude_",
+		"_Split from #525 by [planwerk-agent](https://github.com/planwerk/planwerk-agent) with Claude_",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("body missing %q\n%s", want, body)
@@ -75,7 +75,7 @@ func TestBuildSubIssueBody(t *testing.T) {
 // internal/attribution rather than hardcoding the assistant name.
 func TestBuildSubIssueBody_NamesResolvedModel(t *testing.T) {
 	body := BuildSubIssueBody(525, SubIssue{Key: "a", Title: "Foundation", Description: "Lay the groundwork."}, "claude-opus-4-8")
-	want := "_Split from #525 by [planwerk-review](https://github.com/planwerk/planwerk-review) with Claude:claude-opus-4-8_"
+	want := "_Split from #525 by [planwerk-agent](https://github.com/planwerk/planwerk-agent) with Claude:claude-opus-4-8_"
 	if !strings.Contains(body, want) {
 		t.Errorf("body missing model-named footer %q\n%s", want, body)
 	}
@@ -90,7 +90,7 @@ func TestBuildSubIssueBody_NamesVersionAndModel(t *testing.T) {
 	t.Cleanup(func() { attribution.SetVersion("") })
 
 	body := BuildSubIssueBody(525, SubIssue{Key: "a", Title: "Foundation", Description: "Lay the groundwork."}, "claude-opus-4-8")
-	want := "_Split from #525 by [planwerk-review](https://github.com/planwerk/planwerk-review) e1efd0d with Claude:claude-opus-4-8_"
+	want := "_Split from #525 by [planwerk-agent](https://github.com/planwerk/planwerk-agent) e1efd0d with Claude:claude-opus-4-8_"
 	if !strings.Contains(body, want) {
 		t.Errorf("body missing version+model footer %q\n%s", want, body)
 	}

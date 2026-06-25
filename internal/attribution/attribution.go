@@ -1,4 +1,4 @@
-// Package attribution centralizes the self-attribution that planwerk-review
+// Package attribution centralizes the self-attribution that planwerk-agent
 // stamps on every artifact it leaves on GitHub — issue bodies, pull request
 // descriptions, review comments, thread replies — and prints in its CLI
 // previews. Holding the wording in one leaf package (importable by every
@@ -17,8 +17,8 @@
 // rendered with no session behind it — the attribution falls back to a bare
 // "with Claude" rather than guessing an id.
 //
-// Every footer also names the planwerk-review build that produced it — the same
-// string "planwerk-review --version" prints — placed right after the repository
+// Every footer also names the planwerk-agent build that produced it — the same
+// string "planwerk-agent --version" prints — placed right after the repository
 // link so the report headers and the issue/PR/comment footers read identically.
 // Unlike the per-run model id, the version is a process-wide fact recorded once
 // at startup (SetVersion) and read back by Tool(); renderers that already
@@ -31,12 +31,12 @@ import (
 )
 
 const (
-	// RepoURL is planwerk-review's repository, linked from every footer so the
+	// RepoURL is planwerk-agent's repository, linked from every footer so the
 	// artifact points back at the tool that produced it.
-	RepoURL = "https://github.com/planwerk/planwerk-review"
+	RepoURL = "https://github.com/planwerk/planwerk-agent"
 
 	// Link is the Markdown link to the repository embedded in the footers.
-	Link = "[planwerk-review](" + RepoURL + ")"
+	Link = "[planwerk-agent](" + RepoURL + ")"
 
 	// AssistantMarker is the stable, model-independent prefix of the assistant
 	// attribution clause. AssistantWith appends ":<model id>" to it when a model
@@ -51,8 +51,8 @@ var (
 	toolVersion string
 )
 
-// SetVersion records the planwerk-review build version — the same string
-// "planwerk-review --version" prints (e.g. "e1efd0d") — so every footer can name
+// SetVersion records the planwerk-agent build version — the same string
+// "planwerk-agent --version" prints (e.g. "e1efd0d") — so every footer can name
 // the exact build that produced the artifact. The root command calls it once at
 // startup from the build-time version var; Tool() reads it back. Passing an
 // empty (or whitespace-only) version clears the record, in which case the footer
@@ -72,7 +72,7 @@ func Version() string {
 }
 
 // Tool renders the tool clause — the repository link followed by the recorded
-// build version, "[planwerk-review](url) e1efd0d" — or the bare link when no
+// build version, "[planwerk-agent](url) e1efd0d" — or the bare link when no
 // version has been recorded. Footer helpers that have no version in scope use it
 // so the version is threaded from a single process-wide source, the same way the
 // resolved model is.

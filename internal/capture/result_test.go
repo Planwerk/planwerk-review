@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/sync"
+	"github.com/planwerk/planwerk-agent/internal/sync"
 )
 
 func TestHasProposals(t *testing.T) {

@@ -643,7 +643,7 @@ func severityOf(pats []Pattern, name string) string {
 // with a BundledURLBase the pattern maps to a public URL (no embedded: prefix
 // in the URL); without one it carries the bundled-in-binary OriginNote.
 func TestBuildCatalogReferences_Embedded(t *testing.T) {
-	const base = "https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns"
+	const base = "https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns"
 
 	refs := BuildCatalogReferences(
 		[]Pattern{{Name: "YAGNI", FilePath: "embedded:patterns/design/yagni.md"}},

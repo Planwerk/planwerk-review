@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/sync"
+	"github.com/planwerk/planwerk-agent/internal/sync"
 )
 
 // Sync runs the read-only wiki-reconciliation analysis for a cloned repo. It

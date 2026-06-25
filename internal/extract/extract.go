@@ -3,7 +3,7 @@
 // world-editable wiki to a code-coupled knowledge store: once a wiki pattern
 // proves itself, a maintainer promotes it into the target repo's
 // .planwerk/review_patterns/ (PR-gated, or directly with --local) or into
-// planwerk-review's own bundled catalog (--to-catalog, the contribution path).
+// planwerk-agent's own bundled catalog (--to-catalog, the contribution path).
 //
 // The command is mechanical — it never invokes Claude. It reads the wiki's
 // review_patterns/ directory (resolved through the same machinery the review,
@@ -19,9 +19,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/workspace"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/workspace"
 )
 
 // Options configures the extract subcommand. Mirrors the Options style used by
@@ -50,7 +50,7 @@ type Options struct {
 	// refused, so a wiki author cannot clobber a trusted file (a bundled catalog
 	// pattern, or an existing repo pattern) by naming a pattern to match it.
 	Overwrite bool
-	// Version is the planwerk-review build version, named in the PR footer's
+	// Version is the planwerk-agent build version, named in the PR footer's
 	// attribution clause.
 	Version string
 	// Remote configures how the wiki clone resolves through the remote-cache
@@ -163,15 +163,15 @@ func writeLocal(w io.Writer, repo *github.Repo, selected []entry, wiki patterns.
 	return nil
 }
 
-// writeToCatalog anchors the selected patterns into this planwerk-review
+// writeToCatalog anchors the selected patterns into this planwerk-agent
 // checkout's bundled review catalog, normalizing each pattern's frontmatter
 // category to review. It guards that the catalog parent exists so the command
-// only writes when run from a planwerk-review checkout. overwrite allows
+// only writes when run from a planwerk-agent checkout. overwrite allows
 // replacing an existing catalog pattern at the destination (see
 // writeWorkingTree).
 func writeToCatalog(w io.Writer, selected []entry, wiki patterns.ResolvedWiki, overwrite bool) error {
 	if info, err := os.Stat(catalogParentDir); err != nil || !info.IsDir() {
-		return fmt.Errorf("--to-catalog must run from a planwerk-review checkout: %s not found in the current directory", catalogParentDir)
+		return fmt.Errorf("--to-catalog must run from a planwerk-agent checkout: %s not found in the current directory", catalogParentDir)
 	}
 	transform := func(raw []byte) []byte { return normalizeCategory(raw, categoryReview) }
 	written, err := writeWorkingTree(".", catalogReviewSubdir, selected, transform, overwrite)

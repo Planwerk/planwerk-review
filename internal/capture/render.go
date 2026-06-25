@@ -5,8 +5,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // provenanceMarkerPrefix is the stable, run-independent prefix of the HTML
@@ -16,7 +16,7 @@ import (
 // the page bytes on every re-run, defeating the stable-slug convention (a re-run
 // must update the page in place, not churn it) and breaking golden-test
 // determinism.
-const provenanceMarkerPrefix = "<!-- planwerk-review: captured from "
+const provenanceMarkerPrefix = "<!-- planwerk-agent: captured from "
 
 // Provenance identifies the implement run a captured page came from, so the
 // provenance marker can name the source repository and issue.
@@ -26,7 +26,7 @@ type Provenance struct {
 }
 
 // Marker renders the stable provenance marker comment, e.g.
-// "<!-- planwerk-review: captured from owner/repo#42 -->".
+// "<!-- planwerk-agent: captured from owner/repo#42 -->".
 func (p Provenance) Marker() string {
 	return fmt.Sprintf("%s%s#%d -->", provenanceMarkerPrefix, p.Repo, p.Issue)
 }

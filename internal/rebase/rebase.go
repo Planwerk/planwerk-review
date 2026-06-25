@@ -12,12 +12,12 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
-	"github.com/planwerk/planwerk-review/internal/detect"
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/report"
-	"github.com/planwerk/planwerk-review/internal/workspace"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/detect"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/workspace"
 )
 
 // Default loop parameters and the default base branch. Each can be overridden
@@ -32,10 +32,10 @@ const (
 	DefaultMaxIterations = 10
 
 	// BundledPatternsURLBase is the public raw-markdown URL prefix the
-	// bare-prompt catalog uses to point Claude at planwerk-review's bundled
+	// bare-prompt catalog uses to point Claude at planwerk-agent's bundled
 	// pattern files. Pinned to "main" so manual sessions always pick up the
 	// latest patterns, mirroring the fix package.
-	BundledPatternsURLBase = "https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns"
+	BundledPatternsURLBase = "https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns"
 )
 
 // Options configures the rebase subcommand. Mirrors the Options style used by
@@ -385,7 +385,7 @@ func localOptions(opts Options) github.LocalOptions {
 	return github.LocalOptions{Force: opts.Force, Prompter: workspace.NewStdinPrompter()}
 }
 
-// analysisCommentFooter attributes the posted analysis to planwerk-review,
+// analysisCommentFooter attributes the posted analysis to planwerk-agent,
 // naming the model that produced it and matching the footer the other
 // subcommands append to GitHub artifacts.
 func analysisCommentFooter(model string) string {

@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/planwerk/planwerk-review/internal/cli"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/sync"
+	"github.com/planwerk/planwerk-agent/internal/cli"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/sync"
 )
 
 // newSyncCmd builds the "sync" subcommand: reconcile a target repository's GitHub

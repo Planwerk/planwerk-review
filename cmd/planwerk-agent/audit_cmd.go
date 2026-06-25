@@ -6,11 +6,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/planwerk/planwerk-review/internal/audit"
-	"github.com/planwerk/planwerk-review/internal/cache"
-	"github.com/planwerk/planwerk-review/internal/cli"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/audit"
+	"github.com/planwerk/planwerk-agent/internal/cache"
+	"github.com/planwerk/planwerk-agent/internal/cli"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // newAuditCmd builds the "audit" subcommand: clone a GitHub repository and

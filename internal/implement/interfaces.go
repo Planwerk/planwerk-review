@@ -1,10 +1,10 @@
 package implement
 
 import (
-	"github.com/planwerk/planwerk-review/internal/capture"
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/capture"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // Context is the input for the Claude implement prompt. It carries the
@@ -68,11 +68,11 @@ type PromptBuildFn func(ctx Context) string
 // required.
 //
 // The pattern catalog is shipped as a list of remote URLs (for patterns
-// from the bundled planwerk-review catalog) plus relative checkout paths
+// from the bundled planwerk-agent catalog) plus relative checkout paths
 // (for project-specific patterns under .planwerk/review_patterns/). The
 // pasted-into Claude session fetches each URL itself, so the prompt stays
 // short and the patterns Claude sees are always the same as those
-// displayed on github.com/planwerk/planwerk-review.
+// displayed on github.com/planwerk/planwerk-agent.
 type BareContext struct {
 	RepoFullName     string
 	IssueNumber      int

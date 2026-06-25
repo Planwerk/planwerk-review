@@ -2,7 +2,7 @@
 layout: home
 
 hero:
-  name: planwerk-review
+  name: planwerk-agent
   text: AI-powered code review & codebase analysis
   tagline: >-
     Use Claude Code to review pull requests, audit codebases against review
@@ -17,7 +17,7 @@ hero:
       link: /reference/cli
     - theme: alt
       text: View on GitHub
-      link: https://github.com/planwerk/planwerk-review
+      link: https://github.com/planwerk/planwerk-agent
 
 features:
   - title: Tutorials

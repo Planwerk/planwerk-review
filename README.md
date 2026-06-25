@@ -1,7 +1,7 @@
-# planwerk-review
+# planwerk-agent
 
-[![CI](https://github.com/planwerk/planwerk-review/actions/workflows/ci.yml/badge.svg)](https://github.com/planwerk/planwerk-review/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/planwerk/planwerk-review/branch/main/graph/badge.svg)](https://codecov.io/gh/planwerk/planwerk-review)
+[![CI](https://github.com/planwerk/planwerk-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/planwerk/planwerk-agent/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/planwerk/planwerk-agent/branch/main/graph/badge.svg)](https://codecov.io/gh/planwerk/planwerk-agent)
 
 AI-powered code review and codebase analysis tool for GitHub repositories. Uses Claude Code to automatically analyze PR changes and produce structured review results, to analyze entire repositories and generate actionable feature proposals, to audit an entire codebase against all known review patterns, to elaborate high-level issues into detailed engineering plans, or to generate copy-paste-ready prompts that fix or implement an issue.
 
@@ -26,32 +26,32 @@ AI-powered code review and codebase analysis tool for GitHub repositories. Uses 
 Install the latest release:
 
 ```bash
-go install github.com/planwerk/planwerk-review/cmd/planwerk-review@latest
+go install github.com/planwerk/planwerk-agent/cmd/planwerk-agent@latest
 # or, with Homebrew:
-brew install planwerk/tap/planwerk-review
+brew install planwerk/tap/planwerk-agent
 ```
 
 Review a pull request:
 
 ```bash
-planwerk-review owner/repo#123
+planwerk-agent owner/repo#123
 ```
 
 You need [Claude Code](https://docs.claude.com/en/docs/claude-code) and the
 [`gh` CLI](https://cli.github.com/) installed and authenticated. See
-[Getting started](https://planwerk.github.io/planwerk-review/tutorials/getting-started)
+[Getting started](https://planwerk.github.io/planwerk-agent/tutorials/getting-started)
 for the full walkthrough.
 
 ## Documentation
 
 Full documentation lives at
-**<https://planwerk.github.io/planwerk-review/>**, organized along the
+**<https://planwerk.github.io/planwerk-agent/>**, organized along the
 [Diátaxis](https://diataxis.fr/) framework:
 
-- [Tutorials](https://planwerk.github.io/planwerk-review/tutorials/) — learning-oriented, guided paths
-- [How-to guides](https://planwerk.github.io/planwerk-review/how-to/) — task-oriented recipes
-- [Reference](https://planwerk.github.io/planwerk-review/reference/) — every command, flag, and field
-- [Explanation](https://planwerk.github.io/planwerk-review/explanation/) — concept, methodology, and design decisions
+- [Tutorials](https://planwerk.github.io/planwerk-agent/tutorials/) — learning-oriented, guided paths
+- [How-to guides](https://planwerk.github.io/planwerk-agent/how-to/) — task-oriented recipes
+- [Reference](https://planwerk.github.io/planwerk-agent/reference/) — every command, flag, and field
+- [Explanation](https://planwerk.github.io/planwerk-agent/explanation/) — concept, methodology, and design decisions
 
 ## License
 

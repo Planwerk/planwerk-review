@@ -1,8 +1,8 @@
 package audit
 
 import (
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // ClaudeAuditor performs the Claude-backed codebase audit for a cloned repo.

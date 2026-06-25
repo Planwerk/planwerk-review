@@ -9,7 +9,7 @@
       "description": "Validate the renderer's JSON output against a declared schema.",
       "motivation": "Catch silent regressions as the output structs evolve.",
       "scope": "Medium",
-      "affected_areas": ["internal/report/schema", "cmd/planwerk-review"],
+      "affected_areas": ["internal/report/schema", "cmd/planwerk-agent"],
       "acceptance_criteria": [
         "Schema files exist for ReviewResult and Proposal.",
         "Every fixture validates against the schema."

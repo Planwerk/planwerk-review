@@ -6,9 +6,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/report"
-	"github.com/planwerk/planwerk-review/internal/workspace"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/workspace"
 )
 
 // WikiWriter performs the capture write phase: a fresh authenticated clone of
@@ -190,7 +190,7 @@ func validateWikiPath(p string) error {
 // naming the source run so the wiki history records where each page came from.
 func additionsCommitMsg(pages []ProposedPage, prov Provenance) string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "Capture %s\n\nWritten by planwerk-review from %s#%d:\n", countedPages(len(pages)), prov.Repo, prov.Issue)
+	fmt.Fprintf(&sb, "Capture %s\n\nWritten by planwerk-agent from %s#%d:\n", countedPages(len(pages)), prov.Repo, prov.Issue)
 	for _, p := range pages {
 		fmt.Fprintf(&sb, "- %s\n", p.Path)
 	}

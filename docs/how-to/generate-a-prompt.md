@@ -7,16 +7,16 @@ stable and safe to pipe into other tools.
 
 ```bash
 # Auto-detected mode (audit titles get the fix prompt, others the implement prompt)
-planwerk-review prompt https://github.com/owner/repo/issues/42
+planwerk-agent prompt https://github.com/owner/repo/issues/42
 
 # Force the fix variant
-planwerk-review prompt --mode fix owner/repo#42
+planwerk-agent prompt --mode fix owner/repo#42
 
 # Force the implement variant
-planwerk-review prompt --mode implement owner/repo#42
+planwerk-agent prompt --mode implement owner/repo#42
 
 # Pipe straight into the clipboard (macOS)
-planwerk-review prompt owner/repo#42 | pbcopy
+planwerk-agent prompt owner/repo#42 | pbcopy
 ```
 
 Mode auto-detection looks at the issue body: audit-generated issues carry a

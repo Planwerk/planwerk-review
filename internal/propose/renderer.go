@@ -6,8 +6,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // Renderer handles output of proposal results.

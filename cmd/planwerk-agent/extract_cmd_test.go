@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/cli"
+	"github.com/planwerk/planwerk-agent/internal/cli"
 )
 
 // runExtractCmd executes the extract subcommand hermetically: it exercises only

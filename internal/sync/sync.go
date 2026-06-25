@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/workspace"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/workspace"
 )
 
 // Options configures the sync subcommand.
@@ -23,7 +23,7 @@ type Options struct {
 	Yes bool
 	// Format selects the report output: "markdown" (default) or "json".
 	Format string
-	// Version is the planwerk-review build version, named in the report footer.
+	// Version is the planwerk-agent build version, named in the report footer.
 	Version string
 	// Remote configures how the wiki clone resolves through the remote-cache
 	// machinery (carries the --remote-patterns-ttl value).

@@ -6,9 +6,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/claude"
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/claude"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // TestRunner_ConcurrentRunsDoNotLeakModel runs two Runners with distinct

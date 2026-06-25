@@ -52,7 +52,7 @@ Apply these task-specific thinking patterns on top of the baseline above:
 
 ## Source Issue
 
-- Repository: planwerk/planwerk-review
+- Repository: planwerk/planwerk-agent
 - Issue #42
 
 Detected technologies in the target repo (used to filter the pattern catalog below): go
@@ -61,12 +61,12 @@ You are already running inside a checkout of this repository's default branch. D
 
 ## Project Review Patterns to Honor
 
-planwerk-review identified the patterns below as relevant to the technologies in the target repo (the catalog has already been filtered by the detected technology tags above). Treat them as binding context: your work MUST stay consistent with them, and when the change touches an area covered by a pattern, prefer the resolution the pattern endorses.
+planwerk-agent identified the patterns below as relevant to the technologies in the target repo (the catalog has already been filtered by the detected technology tags above). Treat them as binding context: your work MUST stay consistent with them, and when the change touches an area covered by a pattern, prefer the resolution the pattern endorses.
 
-To load each pattern, fetch its URL — use the WebFetch tool when available, or `curl -fsSL <URL>` otherwise. Read the markdown body in full; each file follows the planwerk-review pattern schema (`# Review Pattern: …` header, `**Review-Area**`, `**Detection-Hint**`, `**Severity**`, `**Category**`, `**Applies-When**`, optional `**Sources**`, then the rule body). Patterns marked with a checkout path live inside the working tree you are already in and need no fetch — open them directly.
+To load each pattern, fetch its URL — use the WebFetch tool when available, or `curl -fsSL <URL>` otherwise. Read the markdown body in full; each file follows the planwerk-agent pattern schema (`# Review Pattern: …` header, `**Review-Area**`, `**Detection-Hint**`, `**Severity**`, `**Category**`, `**Applies-When**`, optional `**Sources**`, then the rule body). Patterns marked with a checkout path live inside the working tree you are already in and need no fetch — open them directly.
 
 <review-pattern-catalog>
-- **Hardcoded secrets** (CRITICAL) — fetch https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns/hardcoded-secrets.md  
+- **Hardcoded secrets** (CRITICAL) — fetch https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns/hardcoded-secrets.md  
   category=design-principle; area=security
 </review-pattern-catalog>
 
@@ -75,7 +75,7 @@ To load each pattern, fetch its URL — use the WebFetch tool when available, or
 Do NOT guess the issue contents. Use the GitHub CLI to fetch the full body:
 
 ```
-gh issue view 42 --repo planwerk/planwerk-review --json number,title,body,url,state
+gh issue view 42 --repo planwerk/planwerk-agent --json number,title,body,url,state
 ```
 
 Read the title, body, and state in full. Extract Acceptance Criteria, Non-Goals, Affected Areas, and References into your working notes.
@@ -141,7 +141,7 @@ EVERY commit you create MUST end with exactly these two trailers, in this order:
 
 - Pass `-s` to `git commit` so git appends the `Signed-off-by` line from the committer identity. It MUST be the very last line of the message.
 - Add an `Assisted-by: Claude` trailer naming yourself as the assistant. Append your exact model id when your runtime context provides it (e.g. `Assisted-by: Claude:claude-opus-4-8`); otherwise emit `Assisted-by: Claude` alone — never guess the id. Pass it as the final `-m` paragraph, NOT via `--trailer` (git places `--trailer` values after the sign-off), so it lands directly above `Signed-off-by`.
-- NEVER add a `Co-authored-by` trailer — not for Claude, not for planwerk-review, not for anyone.
+- NEVER add a `Co-authored-by` trailer — not for Claude, not for planwerk-agent, not for anyone.
 
 ## Attribution footer
 
@@ -149,10 +149,10 @@ End every GitHub artifact you author yourself — the pull request description, 
 
     ---
 
-    _Implemented by [planwerk-review](https://github.com/planwerk/planwerk-review) with Claude:<your model id>_
+    _Implemented by [planwerk-agent](https://github.com/planwerk/planwerk-agent) with Claude:<your model id>_
 
 - Append your exact model id when your runtime context provides it (e.g. `with Claude:claude-opus-4-8`); otherwise write a bare `with Claude` — never guess the id. This mirrors the Assisted-by commit trailer.
-- Keep the `[planwerk-review]` link intact so the artifact points back at the tool that produced it.
+- Keep the `[planwerk-agent]` link intact so the artifact points back at the tool that produced it.
 - Add the footer once, as the last line of the artifact — do NOT repeat it per section.
 
 ## Hard rules

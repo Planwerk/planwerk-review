@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/report"
-	"github.com/planwerk/planwerk-review/internal/workspace"
+	"github.com/planwerk/planwerk-agent/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/workspace"
 )
 
 // runWritePhase is the --prune write phase: it confirms the deletion with the
@@ -105,7 +105,7 @@ func partitionExisting(dir string, paths []string) (existing, skipped []string) 
 // pruneCommitMsg renders the commit subject and body for a prune push.
 func pruneCommitMsg(paths []string) string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "Prune %s\n\nRemoved by planwerk-review sync:\n", countedEntries(len(paths)))
+	fmt.Fprintf(&sb, "Prune %s\n\nRemoved by planwerk-agent sync:\n", countedEntries(len(paths)))
 	for _, p := range paths {
 		fmt.Fprintf(&sb, "- %s\n", p)
 	}

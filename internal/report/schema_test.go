@@ -9,10 +9,10 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/planwerk/planwerk-review/internal/draft"
-	"github.com/planwerk/planwerk-review/internal/propose"
-	"github.com/planwerk/planwerk-review/internal/report"
-	"github.com/planwerk/planwerk-review/internal/report/schema"
+	"github.com/planwerk/planwerk-agent/internal/draft"
+	"github.com/planwerk/planwerk-agent/internal/propose"
+	"github.com/planwerk/planwerk-agent/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/report/schema"
 )
 
 // compileSchema compiles a draft 2020-12 schema document from raw bytes.

@@ -209,7 +209,7 @@ func ghJSON(repo string, number int) (prMeta, error) {
 }
 
 func checkoutPR(repo string, number int) (string, error) {
-	dir, err := os.MkdirTemp("", "planwerk-review-*")
+	dir, err := os.MkdirTemp("", "planwerk-agent-*")
 	if err != nil {
 		return "", fmt.Errorf("creating temp dir: %w", err)
 	}

@@ -9,7 +9,7 @@ import (
 // ResolveOptions configures Resolve. The flags mirror the --no-local-patterns
 // and --no-repo-patterns toggles the eight pattern-loading subcommands expose.
 type ResolveOptions struct {
-	// NoLocal suppresses the planwerk-review-bundled on-disk catalog.
+	// NoLocal suppresses the planwerk-agent-bundled on-disk catalog.
 	NoLocal bool
 	// NoRepo suppresses the target repo's .planwerk/review_patterns directory.
 	NoRepo bool
@@ -29,7 +29,7 @@ type ResolveOptions struct {
 }
 
 // Resolve assembles the ordered list of on-disk pattern directories to load,
-// applying the precedence the eight subcommands share: the planwerk-review
+// applying the precedence the eight subcommands share: the planwerk-agent
 // bundled local catalog (lowest priority), then the target repo's GitHub Wiki
 // review patterns, then the target repo's .planwerk/review_patterns directory,
 // then any explicit --patterns directories (highest priority). The wiki sits
@@ -59,7 +59,7 @@ func Resolve(opts ResolveOptions) ([]string, error) {
 	return dirs, nil
 }
 
-// LocalPatternDir returns the planwerk-review-bundled on-disk pattern
+// LocalPatternDir returns the planwerk-agent-bundled on-disk pattern
 // directory, or "" when noLocal is set or no candidate exists. It prefers the
 // directory next to the executable (../patterns, the layout shipped before the
 // catalog was embedded) and falls back to ./patterns relative to the working

@@ -2,7 +2,7 @@
 
 This tutorial takes you from an empty machine to your first completed
 pull-request review. Follow the steps in order; by the end you will have run
-planwerk-review against a real PR and read its report.
+planwerk-agent against a real PR and read its report.
 
 ## Prerequisites
 
@@ -13,27 +13,27 @@ Before you start, make sure you have:
 3. The **`gh` CLI** installed and authenticated (`gh auth login`).
 4. Access to the target repository (for checkout/clone).
 
-planwerk-review also relies on **git** as the underlying VCS for `gh repo clone`
+planwerk-agent also relies on **git** as the underlying VCS for `gh repo clone`
 and local git operations.
 
-## Step 1: Install planwerk-review
+## Step 1: Install planwerk-agent
 
 Install the latest release with `go install`:
 
 ```bash
-go install github.com/planwerk/planwerk-review/cmd/planwerk-review@latest
+go install github.com/planwerk/planwerk-agent/cmd/planwerk-agent@latest
 ```
 
 Or, on macOS / Linux with Homebrew:
 
 ```bash
-brew install planwerk/tap/planwerk-review
+brew install planwerk/tap/planwerk-agent
 ```
 
 Confirm the binary is on your `PATH`:
 
 ```bash
-planwerk-review --version
+planwerk-agent --version
 ```
 
 ## Step 2: Review your first pull request
@@ -42,10 +42,10 @@ Point the tool at any pull request you can access. Use either the full URL or
 the short `owner/repo#number` form:
 
 ```bash
-planwerk-review owner/repo#123
+planwerk-agent owner/repo#123
 ```
 
-planwerk-review checks out the PR, loads its review patterns, runs Claude Code's
+planwerk-agent checks out the PR, loads its review patterns, runs Claude Code's
 `/review` with a structured prompt, and aggregates the results. The structured
 report is written to `stdout`.
 
@@ -58,7 +58,7 @@ followed by findings grouped by severity (`BLOCKING`, `CRITICAL`, `WARNING`,
 ```markdown
 # Review: owner/repo#123
 
-<!-- planwerk-review: blocking=1 critical=2 warning=3 info=1 recommendation=HOLD -->
+<!-- planwerk-agent: blocking=1 critical=2 warning=3 info=1 recommendation=HOLD -->
 
 ## BLOCKING (1)
 
@@ -74,7 +74,7 @@ environment variable or secret manager.
 To keep the report, redirect it to a file:
 
 ```bash
-planwerk-review owner/repo#123 > review.md
+planwerk-agent owner/repo#123 > review.md
 ```
 
 ## Next steps

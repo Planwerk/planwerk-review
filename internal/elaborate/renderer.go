@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
 )
 
 // RenderMarkdown writes the elaborated issue body as Markdown to w.

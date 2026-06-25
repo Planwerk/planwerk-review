@@ -140,7 +140,7 @@ func TestIsRouteFile(t *testing.T) {
 		{"src/userRoute.ts", true},          // base name names a route
 		{"pkg/endpoints/health.go", true},
 		{"internal/foo.go", false},
-		{"cmd/planwerk-review/main.go", false},
+		{"cmd/planwerk-agent/main.go", false},
 		{"README.md", false},
 		{"internal/apiclient/client.go", false}, // "apiclient" is not the "api" segment
 	}

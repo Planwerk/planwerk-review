@@ -19,8 +19,8 @@ const wikiPushTimeout = 2 * time.Minute
 // committer is pinned here rather than relying on ambient git config (absent in
 // CI).
 const (
-	wikiCommitterName  = "planwerk-review"
-	wikiCommitterEmail = "planwerk-review@users.noreply.github.com"
+	wikiCommitterName  = "planwerk-agent"
+	wikiCommitterEmail = "planwerk-agent@users.noreply.github.com"
 )
 
 // CloneWikiAuthenticated makes a fresh, full clone of the target repo's wiki into

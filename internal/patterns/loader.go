@@ -332,12 +332,12 @@ type CatalogReference struct {
 // back to either a remote URL or an in-checkout path. Both root paths
 // should be absolute (BuildCatalogReferences will Abs them defensively).
 type CatalogRefOptions struct {
-	// BundledRoot is the on-disk directory the planwerk-review-shipped
+	// BundledRoot is the on-disk directory the planwerk-agent-shipped
 	// pattern catalog was loaded from. Patterns whose FilePath sits under
 	// this directory are emitted as URLs against BundledURLBase.
 	BundledRoot string
 	// BundledURLBase is the URL prefix patterns under BundledRoot map to.
-	// E.g. https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns
+	// E.g. https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns
 	// (no trailing slash). Required iff BundledRoot is non-empty. Embedded
 	// patterns (FilePath prefixed "embedded:patterns/") also map to this base.
 	BundledURLBase string

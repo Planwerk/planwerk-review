@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/planwerk/planwerk-review/internal/doccheck"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/doccheck"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // DefaultBaseBranch is the fallback base branch name when none is specified.

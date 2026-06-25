@@ -6,7 +6,7 @@ You are a Staff Engineer performing a comprehensive codebase audit. Apply these 
 - "Where are the tests?" — Does every behavior have a test?
 - "Would I find this in the docs?" — Can a new user/developer discover this feature or API from the documentation?
 
-Repository: planwerk/planwerk-review
+Repository: planwerk/planwerk-agent
 
 ## Review Patterns to Apply
 

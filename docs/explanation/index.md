@@ -1,6 +1,6 @@
 # Explanation
 
-Understanding-oriented background. These pages explain how planwerk-review
+Understanding-oriented background. These pages explain how planwerk-agent
 works and why it is built the way it is — read them to build a mental model,
 not to perform a task.
 

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/implement"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/implement"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // reviewReportHeading is the heading every review-apply report opens with.

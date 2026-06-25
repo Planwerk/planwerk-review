@@ -7,13 +7,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 // DefaultPRBranch is the head branch extract pushes the anchored patterns to in
 // the default (PR) write mode.
-const DefaultPRBranch = "planwerk-review/extract-review-patterns"
+const DefaultPRBranch = "planwerk-agent/extract-review-patterns"
 
 // categoryReview is the frontmatter category --to-catalog normalizes every
 // extracted pattern to, so a wiki pattern lands in the bundled catalog as a
@@ -29,11 +29,11 @@ var (
 	planwerkPatternsSubdir = filepath.Join(".planwerk", "review_patterns")
 
 	// catalogReviewSubdir is the bundled review catalog directory --to-catalog
-	// writes into, relative to the planwerk-review checkout's working directory.
+	// writes into, relative to the planwerk-agent checkout's working directory.
 	catalogReviewSubdir = filepath.Join("internal", "patterns", "patterns", "review")
 
 	// catalogParentDir is the parent of catalogReviewSubdir. --to-catalog guards
-	// that it exists so the command only writes when run from a planwerk-review
+	// that it exists so the command only writes when run from a planwerk-agent
 	// checkout, rather than creating a stray tree under an unrelated cwd.
 	catalogParentDir = filepath.Join("internal", "patterns", "patterns")
 )
@@ -178,11 +178,11 @@ func prTitle(selected []entry) string {
 
 // prCommit renders the commit subject and body for the anchored patterns.
 func prCommit(selected []entry, wiki patterns.ResolvedWiki) string {
-	return prTitle(selected) + "\n\nExtracted from " + wikiProvenance(wiki) + " by planwerk-review extract."
+	return prTitle(selected) + "\n\nExtracted from " + wikiProvenance(wiki) + " by planwerk-agent extract."
 }
 
 // prBody renders the PR description: what was anchored, from which wiki state,
-// and the planwerk-review attribution footer every generated artifact carries.
+// and the planwerk-agent attribution footer every generated artifact carries.
 // version is the build that produced the PR, named in the footer.
 func prBody(selected []entry, wiki patterns.ResolvedWiki, version string) string {
 	var sb strings.Builder

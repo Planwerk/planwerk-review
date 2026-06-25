@@ -1,5 +1,5 @@
-BINARY  := planwerk-review
-MAIN    := ./cmd/planwerk-review
+BINARY  := planwerk-agent
+MAIN    := ./cmd/planwerk-agent
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 

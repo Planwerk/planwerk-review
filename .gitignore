@@ -1,6 +1,6 @@
 # Compiled binary
-planwerk-review
-!cmd/planwerk-review/
+planwerk-agent
+!cmd/planwerk-agent/
 
 # Go build artifacts
 dist/

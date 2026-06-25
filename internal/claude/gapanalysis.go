@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/gapanalysis"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/planwerk"
+	"github.com/planwerk/planwerk-agent/internal/gapanalysis"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/planwerk"
 )
 
 // GapAnalysis compares completed Planwerk feature files against the cloned

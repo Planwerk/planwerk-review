@@ -47,7 +47,7 @@ const DefaultRemoteTTL = 24 * time.Hour
 // the default TTL, so callers can pass RemoteOptions{} for default behavior.
 type RemoteOptions struct {
 	// CacheDir is the root directory remote pattern repos are cached under.
-	// When empty, defaults to <UserCacheDir>/planwerk-review/patterns.
+	// When empty, defaults to <UserCacheDir>/planwerk-agent/patterns.
 	CacheDir string
 	// TTL is the age after which a cached repo is refreshed. A value <= 0
 	// disables refresh — once cached, the repo is reused indefinitely.
@@ -87,7 +87,7 @@ func (p parsedURI) fingerprint() string {
 
 // remoteMeta is persisted next to each cached clone to record when it was
 // last refreshed and which URI populated it. The URI is kept for operator
-// debugging — `planwerk-review` itself only consults FetchedAt.
+// debugging — `planwerk-agent` itself only consults FetchedAt.
 type remoteMeta struct {
 	URI       string    `json:"uri"`
 	FetchedAt time.Time `json:"fetchedAt"`
@@ -276,9 +276,9 @@ func resolveCacheRoot(configured string) (string, error) {
 	}
 	dir, err := os.UserCacheDir()
 	if err != nil {
-		return filepath.Join(os.TempDir(), "planwerk-review", "patterns"), nil
+		return filepath.Join(os.TempDir(), "planwerk-agent", "patterns"), nil
 	}
-	return filepath.Join(dir, "planwerk-review", "patterns"), nil
+	return filepath.Join(dir, "planwerk-agent", "patterns"), nil
 }
 
 func readRemoteMeta(path string) (remoteMeta, bool) {

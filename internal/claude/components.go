@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
 )
 
 // This file holds prompt building blocks that are shared across more than one
@@ -324,7 +324,7 @@ EVERY commit you create MUST end with exactly these two trailers, in this order:
 
 - Pass ` + "`-s`" + ` to ` + "`git commit`" + ` so git appends the ` + "`Signed-off-by`" + ` line from the committer identity. It MUST be the very last line of the message.
 - Add an ` + "`Assisted-by: Claude`" + ` trailer naming yourself as the assistant. Append your exact model id when your runtime context provides it (e.g. ` + "`Assisted-by: Claude:claude-opus-4-8`" + `); otherwise emit ` + "`Assisted-by: Claude`" + ` alone — never guess the id. Pass it as the final ` + "`-m`" + ` paragraph, NOT via ` + "`--trailer`" + ` (git places ` + "`--trailer`" + ` values after the sign-off), so it lands directly above ` + "`Signed-off-by`" + `.
-- NEVER add a ` + "`Co-authored-by`" + ` trailer — not for Claude, not for planwerk-review, not for anyone.
+- NEVER add a ` + "`Co-authored-by`" + ` trailer — not for Claude, not for planwerk-agent, not for anyone.
 
 `
 }
@@ -336,7 +336,7 @@ EVERY commit you create MUST end with exactly these two trailers, in this order:
 // commit trailer, this pins the self-attribution footer that signs the artifact
 // and names the exact model that wrote it.
 //
-// The artifacts planwerk-review renders itself carry the same wording from the
+// The artifacts planwerk-agent renders itself carry the same wording from the
 // internal/attribution package; this block governs the artifacts the agent
 // writes directly, where the orchestrator only ever passed a model alias and
 // only the agent knows its exact model id at runtime — the same reason the
@@ -356,7 +356,7 @@ End every GitHub artifact you author yourself — the pull request description, 
     _` + verb + ` ` + attribution.Tool() + ` with Claude:<your model id>_
 
 - Append your exact model id when your runtime context provides it (e.g. ` + "`with Claude:claude-opus-4-8`" + `); otherwise write a bare ` + "`with Claude`" + ` — never guess the id. This mirrors the Assisted-by commit trailer.
-- Keep the ` + "`[planwerk-review]`" + ` link intact so the artifact points back at the tool that produced it.
+- Keep the ` + "`[planwerk-agent]`" + ` link intact so the artifact points back at the tool that produced it.
 - Add the footer once, as the last line of the artifact — do NOT repeat it per section.
 
 `

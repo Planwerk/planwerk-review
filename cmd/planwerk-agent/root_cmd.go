@@ -7,14 +7,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
-	"github.com/planwerk/planwerk-review/internal/cache"
-	"github.com/planwerk/planwerk-review/internal/claude"
-	"github.com/planwerk/planwerk-review/internal/cli"
-	"github.com/planwerk/planwerk-review/internal/logging"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/report"
-	"github.com/planwerk/planwerk-review/internal/review"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/cache"
+	"github.com/planwerk/planwerk-agent/internal/claude"
+	"github.com/planwerk/planwerk-agent/internal/cli"
+	"github.com/planwerk/planwerk-agent/internal/logging"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/review"
 )
 
 // newRootCmd builds the root command. The root command is the review command:
@@ -38,9 +38,9 @@ func newRootCmd(deps *runtimeDeps) *cobra.Command {
 	var wikiRef string
 
 	rootCmd := &cobra.Command{
-		Use:   "planwerk-review <pr-ref>",
+		Use:   "planwerk-agent <pr-ref>",
 		Short: "AI-powered code review for GitHub Pull Requests",
-		Long: `planwerk-review uses Claude Code to analyze GitHub PR changes and produces
+		Long: `planwerk-agent uses Claude Code to analyze GitHub PR changes and produces
 structured, categorized review results as Markdown or JSON output.
 
 PR reference can be a URL (https://github.com/owner/repo/pull/123)
@@ -92,7 +92,7 @@ or short form (owner/repo#123).`,
 			deps.claude = claude.NewClient(deps.claudeOpts...)
 
 			// Record the build version so every attribution footer names the
-			// exact planwerk-review build, matching the report headers and the
+			// exact planwerk-agent build, matching the report headers and the
 			// `--version` output. Same value threaded into every command's
 			// options (deps.version).
 			attribution.SetVersion(deps.version)

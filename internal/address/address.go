@@ -14,11 +14,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/detect"
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/report"
-	"github.com/planwerk/planwerk-review/internal/workspace"
+	"github.com/planwerk/planwerk-agent/internal/detect"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/workspace"
 )
 
 const (
@@ -28,10 +28,10 @@ const (
 	DefaultMaxIterations = 10
 
 	// BundledPatternsURLBase is the public raw-markdown URL prefix the
-	// bare-prompt catalog uses to point Claude at planwerk-review's bundled
+	// bare-prompt catalog uses to point Claude at planwerk-agent's bundled
 	// pattern files. Pinned to "main" so manual sessions always pick up the
 	// latest patterns, mirroring the fix and rebase packages.
-	BundledPatternsURLBase = "https://raw.githubusercontent.com/planwerk/planwerk-review/main/internal/patterns/patterns"
+	BundledPatternsURLBase = "https://raw.githubusercontent.com/planwerk/planwerk-agent/main/internal/patterns/patterns"
 )
 
 // Options configures the address subcommand. Mirrors the Options style used by

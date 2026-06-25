@@ -12,10 +12,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/planwerk/planwerk-review/internal/cache"
-	"github.com/planwerk/planwerk-review/internal/elaborate"
-	"github.com/planwerk/planwerk-review/internal/gapanalysis"
-	"github.com/planwerk/planwerk-review/internal/reviewprepared"
+	"github.com/planwerk/planwerk-agent/internal/cache"
+	"github.com/planwerk/planwerk-agent/internal/elaborate"
+	"github.com/planwerk/planwerk-agent/internal/gapanalysis"
+	"github.com/planwerk/planwerk-agent/internal/reviewprepared"
 )
 
 // validateCacheScope rejects scope strings that don't match a known command.
@@ -128,7 +128,7 @@ func newCacheCmd(deps *runtimeDeps) *cobra.Command {
 	cacheCmd := &cobra.Command{
 		Use:   "cache",
 		Short: "Inspect and manage cached review/propose/audit results",
-		Long: `Inspect and manage planwerk-review's on-disk cache.
+		Long: `Inspect and manage planwerk-agent's on-disk cache.
 
 Cached entries are keyed by repo + HEAD SHA + flags and are written under the
 user cache directory. Use "cache stats" for an overview and "cache inspect

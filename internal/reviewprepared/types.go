@@ -21,8 +21,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // CommandReviewPrepared is the cache scope identifier for review-prepared
@@ -140,7 +140,7 @@ type Options struct {
 	// review report.
 	CreatePR bool
 	// PRBranch is the name of the branch to push improvements onto. Empty
-	// falls back to a deterministic default ("planwerk-review/improve-prepared-features").
+	// falls back to a deterministic default ("planwerk-agent/improve-prepared-features").
 	PRBranch string
 	// PRBase is the base branch the PR opens against. Empty = repo default.
 	PRBase string

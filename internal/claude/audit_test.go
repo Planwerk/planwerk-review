@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/audit"
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/audit"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 func TestBuildAuditPrompt_IncludesPersona(t *testing.T) {

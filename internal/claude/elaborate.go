@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/elaborate"
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/elaborate"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 // Elaborate turns a high-level GitHub issue (typically the output of

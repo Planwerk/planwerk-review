@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/address"
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/address"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 func addressTestThreads() []github.ReviewThread {
@@ -27,7 +27,7 @@ func addressTestThreads() []github.ReviewThread {
 
 func addressTestContext() address.Context {
 	return address.Context{
-		RepoFullName:       "planwerk/planwerk-review",
+		RepoFullName:       "planwerk/planwerk-agent",
 		PRNumber:           42,
 		PRTitle:            "Add the snapshot tests",
 		HeadBranch:         "feat/snapshot-tests",
@@ -144,7 +144,7 @@ func TestFormatAddressThreads_Empty(t *testing.T) {
 
 func TestBuildBareAddressPrompt(t *testing.T) {
 	got := BuildBareAddressPrompt(address.BareContext{
-		RepoFullName: "planwerk/planwerk-review",
+		RepoFullName: "planwerk/planwerk-agent",
 		PRNumber:     42,
 		TechTags:     []string{"go"},
 	})

@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
 )
 
 // Column widths for the findings summary table. Matched to the gapanalysis

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 // buildReviewPrompt constructs a prompt that includes patterns and triggers /review.

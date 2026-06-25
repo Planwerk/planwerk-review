@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/implement"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/implement"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // VerifyImplementation runs an independent verification pass over the change
@@ -127,7 +127,7 @@ func sanitizeImplementationReport(out string) string {
 
 // BuildImplementPrompt assembles the prompt for an end-to-end
 // implementation session. The full issue body (typically already produced
-// by `planwerk-review elaborate`) is embedded inline so Claude does not
+// by `planwerk-agent elaborate`) is embedded inline so Claude does not
 // need a second tool call to fetch it. Exported so the implement
 // subcommand can render the prompt without invoking Claude
 // (--print-prompt mode).
@@ -281,7 +281,7 @@ When you hit a circuit breaker, halt immediately and emit STATUS: DONE_WITH_CONC
 // The orchestrator clones the target repo at prompt-build time so this
 // prompt can ship with the detected technology tags AND the tech-filtered
 // review-pattern catalog inlined — the manual Claude session does not need
-// access to planwerk-review or its pattern dirs.
+// access to planwerk-agent or its pattern dirs.
 func BuildBareImplementPrompt(ctx implement.BareContext) string {
 	repoFullName := ctx.RepoFullName
 	issueNumber := ctx.IssueNumber

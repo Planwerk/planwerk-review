@@ -5,10 +5,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/planwerk/planwerk-review/internal/claude"
-	"github.com/planwerk/planwerk-review/internal/cli"
-	"github.com/planwerk/planwerk-review/internal/implement"
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/claude"
+	"github.com/planwerk/planwerk-agent/internal/cli"
+	"github.com/planwerk/planwerk-agent/internal/implement"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 // newImplementCmd builds the "implement" subcommand: take an elaborated GitHub
@@ -48,7 +48,7 @@ that). A plan that reports STATUS: BLOCKED or NEEDS_CONTEXT aborts before any
 code is written. Use --no-plan to skip the planning session and implement
 directly in a single session.
 
-If an implementation plan planwerk-review posted on an earlier run is already
+If an implementation plan planwerk-agent posted on an earlier run is already
 on the issue (for example a run that planned but was aborted before
 implementing), it is reused verbatim by default: the planning session is
 skipped, no duplicate plan comment is posted, and the reused plan is still held

@@ -1,5 +1,5 @@
 ---
-description: Audit a planwerk-review prompt builder against the prompt-design doctrine (delegates to the prompt-auditor subagent).
+description: Audit a planwerk-agent prompt builder against the prompt-design doctrine (delegates to the prompt-auditor subagent).
 argument-hint: <builder-name-or-file>
 ---
 

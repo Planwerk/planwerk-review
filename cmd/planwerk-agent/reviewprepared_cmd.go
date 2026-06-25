@@ -6,11 +6,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/planwerk/planwerk-review/internal/cache"
-	"github.com/planwerk/planwerk-review/internal/cli"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/report"
-	"github.com/planwerk/planwerk-review/internal/reviewprepared"
+	"github.com/planwerk/planwerk-agent/internal/cache"
+	"github.com/planwerk/planwerk-agent/internal/cli"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/reviewprepared"
 )
 
 // newReviewPreparedCmd builds the "review-prepared" subcommand: review every
@@ -93,7 +93,7 @@ or short form (owner/repo).`,
 	preparedFlags.StringVar(&preparedCfg.FeatureID, "feature", "", "Limit review to a single feature by feature_id (e.g. PX-0028)")
 	preparedFlags.StringVar(&preparedCfg.FilePath, "file", "", "Limit review to a single feature file under .planwerk/features/ (path or basename)")
 	preparedFlags.BoolVar(&preparedCfg.CreatePR, "create-pr", false, "After the review, commit improved feature JSON files on a fresh branch and open a pull request")
-	preparedFlags.StringVar(&preparedCfg.PRBranch, "pr-branch", "", "Branch name for --create-pr (default: planwerk-review/improve-prepared-features)")
+	preparedFlags.StringVar(&preparedCfg.PRBranch, "pr-branch", "", "Branch name for --create-pr (default: planwerk-agent/improve-prepared-features)")
 	preparedFlags.StringVar(&preparedCfg.PRBase, "pr-base", "", "Base branch for --create-pr (default: repo default branch)")
 	preparedFlags.BoolVar(&preparedCfg.Local, "local", false, "Operate on the current working directory instead of cloning into a temp dir")
 	preparedFlags.BoolVar(&preparedCfg.Force, "force", false, "With --local, skip the confirmation prompt when the working tree is dirty")

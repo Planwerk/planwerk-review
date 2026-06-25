@@ -57,7 +57,7 @@ func resolveBuildInfo(ldflagsVersion string) buildInfo {
 // a warning when this is an unreleased development build.
 func writeVersion(w io.Writer, bi buildInfo, verbose bool) {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "planwerk-review version %s\n", bi.Version)
+	fmt.Fprintf(&sb, "planwerk-agent version %s\n", bi.Version)
 	if verbose {
 		if bi.Commit != "" {
 			fmt.Fprintf(&sb, "commit: %s\n", bi.Commit)

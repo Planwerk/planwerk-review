@@ -1,4 +1,4 @@
-name: 'Planwerk Review'
+name: 'Planwerk Agent'
 description: 'AI-powered code review for GitHub Pull Requests using Claude'
 author: 'planwerk'
 branding:
@@ -39,11 +39,11 @@ inputs:
     required: false
     default: 'false'
   version:
-    description: 'planwerk-review release tag to install (e.g. v0.3.0). Use "latest" to resolve to the most recent release. Ignored when binary-path is set.'
+    description: 'planwerk-agent release tag to install (e.g. v0.3.0). Use "latest" to resolve to the most recent release. Ignored when binary-path is set.'
     required: false
     default: 'latest'
   binary-path:
-    description: 'Path to a pre-built planwerk-review binary. When set, the download step is skipped — useful for testing the action against a development build of the binary.'
+    description: 'Path to a pre-built planwerk-agent binary. When set, the download step is skipped — useful for testing the action against a development build of the binary.'
     required: false
     default: ''
   github-token:
@@ -81,7 +81,7 @@ runs:
         npm install -g @anthropic-ai/claude-code
         claude --version
 
-    - name: Install planwerk-review
+    - name: Install planwerk-agent
       id: install
       shell: bash
       env:
@@ -113,23 +113,23 @@ runs:
         esac
 
         if [ "$VERSION" = "latest" ]; then
-          tag=$(gh release view --repo planwerk/planwerk-review --json tagName -q .tagName)
+          tag=$(gh release view --repo planwerk/planwerk-agent --json tagName -q .tagName)
         else
           tag="$VERSION"
         fi
         ver="${tag#v}"
-        asset="planwerk-review_${ver}_${os}_${arch}.tar.gz"
+        asset="planwerk-agent_${ver}_${os}_${arch}.tar.gz"
 
-        workdir="$RUNNER_TEMP/planwerk-review"
+        workdir="$RUNNER_TEMP/planwerk-agent"
         mkdir -p "$workdir"
         echo "Downloading $asset from release $tag"
         gh release download "$tag" \
-          --repo planwerk/planwerk-review \
+          --repo planwerk/planwerk-agent \
           --pattern "$asset" \
           --dir "$workdir"
         tar -xzf "$workdir/$asset" -C "$workdir"
         echo "$workdir" >> "$GITHUB_PATH"
-        "$workdir/planwerk-review" --version
+        "$workdir/planwerk-agent" --version
 
     - name: Run review
       shell: bash
@@ -182,7 +182,7 @@ runs:
           done
         fi
 
-        planwerk-review "${args[@]}" "$PR_REF"
+        planwerk-agent "${args[@]}" "$PR_REF"
 
     - name: Parse findings counts
       id: parse
@@ -219,16 +219,16 @@ runs:
         fi
 
         body=$(gh api "repos/$owner/$repo/pulls/$number/reviews" \
-          --jq 'map(select(.body and (.body | contains("planwerk-review-data")))) | sort_by(.submitted_at) | last | (.body // "")')
+          --jq 'map(select(.body and (.body | contains("planwerk-agent-data")))) | sort_by(.submitted_at) | last | (.body // "")')
         if [ -z "$body" ]; then
           body=$(gh api "repos/$owner/$repo/issues/$number/comments" \
-            --jq 'map(select(.body and (.body | contains("planwerk-review-data")))) | sort_by(.created_at) | last | (.body // "")')
+            --jq 'map(select(.body and (.body | contains("planwerk-agent-data")))) | sort_by(.created_at) | last | (.body // "")')
         fi
 
-        json=$(printf '%s' "$body" | awk '/planwerk-review-data/{flag=1; next} /-->/{flag=0} flag')
+        json=$(printf '%s' "$body" | awk '/planwerk-agent-data/{flag=1; next} /-->/{flag=0} flag')
 
         if [ -z "$json" ]; then
-          echo "No planwerk-review data block found on PR $number; emitting zero counts." >&2
+          echo "No planwerk-agent data block found on PR $number; emitting zero counts." >&2
           {
             echo "findings-count=0"
             echo "blocking-count=0"

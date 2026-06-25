@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/draft"
+	"github.com/planwerk/planwerk-agent/internal/draft"
 )
 
 // DraftQuestions asks Claude for a short list of clarifying questions that
@@ -138,7 +138,7 @@ Output ONLY valid JSON (no markdown fences, no surrounding text):
 
 // BuildBareDraftPrompt assembles a portable, self-contained draft prompt that a
 // user can paste into a manual Claude Code session. It carries no dependency on
-// planwerk-review, GitHub, or the pattern catalog: the session runs the short
+// planwerk-agent, GitHub, or the pattern catalog: the session runs the short
 // Q&A itself and drafts the issue in the house format. Exported for the
 // --print-bare-prompt mode.
 func BuildBareDraftPrompt(seed string) string {

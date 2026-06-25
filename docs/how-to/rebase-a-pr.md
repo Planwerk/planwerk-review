@@ -7,16 +7,16 @@ PR forked.
 
 ```bash
 # Rebase the PR onto main (default) and report the analysis
-planwerk-review rebase owner/repo#123
+planwerk-agent rebase owner/repo#123
 
 # Rebase onto a different base branch
-planwerk-review rebase --onto develop owner/repo#123
+planwerk-agent rebase --onto develop owner/repo#123
 
 # Preview the plan and the first conflicting commit, change nothing
-planwerk-review rebase --dry-run owner/repo#123
+planwerk-agent rebase --dry-run owner/repo#123
 
 # Rebase the current branch's PR in this checkout and publish the result
-planwerk-review rebase --local --push
+planwerk-agent rebase --local --push
 ```
 
 See the [CLI reference](/reference/cli#rebase) for the full flag table.
@@ -60,7 +60,7 @@ To drive the rebase manually in a Claude Code session you already have open
 inside a checkout of the PR, render a self-contained prompt and paste it in:
 
 ```bash
-planwerk-review rebase --print-bare-prompt owner/repo#123
+planwerk-agent rebase --print-bare-prompt owner/repo#123
 ```
 
 `--print-prompt` instead renders the post-rebase analysis prompt (computed from

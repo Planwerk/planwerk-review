@@ -8,11 +8,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/report"
-	"github.com/planwerk/planwerk-review/internal/sync"
-	"github.com/planwerk/planwerk-review/internal/workspace"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/sync"
+	"github.com/planwerk/planwerk-agent/internal/workspace"
 )
 
 // Proposer runs the read-only knowledge-proposal pass for a checkout: it mines
@@ -223,7 +223,7 @@ func (p Pass) runWrite(w io.Writer, req Request, result *CaptureResult, prov Pro
 	return nil
 }
 
-// commentFooter attributes the posted capture proposals to planwerk-review,
+// commentFooter attributes the posted capture proposals to planwerk-agent,
 // naming the source command and the model that produced them, matching the footer
 // the implement/review comments append.
 func commentFooter(command, model string) string {

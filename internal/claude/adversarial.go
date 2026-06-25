@@ -3,7 +3,7 @@ package claude
 import (
 	"fmt"
 
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // AdversarialReview runs an independent adversarial review pass using a fresh Claude context.

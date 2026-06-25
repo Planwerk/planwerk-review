@@ -1,7 +1,7 @@
 // Package logging configures the process-wide slog default logger and
 // provides a human-friendly console handler plus JSON output for CI logs.
 //
-// All user-facing stderr output in planwerk-review flows through slog so
+// All user-facing stderr output in planwerk-agent flows through slog so
 // that log level filtering, structured attributes, and machine-readable
 // output are uniformly available across every command.
 package logging

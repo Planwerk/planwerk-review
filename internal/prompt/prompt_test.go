@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/github"
 )
 
 type fakeGH struct {
@@ -31,7 +31,7 @@ func TestRun_AutoModePicksFixForAuditTitles(t *testing.T) {
 		t.Fatalf("Run: %v", err)
 	}
 	got := out.String()
-	if !strings.Contains(got, "fixing a finding raised by planwerk-review's audit") {
+	if !strings.Contains(got, "fixing a finding raised by planwerk-agent's audit") {
 		t.Errorf("expected fix-mode header, got:\n%s", got)
 	}
 	if !strings.Contains(got, "Fixes #N") {
@@ -89,7 +89,7 @@ func TestRun_IncludesIssueMetadata(t *testing.T) {
 		t.Fatalf("Run: %v", err)
 	}
 	got := out.String()
-	for _, want := range []string{"acme/widgets", "Issue**: #1 — T", "https://example/issues/1", "OPEN", "Body content.", "[planwerk-review](https://github.com/planwerk/planwerk-review) v0"} {
+	for _, want := range []string{"acme/widgets", "Issue**: #1 — T", "https://example/issues/1", "OPEN", "Body content.", "[planwerk-agent](https://github.com/planwerk/planwerk-agent) v0"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("output missing %q\n%s", want, got)
 		}

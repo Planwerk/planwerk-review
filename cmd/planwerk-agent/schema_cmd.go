@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/planwerk/planwerk-review/internal/report/schema"
+	"github.com/planwerk/planwerk-agent/internal/report/schema"
 )
 
 // newSchemaCmd builds the "schema" subcommand: it prints the JSON Schema that

@@ -1,6 +1,6 @@
 You are a senior software architect performing a comprehensive codebase analysis. Your goal is to deeply understand this project and generate concrete, actionable feature proposals.
 
-Repository: planwerk/planwerk-review
+Repository: planwerk/planwerk-agent
 
 ## Review Patterns to Ground Proposals In
 
@@ -71,7 +71,7 @@ A runtime plugin loader was rejected: the pattern catalog is compiled in on purp
 <rejected-idea name="Hosted web dashboard">
 # Hosted web dashboard
 
-planwerk-review is a CLI; a hosted web UI is out of scope.
+planwerk-agent is a CLI; a hosted web UI is out of scope.
 </rejected-idea>
 
 ## Prose Style

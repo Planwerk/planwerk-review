@@ -22,16 +22,16 @@ sibling that owns it. See
 
 ```bash
 # Preview the planned split without filing or linking anything
-planwerk-review meta --dry-run owner/repo#123
+planwerk-agent meta --dry-run owner/repo#123
 
 # Carve the Meta Issue into Sub Issues, link them, and sync the body
-planwerk-review meta owner/repo#123
+planwerk-agent meta owner/repo#123
 
 # Attach a label to each created Sub Issue
-planwerk-review meta --label enhancement owner/repo#123
+planwerk-agent meta --label enhancement owner/repo#123
 
 # JSON for automation
-planwerk-review meta --format json --dry-run owner/repo#123
+planwerk-agent meta --format json --dry-run owner/repo#123
 ```
 
 ## Preview first

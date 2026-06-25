@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/patterns"
-	"github.com/planwerk/planwerk-review/internal/rebase"
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/rebase"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 // ResolveRebaseConflict runs a fresh Claude Code session inside the checkout to
@@ -255,7 +255,7 @@ func BuildRebaseApplyPrompt(ctx rebase.ApplyContext) string {
 // is copy-pasted into a manual Claude session already running inside a checkout
 // of the PR head. The session performs the rebase, resolves conflicts
 // semantically, and analyzes the rebased commits itself. The pattern catalog is
-// inlined so the session needs no access to planwerk-review.
+// inlined so the session needs no access to planwerk-agent.
 func BuildBareRebasePrompt(ctx rebase.BareContext) string {
 	var sb strings.Builder
 

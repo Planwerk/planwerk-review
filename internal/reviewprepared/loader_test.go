@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/planwerk"
+	"github.com/planwerk/planwerk-agent/internal/planwerk"
 )
 
 // writeFeature writes a feature JSON into <repoDir>/.planwerk/features/. Keeps

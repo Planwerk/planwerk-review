@@ -24,7 +24,7 @@ func newGenManCmd(deps *runtimeDeps) *cobra.Command {
 			header := &doc.GenManHeader{
 				Title:   "PLANWERK-REVIEW",
 				Section: "1",
-				Source:  "planwerk-review " + deps.version,
+				Source:  "planwerk-agent " + deps.version,
 			}
 			return doc.GenManTree(cmd.Root(), header, dir)
 		},

@@ -21,7 +21,7 @@ func TestBuildIssueBody(t *testing.T) {
 	for _, want := range []string{
 		"## Description\n\nUsers want a dark theme.",
 		"## Motivation\n\nReduces eye strain at night.",
-		"_Drafted by [planwerk-review]",
+		"_Drafted by [planwerk-agent]",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("body missing %q:\n%s", want, body)

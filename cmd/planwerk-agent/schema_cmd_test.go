@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/report/schema"
+	"github.com/planwerk/planwerk-agent/internal/report/schema"
 )
 
 // runSchemaCmd executes the schema subcommand with one argument and returns its

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/glossary"
+	"github.com/planwerk/planwerk-agent/internal/glossary"
 )
 
 // buildGlossaryPrompt constructs the prompt that asks Claude to explore the

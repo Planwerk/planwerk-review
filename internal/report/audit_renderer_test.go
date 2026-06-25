@@ -26,15 +26,15 @@ func TestRenderAuditMarkdown_HeaderAndVersion(t *testing.T) {
 }
 
 // TestRenderAuditMarkdown_LinksToolWithVersion locks the header attribution into
-// the shared footer shape: planwerk-review rendered as a Markdown link to the
+// the shared footer shape: planwerk-agent rendered as a Markdown link to the
 // repository, immediately followed by the build version.
 func TestRenderAuditMarkdown_LinksToolWithVersion(t *testing.T) {
 	var buf bytes.Buffer
 	NewRenderer(&buf).RenderAuditMarkdown(ReviewResult{Summary: "ok"}, RepoInfo{Owner: "a", Name: "b"}, SeverityInfo, "", "v1.2.3")
 
-	want := "[planwerk-review](https://github.com/planwerk/planwerk-review) v1.2.3"
+	want := "[planwerk-agent](https://github.com/planwerk/planwerk-agent) v1.2.3"
 	if !strings.Contains(buf.String(), want) {
-		t.Errorf("audit header should link planwerk-review and name the version %q\n%s", want, buf.String())
+		t.Errorf("audit header should link planwerk-agent and name the version %q\n%s", want, buf.String())
 	}
 }
 

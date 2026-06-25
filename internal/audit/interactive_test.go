@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/report"
+	"github.com/planwerk/planwerk-agent/internal/report"
 )
 
 func TestBuildGroupTitle_SingleOccurrence(t *testing.T) {
@@ -81,7 +81,7 @@ func TestBuildGroupBody_ContainsAllOccurrences(t *testing.T) {
 		"second problem",
 		"fix first",
 		"fix second",
-		"planwerk-review",
+		"planwerk-agent",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("body missing %q\nfull body:\n%s", want, body)

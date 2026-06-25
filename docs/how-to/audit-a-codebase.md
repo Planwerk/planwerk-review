@@ -5,25 +5,25 @@ a codebase (not a diff) and produce prioritized improvement findings.
 
 ```bash
 # Apply all loaded review patterns to an entire codebase
-planwerk-review audit https://github.com/owner/repo
+planwerk-agent audit https://github.com/owner/repo
 
 # Short form
-planwerk-review audit owner/repo
+planwerk-agent audit owner/repo
 
 # Only output findings at or above a severity threshold
-planwerk-review audit --min-severity warning owner/repo
+planwerk-agent audit --min-severity warning owner/repo
 
 # JSON output for tooling
-planwerk-review audit --format json owner/repo
+planwerk-agent audit --format json owner/repo
 
 # Force fresh audit (ignore cache)
-planwerk-review audit --no-cache owner/repo
+planwerk-agent audit --no-cache owner/repo
 
 # Cap the number of findings Claude returns
-planwerk-review audit --max-findings 25 owner/repo
+planwerk-agent audit --max-findings 25 owner/repo
 
 # Write findings to file
-planwerk-review audit owner/repo > audit.md
+planwerk-agent audit owner/repo > audit.md
 ```
 
 See the [CLI reference](/reference/cli#audit) for every flag. Audit reuses the
@@ -59,13 +59,13 @@ a cache miss only, is non-fatal, and is a clean no-op when nothing clears the ba
 
 ```bash
 # Propose patterns from the audit (default with --wiki)
-planwerk-review audit --wiki owner/repo
+planwerk-agent audit --wiki owner/repo
 
 # Skip the capture pass
-planwerk-review audit --wiki --no-capture owner/repo
+planwerk-agent audit --wiki --no-capture owner/repo
 
 # Push the accepted pages to the wiki (confirms first; --yes for CI)
-planwerk-review audit --wiki --capture-wiki owner/repo
+planwerk-agent audit --wiki --capture-wiki owner/repo
 ```
 
 See [Use the GitHub Wiki](/how-to/use-the-github-wiki#capture-knowledge-from-a-findings-producing-run-propose-only)

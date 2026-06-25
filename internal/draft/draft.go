@@ -17,9 +17,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/draft/inputeditor"
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/workspace"
+	"github.com/planwerk/planwerk-agent/internal/draft/inputeditor"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/workspace"
 )
 
 // maxQuestions caps how many clarifying questions the interactive loop asks, so

@@ -1,14 +1,14 @@
 # Project structure
 
 ```text
-planwerk-review/
+planwerk-agent/
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml              # Test, Build, Vet on push/PR
 │       ├── lint.yml            # golangci-lint
 │       └── release.yml         # GoReleaser on tag push
 ├── cmd/
-│   └── planwerk-review/
+│   └── planwerk-agent/
 │       ├── main.go             # CLI wiring: build runtimeDeps, register subcommands
 │       ├── root_cmd.go         # review (root) command + persistent & cache flags
 │       ├── resolve.go          # env-var / flag resolution helpers, format constants
@@ -123,7 +123,7 @@ planwerk-review/
 - **Trigger**: Push to `main`, Pull Requests
 - **Jobs**:
   - `test`: `go test ./...` on matrix (Ubuntu, macOS)
-  - `build`: `go build ./cmd/planwerk-review/`
+  - `build`: `go build ./cmd/planwerk-agent/`
   - `vet`: `go vet ./...`
 
 ### Lint (`lint.yml`)

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/planwerk/planwerk-review/internal/github"
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 // fakeGitHub records the improvement-PR call and hands out a working tree the
@@ -147,7 +147,7 @@ func TestRun_ToCatalogErrorsOutsideCheckout(t *testing.T) {
 	withWorkdir(t, t.TempDir()) // no internal/patterns/patterns here
 
 	err := r.Run(&bytes.Buffer{}, Options{RepoRef: "acme/widgets", ToCatalog: true, All: true})
-	if err == nil || !strings.Contains(err.Error(), "must run from a planwerk-review checkout") {
+	if err == nil || !strings.Contains(err.Error(), "must run from a planwerk-agent checkout") {
 		t.Fatalf("expected a checkout-guard error, got %v", err)
 	}
 }

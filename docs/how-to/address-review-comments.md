@@ -7,22 +7,22 @@ the PR head branch — optionally replying to and resolving each thread.
 
 ```bash
 # Pick interactively which unresolved threads to address
-planwerk-review address owner/repo#123
+planwerk-agent address owner/repo#123
 
 # Address every unresolved thread without prompting
-planwerk-review address --all owner/repo#123
+planwerk-agent address --all owner/repo#123
 
 # Address only specific threads (repeat --thread)
-planwerk-review address --thread PRRT_kwDOAbc123 --thread PRRT_kwDOAbc456 owner/repo#123
+planwerk-agent address --thread PRRT_kwDOAbc123 --thread PRRT_kwDOAbc456 owner/repo#123
 
 # Also mark the addressed threads resolved (outward-facing, off by default)
-planwerk-review address --resolve owner/repo#123
+planwerk-agent address --resolve owner/repo#123
 
 # Preview the selected threads and the plan, change nothing
-planwerk-review address --dry-run owner/repo#123
+planwerk-agent address --dry-run owner/repo#123
 
 # Address the current branch's PR in this checkout
-planwerk-review address --local --force
+planwerk-agent address --local --force
 ```
 
 See the [CLI reference](/reference/cli#address) for the full flag table.
@@ -38,7 +38,7 @@ See the [CLI reference](/reference/cli#address) for the full flag table.
    the full comment chain, and the diff hunk it is anchored to. Threads GitHub
    already marks **resolved** are skipped by default (`--include-resolved` to
    include them), as are the tool's own inline review comments — `address` never
-   tries to address planwerk-review's own findings.
+   tries to address planwerk-agent's own findings.
 3. **Select which to address.** The unresolved threads are presented as an
    interactive selection list (file:line, author, and a one-line excerpt per
    row). Non-interactive paths: `--all` takes every unresolved thread,
@@ -69,7 +69,7 @@ To drive the work manually in a Claude Code session you already have open inside
 a checkout of the PR, render a self-contained prompt and paste it in:
 
 ```bash
-planwerk-review address --print-bare-prompt owner/repo#123
+planwerk-agent address --print-bare-prompt owner/repo#123
 ```
 
 The bare prompt instructs that session to fetch the unresolved threads itself,

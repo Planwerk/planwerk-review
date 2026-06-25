@@ -1,6 +1,6 @@
 # Provide a domain glossary
 
-Give planwerk-review your repository's own domain vocabulary so `review`,
+Give planwerk-agent your repository's own domain vocabulary so `review`,
 `elaborate`, and `propose` phrase their findings and issues in your terms
 instead of generic synonyms. You can write the glossary by hand or generate a
 starter with the `glossary` command and edit it.
@@ -60,18 +60,18 @@ synonyms.
 
 ## Generate a starter glossary
 
-Let planwerk-review draft a `CONTEXT.md` for you from the codebase, then review
+Let planwerk-agent draft a `CONTEXT.md` for you from the codebase, then review
 and edit it before committing:
 
 ```bash
 # Print a starter glossary to stdout
-planwerk-review glossary owner/repo
+planwerk-agent glossary owner/repo
 
 # Save it where you want it to land
-planwerk-review glossary owner/repo > CONTEXT.md
+planwerk-agent glossary owner/repo > CONTEXT.md
 
 # Generate from your current working tree without cloning
-planwerk-review glossary --local
+planwerk-agent glossary --local
 ```
 
 The output is a *starter*: a single extraction pass may over-include generic

@@ -1,6 +1,6 @@
 # Prompt-design doctrine
 
-planwerk-review is, underneath the GitHub plumbing, a prompt compiler. Every
+planwerk-agent is, underneath the GitHub plumbing, a prompt compiler. Every
 subcommand assembles a large instruction string from smaller blocks and hands it
 to Claude Code. Those builders live in `internal/claude/` — roughly forty of
 them — and the quality of the tool is, to a first approximation, the quality of

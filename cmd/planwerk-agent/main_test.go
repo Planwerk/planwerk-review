@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/planwerk/planwerk-review/internal/cache"
-	"github.com/planwerk/planwerk-review/internal/claude"
-	"github.com/planwerk/planwerk-review/internal/patterns"
+	"github.com/planwerk/planwerk-agent/internal/cache"
+	"github.com/planwerk/planwerk-agent/internal/claude"
+	"github.com/planwerk/planwerk-agent/internal/patterns"
 )
 
 // testRepoRef is the canonical repository reference shared across the
@@ -43,7 +43,7 @@ func TestWriteVersionDefault(t *testing.T) {
 	var buf bytes.Buffer
 	writeVersion(&buf, buildInfo{Version: "v1.2.3"}, false)
 	out := buf.String()
-	if !strings.Contains(out, "planwerk-review version v1.2.3") {
+	if !strings.Contains(out, "planwerk-agent version v1.2.3") {
 		t.Fatalf("missing version line: %q", out)
 	}
 	if strings.Contains(out, "commit:") || strings.Contains(out, "built:") || strings.Contains(out, "go:") {
@@ -64,7 +64,7 @@ func TestWriteVersionVerbose(t *testing.T) {
 	}, true)
 	out := buf.String()
 	for _, want := range []string{
-		"planwerk-review version v1.2.3",
+		"planwerk-agent version v1.2.3",
 		"commit: abc123",
 		"built: 2026-04-17T11:07:47Z",
 		"go: go1.26.1",

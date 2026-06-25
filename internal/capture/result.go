@@ -1,6 +1,6 @@
 package capture
 
-import "github.com/planwerk/planwerk-review/internal/sync"
+import "github.com/planwerk/planwerk-agent/internal/sync"
 
 // ProposedPage is one candidate wiki page the read-only proposal pass authored
 // but did NOT write. The gated write-back (#139) consumes it; here it is only

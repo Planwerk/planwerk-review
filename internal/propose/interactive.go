@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/planwerk/planwerk-review/internal/attribution"
-	"github.com/planwerk/planwerk-review/internal/github"
+	"github.com/planwerk/planwerk-agent/internal/attribution"
+	"github.com/planwerk/planwerk-agent/internal/github"
 )
 
 // titleColumnWidth is the fixed width of the Title column in the proposals
