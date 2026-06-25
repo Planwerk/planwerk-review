@@ -38,6 +38,7 @@ type GitHubClient interface {
 	GetIssue(owner, name string, number int) (*github.Issue, error)
 	CreateIssueWithLabels(owner, name, title, body string, labels []string) (string, error)
 	AddSubIssue(owner, name string, parentNumber, childNumber int) error
+	AddIssueDependency(owner, name string, blockedNumber, blockerNumber int) error
 	EditIssueBody(owner, name string, number int, body string) error
 }
 
@@ -55,6 +56,10 @@ func (defaultGitHubClient) CreateIssueWithLabels(owner, name, title, body string
 
 func (defaultGitHubClient) AddSubIssue(owner, name string, parentNumber, childNumber int) error {
 	return github.AddSubIssue(owner, name, parentNumber, childNumber)
+}
+
+func (defaultGitHubClient) AddIssueDependency(owner, name string, blockedNumber, blockerNumber int) error {
+	return github.AddIssueDependency(owner, name, blockedNumber, blockerNumber)
 }
 
 func (defaultGitHubClient) EditIssueBody(owner, name string, number int, body string) error {

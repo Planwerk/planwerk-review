@@ -21,6 +21,11 @@ type subLink struct {
 	child  int
 }
 
+type dependency struct {
+	blocked int
+	blocker int
+}
+
 // fakeGitHub records every write so tests can assert the exact create/link/edit
 // sequence without touching gh. Created issues get sequential numbers starting
 // at 101 (distinct from the meta number) and a parseable URL.
@@ -29,10 +34,12 @@ type fakeGitHub struct {
 
 	created    []createdIssue
 	links      []subLink
+	deps       []dependency
 	editBodies []string
 
 	createErrOnTitle string // CreateIssueWithLabels fails when title == this
 	linkErrOnChild   int    // AddSubIssue fails when childNumber == this
+	depErrOnBlocked  int    // AddIssueDependency fails when blockedNumber == this
 	editErr          error
 
 	nextNumber int
@@ -62,6 +69,14 @@ func (f *fakeGitHub) AddSubIssue(owner, name string, parentNumber, childNumber i
 	f.links = append(f.links, subLink{parent: parentNumber, child: childNumber})
 	if childNumber == f.linkErrOnChild {
 		return errors.New("gh link boom")
+	}
+	return nil
+}
+
+func (f *fakeGitHub) AddIssueDependency(owner, name string, blockedNumber, blockerNumber int) error {
+	f.deps = append(f.deps, dependency{blocked: blockedNumber, blocker: blockerNumber})
+	if blockedNumber == f.depErrOnBlocked {
+		return errors.New("gh dependency boom")
 	}
 	return nil
 }
@@ -263,5 +278,52 @@ func TestRun_InvalidSplitRejected(t *testing.T) {
 	}
 	if len(gh.created) != 0 {
 		t.Errorf("no sub-issues should be filed for an invalid split, got %d", len(gh.created))
+	}
+}
+
+// blockedResult declares two siblings where "b" is blocked by "a", plus an
+// unblocked "c", so linkDependencies has both a real edge and a no-edge case.
+func blockedResult() *Result {
+	return &Result{
+		SubIssues: []SubIssue{
+			{Key: "a", Title: "Foundation", Description: "Lay the groundwork.", Scope: "Large"},
+			{Key: "b", Title: "Rollout", Description: "Build on the foundation.", Scope: "Medium", BlockedBy: []string{"a"}},
+			{Key: "c", Title: "Docs", Description: "Independent docs.", Scope: "Small"},
+		},
+		MetaBody: "## Work packages\n\n- Foundation {{sub:a}}\n- Rollout {{sub:b}}\n- Docs {{sub:c}}\n",
+	}
+}
+
+func TestRun_LinksBlockedByDependencies(t *testing.T) {
+	gh := &fakeGitHub{}
+	r := &Runner{Claude: metaFnAdapter{fn: splitter(blockedResult())}, GitHub: gh}
+
+	if err := r.Run(&bytes.Buffer{}, baseOpts()); err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+
+	// "a"->101, "b"->102, "c"->103. Only b (102) is blocked by a (101); the
+	// unblocked siblings file no dependency.
+	want := []dependency{{blocked: 102, blocker: 101}}
+	if len(gh.deps) != 1 || gh.deps[0] != want[0] {
+		t.Fatalf("deps = %+v, want %+v", gh.deps, want)
+	}
+}
+
+func TestRun_DependencyFailureRecordedNotFatal(t *testing.T) {
+	gh := &fakeGitHub{depErrOnBlocked: 102}
+	res := blockedResult()
+	r := &Runner{Claude: metaFnAdapter{fn: splitter(res)}, GitHub: gh}
+
+	// A failed dependency write must not abort the run — the Sub Issues are still
+	// created and linked, and the body is still synced.
+	if err := r.Run(&bytes.Buffer{}, baseOpts()); err != nil {
+		t.Fatalf("Run should not fail on a dependency error, got %v", err)
+	}
+	if len(gh.created) != 3 {
+		t.Fatalf("created = %d, want 3 even after a dependency error", len(gh.created))
+	}
+	if len(res.SubIssues[1].DependencyErrors) == 0 {
+		t.Errorf("sub-issue %q should record its dependency error", res.SubIssues[1].Key)
 	}
 }

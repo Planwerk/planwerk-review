@@ -155,6 +155,35 @@ func TestValidate(t *testing.T) {
 			},
 			wantErr: "undeclared sub-issue key",
 		},
+		{
+			name: "valid blockedBy DAG",
+			result: Result{SubIssues: []SubIssue{
+				{Key: "a", Title: "T1", Description: "D1"},
+				{Key: "b", Title: "T2", Description: "D2", BlockedBy: []string{"a"}},
+			}},
+		},
+		{
+			name: "blockedBy references undeclared key",
+			result: Result{SubIssues: []SubIssue{
+				{Key: "a", Title: "T1", Description: "D1", BlockedBy: []string{"ghost"}},
+			}},
+			wantErr: "blockedBy references undeclared key",
+		},
+		{
+			name: "blockedBy lists itself",
+			result: Result{SubIssues: []SubIssue{
+				{Key: "a", Title: "T1", Description: "D1", BlockedBy: []string{"a"}},
+			}},
+			wantErr: "blockedBy lists itself",
+		},
+		{
+			name: "blockedBy forms a cycle",
+			result: Result{SubIssues: []SubIssue{
+				{Key: "a", Title: "T1", Description: "D1", BlockedBy: []string{"b"}},
+				{Key: "b", Title: "T2", Description: "D2", BlockedBy: []string{"a"}},
+			}},
+			wantErr: "cycle",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

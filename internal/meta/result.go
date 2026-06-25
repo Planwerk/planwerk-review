@@ -21,12 +21,23 @@ type SubIssue struct {
 	Description string `json:"description"`
 	Motivation  string `json:"motivation"`
 	Scope       string `json:"scope"`
+	// BlockedBy names the sibling keys this Sub Issue must wait on (empty when it
+	// is unblocked). It is the structured form of the dependency ordering the
+	// split decides; the runner persists it as native GitHub blocked_by
+	// relationships so a later ship run can read the dependency DAG straight back
+	// from GitHub. Keys must reference declared siblings and form an acyclic graph
+	// (enforced by Result.Validate).
+	BlockedBy []string `json:"blockedBy,omitempty"`
 
 	// Runtime fields, populated as the Sub Issue is filed and linked.
 	Number    int    `json:"number,omitempty"`
 	URL       string `json:"url,omitempty"`
 	Linked    bool   `json:"linked,omitempty"`
 	LinkError string `json:"linkError,omitempty"`
+	// DependencyErrors records, per unresolved blocker key, why the native
+	// blocked_by relationship could not be set. Best-effort like LinkError: a
+	// failure is surfaced rather than aborting the run.
+	DependencyErrors []string `json:"dependencyErrors,omitempty"`
 }
 
 // Result is the structured output of a meta split: the Sub Issues to file and
@@ -125,11 +136,79 @@ func (r *Result) Validate() error {
 			return fmt.Errorf("sub-issue %q: scope %q must be one of Small, Medium, Large", key, s.Scope)
 		}
 	}
+	// blockedBy is validated in a second pass so a forward reference (a Sub Issue
+	// blocked by a sibling declared later) resolves against the complete key set.
+	for _, s := range r.SubIssues {
+		key := strings.TrimSpace(s.Key)
+		for _, b := range s.BlockedBy {
+			b = strings.TrimSpace(b)
+			if b == key {
+				return fmt.Errorf("sub-issue %q: blockedBy lists itself", key)
+			}
+			if !seen[b] {
+				return fmt.Errorf("sub-issue %q: blockedBy references undeclared key %q", key, b)
+			}
+		}
+	}
 	for _, m := range metaRefRe.FindAllStringSubmatch(r.MetaBody, -1) {
 		key := strings.TrimSpace(m[1])
 		if !seen[key] {
 			return fmt.Errorf("meta body references undeclared sub-issue key %q", key)
 		}
 	}
+	if cycle := findDependencyCycle(r.SubIssues); cycle != "" {
+		return fmt.Errorf("sub-issue dependencies form a cycle: %s", cycle)
+	}
 	return nil
+}
+
+// findDependencyCycle returns a human-readable description of a cycle in the
+// blockedBy graph, or "" when the graph is acyclic. Rejecting cycles at the
+// boundary lets a later ship run always topologically sort the Sub Issues. It is
+// a depth-first walk colouring each node white/grey/black; a back-edge to a grey
+// node is a cycle. Keys not declared as siblings are ignored here — Validate has
+// already rejected those before this runs.
+func findDependencyCycle(subs []SubIssue) string {
+	blockers := make(map[string][]string, len(subs))
+	for _, s := range subs {
+		blockers[strings.TrimSpace(s.Key)] = s.BlockedBy
+	}
+	const (
+		white = 0
+		grey  = 1
+		black = 2
+	)
+	color := make(map[string]int, len(subs))
+	var path []string
+	var visit func(key string) string
+	visit = func(key string) string {
+		color[key] = grey
+		path = append(path, key)
+		for _, b := range blockers[key] {
+			b = strings.TrimSpace(b)
+			if _, ok := blockers[b]; !ok {
+				continue
+			}
+			switch color[b] {
+			case grey:
+				return strings.Join(append(path, b), " -> ")
+			case white:
+				if c := visit(b); c != "" {
+					return c
+				}
+			}
+		}
+		path = path[:len(path)-1]
+		color[key] = black
+		return ""
+	}
+	for _, s := range subs {
+		key := strings.TrimSpace(s.Key)
+		if color[key] == white {
+			if c := visit(key); c != "" {
+				return c
+			}
+		}
+	}
+	return ""
 }
