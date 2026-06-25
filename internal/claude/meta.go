@@ -67,9 +67,10 @@ Carve each Sub Issue as a vertical slice: it cuts end-to-end through every layer
 
 - A short, stable key that encodes any implied order — "a", "b", "c" for lettered workstreams; "tier-1", "tier-2" for numbered tiers; "foundation" for a package others build on. Keys are lowercase, hyphenated, and unique.
 - A descriptive, specific title — imperative mood, no severity or priority prefix.
-- A Description: a few short paragraphs framing this work package and what it delivers, in plain terms a maintainer can pick up. State an honest "Blocked by" ordering here — name the sibling packages this one must wait on by their keys, or say it is unblocked — so siblings with no real dependency stay grabbable in parallel. Draft depth only.
+- A Description: a few short paragraphs framing this work package and what it delivers, in plain terms a maintainer can pick up. Draft depth only.
 - A Motivation: why this package matters and what depends on it.
 - A rough Scope: exactly one of Small, Medium, or Large.
+- An honest "blockedBy" ordering: the keys of the sibling packages this one must wait on, or [] when it is unblocked. Record the dependency here as structured data, NOT as prose in the Description — the runner persists it as a real GitHub "blocked by" relationship so the order is machine-readable and renders in GitHub's issue UI. Keep it minimal: list only the siblings this package genuinely cannot start without, so packages with no real dependency stay grabbable in parallel, and never let the dependencies form a cycle.
 
 ## Syncing the Meta Issue body
 
@@ -96,7 +97,8 @@ Output ONLY valid JSON (no markdown fences, no surrounding text):
       "title": "Descriptive Sub Issue title",
       "description": "Markdown prose for the Description section",
       "motivation": "Markdown prose for the Motivation section",
-      "scope": "Small|Medium|Large"
+      "scope": "Small|Medium|Large",
+      "blockedBy": ["key-of-a-sibling-this-waits-on"]
     }
   ],
   "metaBody": "the Meta Issue body, verbatim, with {{sub:KEY}} tokens inserted on work-package lines"
@@ -104,6 +106,7 @@ Output ONLY valid JSON (no markdown fences, no surrounding text):
 
 - Do NOT invent fields beyond the schema.
 - "scope" MUST be exactly one of Small, Medium, or Large.
+- "blockedBy" is an array of sibling keys (use [] when unblocked); every entry MUST be a key you declared in "subIssues", and the dependencies MUST NOT form a cycle.
 - Prefer the fewest Sub Issues that cover the work; do not split into many tiny packages.
 `)
 

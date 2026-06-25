@@ -89,6 +89,7 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	if err := r.createAndLink(owner, name, number, opts, result); err != nil {
 		return err
 	}
+	r.linkDependencies(owner, name, result)
 	r.syncMetaBody(owner, name, number, result)
 
 	return r.render(w, repoFull, number, opts, result)
@@ -125,6 +126,36 @@ func (r *Runner) createAndLink(owner, name string, metaNumber int, opts Options,
 		s.Linked = true
 	}
 	return nil
+}
+
+// linkDependencies persists each Sub Issue's blockedBy ordering as native GitHub
+// blocked_by relationships, now that createAndLink has recorded every key's issue
+// number. It runs after createAndLink (which knows the key->number mapping) and
+// mirrors syncMetaBody's second pass. A failure to set one relationship is
+// recorded on the Sub Issue and surfaced rather than aborting the run — the Sub
+// Issues already exist, the relationship can be added by hand, and a target whose
+// GitHub does not support issue dependencies should degrade rather than fail,
+// consistent with how sub-issue linking already degrades.
+func (r *Runner) linkDependencies(owner, name string, result *Result) {
+	numbers := make(map[string]int, len(result.SubIssues))
+	for _, s := range result.SubIssues {
+		numbers[s.Key] = s.Number
+	}
+	for i := range result.SubIssues {
+		s := &result.SubIssues[i]
+		for _, key := range s.BlockedBy {
+			blockerNumber, ok := numbers[key]
+			if !ok || blockerNumber == 0 {
+				continue
+			}
+			if err := r.GitHub.AddIssueDependency(owner, name, s.Number, blockerNumber); err != nil {
+				s.DependencyErrors = append(s.DependencyErrors, fmt.Sprintf("%s: %v", key, err))
+				slog.Warn("could not set sub-issue dependency; add it by hand", "key", s.Key, "issue", s.Number, "blocker", blockerNumber, "err", err)
+				continue
+			}
+			slog.Info("linked sub-issue dependency", "issue", s.Number, "blockedBy", blockerNumber)
+		}
+	}
 }
 
 // syncMetaBody back-fills the Meta Issue body with the created Sub Issue
