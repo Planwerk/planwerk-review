@@ -59,6 +59,11 @@ type ResolvedWiki struct {
 	// CommitSHA is the wiki's resolved HEAD commit, recorded in the report so a
 	// review is reproducible against a fixed wiki state. Empty when unresolved.
 	CommitSHA string
+	// Dir is the local clone root of the resolved wiki, so a consumer that needs
+	// per-entry access (e.g. sync, enumerating review_patterns/ and memory/ as
+	// individual pages) can walk it. Empty when no wiki was resolved. PatternsDir
+	// is a subdirectory of it; Memory is read from its memory/ subdir.
+	Dir string
 	// PatternsDir is the local directory the wiki's review patterns live in, to
 	// feed ResolveOptions.Wiki. Empty when the wiki has no patterns subdir.
 	PatternsDir string
@@ -109,6 +114,7 @@ func ResolveWiki(owner, name string, wopts WikiOptions, ropts RemoteOptions) Res
 	resolved := ResolvedWiki{
 		Repo:        repo,
 		CommitSHA:   wikiHeadSHA(dir),
+		Dir:         dir,
 		PatternsDir: patternsDir,
 		Memory:      LoadMemory(filepath.Join(dir, defaultWikiMemorySubpath)),
 	}
