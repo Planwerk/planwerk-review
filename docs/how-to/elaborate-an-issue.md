@@ -6,7 +6,8 @@ repository state — the kind of issue body a senior engineer can pick up and
 execute without further clarification (mirrors the structure shown in
 [plexsphere/plexsphere#10](https://github.com/plexsphere/plexsphere/issues/10):
 Description with concrete "already exists / this story adds" boundaries,
-Motivation, Affected Areas, Acceptance Criteria, Non-Goals, References).
+Motivation, an optional User Stories section, Affected Areas, Acceptance
+Criteria, Non-Goals, References).
 
 ```bash
 # Render the elaborated body to stdout
@@ -38,7 +39,7 @@ and append a follow-up comment). See the
 4. **Cache Check**: The default-branch HEAD SHA is resolved via `gh api graphql`. The cache key combines repo + HEAD + issue number + a fingerprint of the issue body — plus, when the issue is a Sub Issue, a fingerprint of the Meta Issue and sibling Sub Issues — so the cache invalidates automatically when the repo, the issue, the Meta Issue, or any sibling is edited.
 5. **Clone**: On a cache miss, the repository is cloned locally.
 6. **Pattern Load**: The same pattern catalog used by `review` / `audit` / `propose` is loaded, filtered by detected technologies.
-7. **Claude Elaboration**: Claude is instructed to walk the repo first, identify what already exists vs. what the issue adds, and emit a detailed plan in six sections (Description with concrete "already exists / this story adds" boundaries, Motivation, Affected Areas, Acceptance Criteria, Non-Goals, References). For a Sub Issue, the Meta Issue and sibling Sub Issues from step 3 are injected so the elaboration covers only this issue's slice and defers adjacent parts to the sibling that owns them.
+7. **Claude Elaboration**: Claude is instructed to walk the repo first, identify what already exists vs. what the issue adds, and emit a detailed plan in six core sections (Description with concrete "already exists / this story adds" boundaries, Motivation, Affected Areas, Acceptance Criteria, Non-Goals, References), plus an optional **User Stories** section between Motivation and Affected Areas that groups the acceptance criteria under `As a {role}, I want {want}, so that {so_that}` stories. User Stories are proportional — emitted only when the issue serves a distinct persona and omitted entirely for purely mechanical or infrastructure work (dependency bumps, formatter sweeps, CI fixes), never padded with a synthetic "As a developer" story. For a Sub Issue, the Meta Issue and sibling Sub Issues from step 3 are injected so the elaboration covers only this issue's slice and defers adjacent parts to the sibling that owns them.
 8. **Structuring**: A second Claude call converts the elaboration into a strict JSON schema so the final body renders consistently.
 9. **Output**: The elaborated body is rendered as Markdown (default) or JSON. With `--update-issue`, the issue body is overwritten; with `--post-comment`, the elaboration is posted as a new comment.
 
