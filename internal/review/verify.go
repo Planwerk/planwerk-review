@@ -16,8 +16,9 @@ import (
 // is not actually there) while preserving a legitimate finding that merely
 // quoted an imprecise snippet.
 //
-// Matching is whitespace-insensitive so indentation or diff-prefix differences
-// never cause a false demotion. It returns the number of findings demoted.
+// Matching is whitespace- and diff-marker-insensitive so indentation or a
+// leading +/- carried over from git diff output never causes a false demotion.
+// It returns the number of findings demoted.
 //
 // When no changed-file content can be loaded (empty diff, unreadable checkout)
 // the gate is skipped entirely and nothing is demoted: without ground truth a
@@ -70,17 +71,41 @@ func loadChangedContent(dir string, changedFiles []string) string {
 // snippetPresent reports whether snippet appears in the already-normalized
 // haystack. An empty or whitespace-only snippet is treated as unverifiable
 // (false) so the finding is demoted: a finding with no quoted evidence cannot
-// be confirmed.
+// be confirmed. The snippet's leading diff markers are stripped before
+// normalizing — it may be quoted verbatim from `git diff` output — while the
+// haystack (on-disk source) is left untouched.
 func snippetPresent(snippet, normalizedHaystack string) bool {
-	needle := normalizeForMatch(snippet)
+	needle := normalizeForMatch(stripDiffMarkers(snippet))
 	if needle == "" {
 		return false
 	}
 	return strings.Contains(normalizedHaystack, needle)
 }
 
+// stripDiffMarkers removes the single leading diff column ('+' or '-') each line
+// may carry when a snippet is quoted verbatim from `git diff` output. Only the
+// needle (the diff-derived snippet) passes through it — never the haystack:
+// on-disk source carries no diff prefixes, so stripping a marker there would
+// corrupt a line whose own content legitimately begins with '+'/'-' (e.g. a YAML
+// or Markdown list item '- foo'), leaving 'foo' in the haystack while a
+// double-marked snippet ('+- foo', an added line quoted from the diff) keeps its
+// genuine '-foo' — a mismatch that falsely demotes the finding. Exactly one
+// marker is stripped, so that added '- foo' line quoted as '+- foo' still yields
+// '- foo'.
+func stripDiffMarkers(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		if len(line) > 0 && (line[0] == '+' || line[0] == '-') {
+			lines[i] = line[1:]
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
 // normalizeForMatch strips every whitespace character so matching ignores
-// indentation, line breaks, and any leading diff markers a snippet may carry.
+// indentation and line breaks. The haystack passes through it directly; the
+// needle is marker-stripped first (see stripDiffMarkers), so a snippet quoted
+// verbatim from git diff output still matches the on-disk source.
 func normalizeForMatch(s string) string {
 	return strings.Map(func(r rune) rune {
 		switch r {

@@ -53,6 +53,54 @@ func TestVerifyFindingSnippets(t *testing.T) {
 	}
 }
 
+// TestVerifyFindingSnippets_DiffMarkers locks the quote-or-demote gate against
+// snippets that carry leading +/- diff markers (issue #156, defect 1): a
+// finding quoting its snippet verbatim from `git diff` output must pass the
+// gate rather than be falsely demoted to uncertain.
+func TestVerifyFindingSnippets_DiffMarkers(t *testing.T) {
+	dir := t.TempDir()
+	writeChangedFile(t, dir, "internal/foo/foo.go", "func Foo() error {\n\treturn db.Exec(query)\n}\n")
+	writeChangedFile(t, dir, "docs/list.md", "- item one\n- item two\n")
+	changed := []string{"internal/foo/foo.go", "docs/list.md"}
+
+	cases := []struct {
+		name    string
+		snippet string
+		want    report.Confidence
+	}{
+		// Copied straight out of `git diff`: every line carries a leading '+'.
+		{"markers on all lines", "+func Foo() error {\n+\treturn db.Exec(query)", report.ConfidenceVerified},
+		// Mixed diff context: an unchanged context line plus an added line.
+		{"markers on some lines", " func Foo() error {\n+\treturn db.Exec(query)", report.ConfidenceVerified},
+		// Pre-existing base case: a plain quote with no markers still matches.
+		{"no markers", "return db.Exec(query)", report.ConfidenceVerified},
+		// Markers are not a free pass: a fabricated snippet is still demoted.
+		{"fabricated with markers", "+user.DeleteAllRecords()", report.ConfidenceUncertain},
+		// Genuine leading-dash content (a markdown bullet) quoted verbatim from
+		// the file still matches: the single marker is stripped off the needle.
+		{"leading-dash markdown bullet", "- item one", report.ConfidenceVerified},
+		// An added line whose own content begins with '-' is quoted from the
+		// diff with a double marker ('+- item one'). The on-disk file carries the
+		// genuine '- item one'; stripping exactly one marker off the needle must
+		// leave '- item one' so it still matches. This is the double-marker case
+		// the prior single-marker fix missed (issue #156, defect 1).
+		{"added line whose content starts with a dash", "+- item one", report.ConfidenceVerified},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := &report.ReviewResult{
+				Findings: []report.Finding{
+					{Title: tc.name, Confidence: report.ConfidenceVerified, CodeSnippet: tc.snippet},
+				},
+			}
+			verifyFindingSnippets(result, dir, changed)
+			if got := result.Findings[0].Confidence; got != tc.want {
+				t.Errorf("confidence = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestVerifyFindingSnippets_NoGroundTruthSkips(t *testing.T) {
 	dir := t.TempDir() // no changed files written
 	result := &report.ReviewResult{
