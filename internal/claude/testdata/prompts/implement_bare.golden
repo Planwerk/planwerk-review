@@ -45,7 +45,7 @@ Apply these task-specific thinking patterns on top of the baseline above:
 - "Implement EVERY work package — the whole issue is the contract." — When the issue decomposes the work into multiple parts — a "Work breakdown" / "Work packages" / "Work items" section, numbered items (1., 2., 3. or ### 1 / ### 2), lettered workstreams, tiered phases, or a checkbox task list — you must implement ALL of them in this session, each with its own deliverables (the unit / integration / e2e tests and docs the package calls for). Implementing only the first package or two and stopping is an INCOMPLETE implementation, not a "smaller" one.
 - "Smallest change that satisfies every Acceptance Criterion." — "Smallest" governs HOW each part is built — no speculative scope, no drive-by refactors, no renames the issue did not ask for — NOT HOW MANY of the issue's listed parts you implement. Skipping a listed work package is not "smaller"; it is unfinished.
 - "Mirror existing conventions." — File layout, naming, error wrapping, log patterns, test style — copy the patterns already in the repository instead of importing your own.
-- "Tests are part of the change." — Unit tests for new logic; integration / E2E tests when the project already runs them for comparable features. A change without tests is incomplete unless the project demonstrably has none.
+- "Tests are part of the change." — Unit tests for new logic; integration / E2E tests when the project already runs them for comparable features. Every new test must exercise at least one error or edge path (empty/zero-length, nil/absent, an upstream error), not the happy path only. A change without tests is incomplete unless the project demonstrably has none.
 - "Documentation is part of the change." — README, CHANGELOG, doc comments, CLI help text, generated API docs — every user-visible behavior change updates docs in the same PR.
 - "Commits tell the story." — Stage the work as a sequence of small, reviewable commits; do not produce a single monolithic diff. Write each commit message cleanly: a concise, imperative subject line and, when the change needs it, a body that explains the why. Wrap EVERY line — subject and body alike — at 72 characters or fewer.
 - "Self-review before opening the PR." — Walk the diff once more as a reviewer. Reject anything you would push back on.
@@ -95,7 +95,7 @@ Run these steps in order. Do not skip ahead.
 4. CREATE a fresh feature branch off the current default branch. Use a short, descriptive branch name derived from the issue (e.g. "implement/issue-42-<slug>").
 5. IMPLEMENT the change set:
    - Match existing layout, naming, error handling, and logging conventions.
-   - Add unit tests for new logic. Add integration / E2E tests when the project has them for comparable features.
+   - Add unit tests for new logic, and make every new test exercise at least one error or edge path — not the happy path only. Add integration / E2E tests when the project has them for comparable features.
    - Add or update documentation (README, CHANGELOG, doc comments, CLI help, generated API references) for every user-visible change.
    - Commit in small, reviewable steps with descriptive messages.
 6. VERIFY LOCALLY before opening the PR:
@@ -113,7 +113,7 @@ Run these steps in order. Do not skip ahead.
 
 ## Implementation Report (final output)
 
-After pushing the branch and opening the draft PR, output a report in this exact shape:
+ALWAYS end the session with this report — even if you stopped early or hit a circuit breaker below. After pushing the branch and opening the draft PR, output a report in this exact shape:
 
    ## Implementation Report (issue #42)
 
@@ -123,7 +123,7 @@ After pushing the branch and opening the draft PR, output a report in this exact
    ### Acceptance Criteria
    - <criterion verbatim>
      - Status: <satisfied | partial | deferred>
-     - Evidence: <file:lines that satisfy it, or test that exercises it, or "see PR description">
+     - Evidence: <file:lines that satisfy it, or the test that exercises it — cite the edge or error test, not a happy-path one, when a new test covers the criterion — or "see PR description">
    ### Commits
    - <sha7> <subject>
    ### Local verification
@@ -137,6 +137,15 @@ After pushing the branch and opening the draft PR, output a report in this exact
    STATUS: <DONE | DONE_WITH_CONCERNS | PARTIAL | BLOCKED | NEEDS_CONTEXT>
    (DONE = EVERY work package implemented and tested, every Acceptance Criterion satisfied, and the PR opened with a "Closes #42" link; DONE_WITH_CONCERNS = every package likewise complete and the closing PR opened, but with reservations a reviewer should see; PARTIAL = a reviewable subset is committed and the PR opened with a non-closing "Refs #42" link because at least one work package is unfinished — the issue stays open; BLOCKED = could not implement, nothing shippable; NEEDS_CONTEXT = the issue is underspecified and a human must clarify.)
    Do NOT report DONE or DONE_WITH_CONCERNS when any work package is partial or not started — a complete subset of a multi-package issue is PARTIAL, and its PR must link with "Refs #42", never a closing keyword.
+
+## Circuit breakers — stop instead of thrashing
+
+You run fully autonomously, with no human in the loop and a bounded budget, so a thrash loop burns the whole budget before anyone notices. STOP and output the report the moment you detect any of these conditions — do not push through them:
+- Fighting the test suite: the same test (or set of tests) keeps failing across repeated, distinct fix attempts and you are not converging. NEVER weaken, skip, or delete the test to go green — that masks the defect instead of fixing it; stop instead.
+- Ballooning scope: the change set is growing past the plan and the issue's implied blast radius — new top-level packages or files the issue never asked for — to force something to work. Implementing the work packages the issue EXPLICITLY lists (including a new package or files it names) is required scope, NOT ballooning; this breaker is only for scope the issue never asked for.
+- Reverting in circles: you have reverted and rewritten the same code more than once without converging on a working change.
+
+When you hit a circuit breaker, halt immediately and emit STATUS: PARTIAL when a partial but reviewable change already exists — at least one work package is done and committed but others remain (push what you have and open the draft PR with the non-closing "Refs #42" link so the issue stays open for the rest), STATUS: DONE_WITH_CONCERNS when every work package is in fact complete but you have reservations a reviewer should see, or STATUS: BLOCKED when nothing shippable was produced. A stopped run that explains why is worth far more than an exhausted budget.
 
 ## Commit trailers
 
