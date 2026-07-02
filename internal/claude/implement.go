@@ -233,7 +233,7 @@ ALWAYS end the session with this report — it is mandatory and is the last thin
    - (List EVERY work package the issue breaks the work into. Write "None — the issue is a single undivided change" when the issue has no multi-part breakdown. STATUS: DONE is only legitimate when every package here is "done".)
    ### Acceptance Criteria
    - <criterion verbatim>
-     - Status: <satisfied | partial | deferred>
+     - Status: <satisfied | partial>
      - Evidence: <file:lines that satisfy it, or the test that exercises it — cite the edge or error test, not a happy-path one, when a new test covers the criterion>
    ### Commits
    - <sha7> <subject>
@@ -379,7 +379,7 @@ ALWAYS end the session with this report — even if you stopped early or hit a c
    - (List EVERY work package the issue breaks the work into. Write "None — the issue is a single undivided change" when the issue has no multi-part breakdown. STATUS: DONE is only legitimate when every package here is "done".)
    ### Acceptance Criteria
    - <criterion verbatim>
-     - Status: <satisfied | partial | deferred>
+     - Status: <satisfied | partial>
      - Evidence: <file:lines that satisfy it, or the test that exercises it — cite the edge or error test, not a happy-path one, when a new test covers the criterion — or "see PR description">
    ### Commits
    - <sha7> <subject>
