@@ -14,6 +14,10 @@ type sample struct {
 	B string `json:"b"`
 }
 
+// emptyTitleFindingJSON is a schema-invalid review (empty title) reused across
+// the repair tests; a shared const keeps goconst from flagging the repetition.
+const emptyTitleFindingJSON = `{"findings":[{"title":"","severity":"WARNING","confidence":"likely"}]}`
+
 func TestDecodeJSONWithRepair_ValidNoRepair(t *testing.T) {
 	// The common case: valid JSON decodes without ever invoking the repair path.
 	called := false
@@ -195,7 +199,7 @@ func TestRepairInvalidReview_BoundedRounds(t *testing.T) {
 	restore := repairInvalidJSON
 	repairInvalidJSON = func(*Client, string, error, string) (string, error) {
 		calls++
-		return `{"findings":[{"title":"","severity":"WARNING","confidence":"likely"}]}`, nil // empty title, still invalid
+		return emptyTitleFindingJSON, nil // empty title, still invalid
 	}
 	t.Cleanup(func() { repairInvalidJSON = restore })
 
@@ -214,7 +218,7 @@ func TestRepairInvalidReview_SucceedsWithinRounds(t *testing.T) {
 	repairInvalidJSON = func(*Client, string, error, string) (string, error) {
 		calls++
 		if calls == 1 {
-			return `{"findings":[{"title":"","severity":"WARNING","confidence":"likely"}]}`, nil // still bad
+			return emptyTitleFindingJSON, nil // still bad
 		}
 		return `{"findings":[{"title":"Fixed","severity":"WARNING","confidence":"likely"}]}`, nil
 	}

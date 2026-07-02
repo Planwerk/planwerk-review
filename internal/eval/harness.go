@@ -65,7 +65,7 @@ func RunCase(client *claude.Client, c Case, thorough bool) (report.ReviewResult,
 	if err != nil {
 		return report.ReviewResult{}, fmt.Errorf("case %s: temp repo: %w", c.Name, err)
 	}
-	defer os.RemoveAll(repoDir)
+	defer func() { _ = os.RemoveAll(repoDir) }()
 
 	changed, err := setupRepo(repoDir, c)
 	if err != nil {
