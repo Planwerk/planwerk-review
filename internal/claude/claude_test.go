@@ -217,12 +217,18 @@ func TestBuildStructurePrompt_ContainsNewFields(t *testing.T) {
 		`"recommended_option"`,
 		`"recommendation_reasoning"`,
 		`"source_finding_count"`,
-		"Confidence levels:",
-		"Field rules:",
+		"Field rules",
 	}
 	for _, check := range checks {
 		if !strings.Contains(prompt, check) {
 			t.Errorf("structure prompt should contain %q", check)
+		}
+	}
+	// Transcribe-only structuring (issue #157): the classification rubric must
+	// be gone so the tier cannot re-classify.
+	for _, absent := range []string{"Severity levels:", "Actionability classification", "Confidence levels:"} {
+		if strings.Contains(prompt, absent) {
+			t.Errorf("structure prompt must not carry the %q rubric after the transcribe-only rewrite", absent)
 		}
 	}
 }

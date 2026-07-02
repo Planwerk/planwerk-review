@@ -46,8 +46,8 @@ import (
 //     not call diffScopeLines.
 //   - The "Then …" line after the scope lead differs per builder and stays
 //     inline at each call site.
-//   - The structure prompt carries a fourth copy of the id line; the structure
-//     prompts are rewritten by issue #157, so that copy is left untouched here.
+//   - The structure prompt now routes its id line through emptyIDLine() too
+//     (issue #157 rewrote the structure prompt to be transcribe-only).
 //   - The bare-draft prompt keeps its own condensed hard-non-goals wording.
 
 // promptScope distinguishes a diff-scoped review (a PR or branch comparison)
