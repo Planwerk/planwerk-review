@@ -79,6 +79,10 @@ func (mockClaude) SpecialistReview(dir, baseBranch, key, focus string) (*report.
 	panic("mockClaude.SpecialistReview called unexpectedly")
 }
 
+func (mockClaude) DedupFindings(findings []report.Finding) ([][]int, error) {
+	panic("mockClaude.DedupFindings called unexpectedly")
+}
+
 func (mockClaude) UsageTotals() report.Usage {
 	return report.Usage{}
 }

@@ -18,6 +18,10 @@ type ClaudeRunner interface {
 	CoverageMap(dir, baseBranch string) (*report.CoverageResult, error)
 	FeatureCompliance(dir, baseBranch string, feature *planwerk.Feature) (*report.ReviewResult, error)
 	SpecialistReview(dir, baseBranch, key, focus string) (*report.ReviewResult, error)
+	// DedupFindings groups findings that describe the same underlying issue,
+	// returning index groups into the passed slice. It backstops the fuzzy
+	// merge matcher for findings with no file to anchor on.
+	DedupFindings(findings []report.Finding) ([][]int, error)
 	// UsageTotals reports the per-Run Claude token usage and estimated cost
 	// accumulated across this runner's calls, for embedding in the data block.
 	UsageTotals() report.Usage
@@ -61,6 +65,10 @@ func (r defaultClaudeRunner) SpecialistReview(dir, baseBranch, key, focus string
 
 func (r defaultClaudeRunner) FeatureCompliance(dir, baseBranch string, feature *planwerk.Feature) (*report.ReviewResult, error) {
 	return r.client.FeatureCompliance(dir, baseBranch, feature)
+}
+
+func (r defaultClaudeRunner) DedupFindings(findings []report.Finding) ([][]int, error) {
+	return r.client.DedupFindings(findings)
 }
 
 func (r defaultClaudeRunner) UsageTotals() report.Usage {

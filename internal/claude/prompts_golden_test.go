@@ -880,6 +880,17 @@ func TestBuildStructurePrompt_Golden(t *testing.T) {
 	assertGoldenPrompt(t, "structure", buildStructurePrompt(raw))
 }
 
+// TestBuildDedupFindingsPrompt_Golden locks the structure-tier dedup prompt:
+// the numbered finding list, the index-group output shape, and the "an empty
+// duplicate_groups array is the correct answer" rule that stops force-grouping.
+func TestBuildDedupFindingsPrompt_Golden(t *testing.T) {
+	findings := []report.Finding{
+		{Severity: report.SeverityCritical, Title: "Race on shared counter", Problem: "The counter is incremented without a lock."},
+		{Severity: report.SeverityCritical, Title: "Data race incrementing the counter", File: "worker.go", Line: 12, Problem: "Concurrent increments corrupt the count."},
+	}
+	assertGoldenPrompt(t, "dedup_findings", buildDedupFindingsPrompt(findings))
+}
+
 // TestBuildProposalStructurePrompt_Golden locks the propose-structuring prompt:
 // the proposal JSON schema, the priority/category/scope vocabularies, and the
 // 5-20 proposal budget.

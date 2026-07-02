@@ -119,6 +119,160 @@ func TestRun_CommitLogFailureLogsWarning(t *testing.T) {
 	}
 }
 
+func TestRun_DedupFilelessFindings(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	pr := fakePR(t, "acme", "widgets", 71, "sha-dedup")
+	claudeMock := &configurableClaude{
+		review: func(dir string, ctx claude.ReviewContext) (*report.ReviewResult, error) {
+			return &report.ReviewResult{
+				Summary: "primary",
+				Findings: []report.Finding{
+					{ID: "W-001", Severity: report.SeverityWarning, Title: "Docs drift in README", Problem: "p", Action: "a", Confidence: report.ConfidenceLikely},
+				},
+			}, nil
+		},
+		adversarial: func(dir, baseBranch string) (*report.ReviewResult, error) {
+			return &report.ReviewResult{
+				Findings: []report.Finding{
+					{Severity: report.SeverityWarning, Title: "README documentation is stale", Problem: "p", Action: "a"},
+				},
+			}, nil
+		},
+		dedup: func(findings []report.Finding) ([][]int, error) {
+			return [][]int{{0, 1}}, nil
+		},
+	}
+	gh := &mockGitHub{fetchAndCheckout: func(ref string) (*github.PR, error) { return pr, nil }}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	opts := baseOpts()
+	opts.Thorough = true
+	var out bytes.Buffer
+	if err := runner.Run(&out, opts); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if claudeMock.dedupCalls != 1 {
+		t.Errorf("DedupFindings calls = %d, want 1", claudeMock.dedupCalls)
+	}
+
+	cached, ok := cache.Get(cache.Key(pr.Owner, pr.Repo, pr.Number, pr.HeadSHA, "thorough"), 0)
+	if !ok {
+		t.Fatal("expected a cached result")
+	}
+	if len(cached.Findings) != 1 {
+		t.Fatalf("expected 1 merged finding after dedup, got %d", len(cached.Findings))
+	}
+	if len(cached.Findings[0].ConfirmedBy) != 2 {
+		t.Errorf("merged finding should carry both passes, got %v", cached.Findings[0].ConfirmedBy)
+	}
+}
+
+func TestRun_DedupFileless_SkippedWithoutSecondaryPass(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	pr := fakePR(t, "acme", "widgets", 72, "sha-nodedup")
+	claudeMock := &configurableClaude{
+		review: func(dir string, ctx claude.ReviewContext) (*report.ReviewResult, error) {
+			return &report.ReviewResult{
+				Findings: []report.Finding{
+					{ID: "W-001", Severity: report.SeverityWarning, Title: "a", Problem: "p", Action: "a"},
+					{ID: "W-002", Severity: report.SeverityWarning, Title: "b", Problem: "p", Action: "a"},
+				},
+			}, nil
+		},
+	}
+	gh := &mockGitHub{fetchAndCheckout: func(ref string) (*github.PR, error) { return pr, nil }}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	var out bytes.Buffer
+	if err := runner.Run(&out, baseOpts()); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if claudeMock.dedupCalls != 0 {
+		t.Errorf("DedupFindings must not run without a secondary pass, got %d calls", claudeMock.dedupCalls)
+	}
+}
+
+func TestRun_DedupFileless_ErrorIsNonFatal(t *testing.T) {
+	restore := cache.SetDir(t.TempDir())
+	t.Cleanup(restore)
+
+	pr := fakePR(t, "acme", "widgets", 73, "sha-dederr")
+	claudeMock := &configurableClaude{
+		review: func(dir string, ctx claude.ReviewContext) (*report.ReviewResult, error) {
+			return &report.ReviewResult{Findings: []report.Finding{
+				{ID: "W-001", Severity: report.SeverityWarning, Title: "x", Problem: "p", Action: "a"},
+			}}, nil
+		},
+		adversarial: func(dir, baseBranch string) (*report.ReviewResult, error) {
+			return &report.ReviewResult{Findings: []report.Finding{
+				{Severity: report.SeverityWarning, Title: "y", Problem: "p", Action: "a"},
+			}}, nil
+		},
+		dedup: func(findings []report.Finding) ([][]int, error) {
+			return nil, errors.New("structure tier down")
+		},
+	}
+	gh := &mockGitHub{fetchAndCheckout: func(ref string) (*github.PR, error) { return pr, nil }}
+	runner := &Runner{Claude: claudeMock, GitHub: gh}
+
+	opts := baseOpts()
+	opts.Thorough = true
+	var out bytes.Buffer
+	if err := runner.Run(&out, opts); err != nil {
+		t.Fatalf("dedup error must not fail the review: %v", err)
+	}
+	cached, ok := cache.Get(cache.Key(pr.Owner, pr.Repo, pr.Number, pr.HeadSHA, "thorough"), 0)
+	if !ok || len(cached.Findings) != 2 {
+		t.Fatalf("both findings must survive a failed dedup, got ok=%v findings=%d", ok, len(cached.Findings))
+	}
+}
+
+// TestDedupFilelessFindings_OverlappingGroups guards against the model returning
+// index groups that share an index (e.g. [[0,1],[1,2]]). The prompt asks it to
+// place each index in at most one group, but nothing enforces that. Without a
+// per-index claim guard, a finding merged-and-marked-for-removal by the first
+// group becomes the second group's keep-target, so the third finding's content
+// merges only into the doomed finding and is then pruned — silently dropping a
+// distinct (and here CRITICAL) finding. Every distinct finding must survive.
+func TestDedupFilelessFindings_OverlappingGroups(t *testing.T) {
+	claudeMock := &configurableClaude{
+		dedup: func(findings []report.Finding) ([][]int, error) {
+			return [][]int{{0, 1}, {1, 2}}, nil
+		},
+	}
+	runner := &Runner{Claude: claudeMock}
+	result := &report.ReviewResult{
+		Findings: []report.Finding{
+			{Severity: report.SeverityWarning, Title: "alpha", Problem: "p", Action: "a"},
+			{Severity: report.SeverityWarning, Title: "beta", Problem: "p", Action: "a"},
+			{Severity: report.SeverityCritical, Title: "gamma", Problem: "p", Action: "a"},
+		},
+	}
+	runner.dedupFilelessFindings(result)
+
+	got := make([]string, len(result.Findings))
+	titles := map[string]bool{}
+	for i, f := range result.Findings {
+		got[i] = f.Title
+		titles[f.Title] = true
+	}
+	// alpha absorbs beta via group [0,1]; index 1 is then already claimed, so
+	// group [1,2] leaves gamma standalone. gamma must not vanish.
+	if !titles["gamma"] {
+		t.Fatalf("distinct CRITICAL finding 'gamma' was dropped by overlapping dedup groups; surviving titles = %v", got)
+	}
+	if !titles["alpha"] {
+		t.Errorf("keep-target 'alpha' missing; surviving titles = %v", got)
+	}
+	if len(result.Findings) != 2 {
+		t.Errorf("want 2 findings after folding [0,1] and leaving gamma, got %d: %v", len(result.Findings), got)
+	}
+}
+
 // configurableClaude is a ClaudeRunner whose behavior is set per-test via
 // closures. Each closure is also wrapped in a call-counter so the test can
 // assert which methods actually ran — essential for verifying that cache
@@ -129,6 +283,7 @@ type configurableClaude struct {
 	coverage          func(dir, baseBranch string) (*report.CoverageResult, error)
 	featureCompliance func(dir, baseBranch string, feature *planwerk.Feature) (*report.ReviewResult, error)
 	specialist        func(dir, baseBranch, key, focus string) (*report.ReviewResult, error)
+	dedup             func(findings []report.Finding) ([][]int, error)
 	usage             report.Usage
 
 	reviewCalls            int32
@@ -136,6 +291,7 @@ type configurableClaude struct {
 	coverageCalls          int32
 	featureComplianceCalls int32
 	specialistCalls        int32
+	dedupCalls             int32
 }
 
 func (c *configurableClaude) Review(dir string, ctx claude.ReviewContext) (*report.ReviewResult, error) {
@@ -176,6 +332,14 @@ func (c *configurableClaude) SpecialistReview(dir, baseBranch, key, focus string
 		return &report.ReviewResult{}, nil
 	}
 	return c.specialist(dir, baseBranch, key, focus)
+}
+
+func (c *configurableClaude) DedupFindings(findings []report.Finding) ([][]int, error) {
+	atomic.AddInt32(&c.dedupCalls, 1)
+	if c.dedup == nil {
+		return nil, nil
+	}
+	return c.dedup(findings)
 }
 
 func (c *configurableClaude) UsageTotals() report.Usage {

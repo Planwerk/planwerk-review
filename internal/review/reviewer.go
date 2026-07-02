@@ -373,6 +373,15 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 		slog.Warn("coverage map failed", "err", covErr)
 	}
 
+	// 11a. File-less dedup fallback: the fuzzy merge matcher can only anchor
+	// findings that carry a file, so cross-pass duplicates among file-less
+	// findings survive. When a secondary pass contributed, reconcile them with a
+	// single cheap structure-tier grouping call. Non-fatal: on failure the
+	// findings ship unmerged.
+	if opts.Thorough || opts.Specialists || feature != nil {
+		r.dedupFilelessFindings(result)
+	}
+
 	// 11b. Quote-or-demote gate: downgrade findings whose code snippet cannot
 	// be located in the changed files so unverifiable claims land in the
 	// Unverified section instead of next to confirmed bugs.
@@ -401,6 +410,76 @@ func (r *Runner) Run(w io.Writer, opts Options) error {
 	// returned above before the catalog was loaded), and only when a wiki resolved.
 	r.runCapture(w, pr, opts, result, pats, wiki)
 	return nil
+}
+
+// dedupFilelessFindings folds cross-pass duplicate findings that carry no file
+// — the ones mergeResults' fuzzy matcher cannot anchor. It sends only the
+// file-less findings to the structure tier, which returns index groups, and
+// folds each group in Go via mergeFindingPair so no finding content is
+// transcribed by the model. Fewer than two file-less findings need no call. The
+// pass is non-fatal: a failed grouping call leaves the findings unmerged.
+func (r *Runner) dedupFilelessFindings(result *report.ReviewResult) {
+	if result == nil {
+		return
+	}
+	var fileless []int
+	for i := range result.Findings {
+		if result.Findings[i].File == "" {
+			fileless = append(fileless, i)
+		}
+	}
+	if len(fileless) < 2 {
+		return
+	}
+	subset := make([]report.Finding, len(fileless))
+	for j, idx := range fileless {
+		subset[j] = result.Findings[idx]
+	}
+	groups, err := r.Claude.DedupFindings(subset)
+	if err != nil {
+		slog.Warn("file-less finding dedup failed; keeping findings unmerged", "err", err)
+		return
+	}
+
+	// Fold each group into its first member; mark the rest for removal. Group
+	// indices are into subset, so map back to result.Findings via fileless.
+	// claimed tracks every subset index the model has already assigned to a
+	// group. The prompt asks it to place each index in at most one group, but
+	// nothing enforces that: overlapping groups (e.g. [[0,1],[1,2]]) could make an
+	// index that was merged-and-marked-for-removal become a later group's
+	// keep-target, so its content merges only into a doomed finding and is then
+	// pruned away. Claiming each index at most once keeps every distinct finding.
+	remove := make(map[int]bool)
+	claimed := make(map[int]bool)
+	merged := 0
+	for _, group := range groups {
+		keepSub := -1
+		for _, sub := range group {
+			if sub < 0 || sub >= len(fileless) || claimed[sub] {
+				continue // out-of-range or already claimed by an earlier group
+			}
+			claimed[sub] = true
+			if keepSub == -1 {
+				keepSub = sub
+				continue
+			}
+			keepIdx, dupIdx := fileless[keepSub], fileless[sub]
+			result.Findings[keepIdx] = mergeFindingPair(result.Findings[keepIdx], result.Findings[dupIdx])
+			remove[dupIdx] = true
+			merged++
+		}
+	}
+	if merged == 0 {
+		return
+	}
+	kept := result.Findings[:0]
+	for i := range result.Findings {
+		if !remove[i] {
+			kept = append(kept, result.Findings[i])
+		}
+	}
+	result.Findings = kept
+	slog.Info("merged file-less duplicate findings via structure-tier fallback", "merged", merged)
 }
 
 // runCapture runs the read-only capture pass after the review renders: it mines
