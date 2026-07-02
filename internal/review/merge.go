@@ -173,11 +173,11 @@ func lineRange(f report.Finding) (int, int) {
 // lineDistance returns the absolute distance between the two findings' start
 // lines, used only to break ties between equally similar candidates.
 func lineDistance(a, b report.Finding) int {
-	if d := a.Line - b.Line; d >= 0 {
-		return d
-	} else {
+	d := a.Line - b.Line
+	if d < 0 {
 		return -d
 	}
+	return d
 }
 
 // titleSimilarity returns the Jaccard overlap (0-1) of a's and b's lowercased
