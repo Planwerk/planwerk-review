@@ -34,11 +34,36 @@ func (c *Client) structureReview(rawReview string) (*report.ReviewResult, error)
 		return nil, err
 	}
 	result := sr.ReviewResult
+	// Structuring is transcribe-only, so a finding whose source review stated no
+	// severity/confidence label arrives here with an empty one. Fill those
+	// deterministically in Go before validation instead of spending a repair
+	// round on it.
+	normalizeTranscribedLabels(&result)
 	if err := c.repairInvalidReview(&result); err != nil {
 		return nil, err
 	}
 	warnOnDroppedFindings(sr.SourceFindingCount, len(result.Findings))
 	return &result, nil
+}
+
+// normalizeTranscribedLabels fills the two labels the transcribe-only structure
+// tier may leave empty when the source review stated none: an empty Severity
+// becomes INFO and an empty Confidence becomes uncertain, each logged with the
+// finding's title. Defaulting conservatively in Go — rather than by a model
+// repair round — lands an unlabeled finding in the Unverified section instead of
+// being silently dropped by Categorize, which skips unknown-severity findings.
+func normalizeTranscribedLabels(result *report.ReviewResult) {
+	for i := range result.Findings {
+		f := &result.Findings[i]
+		if strings.TrimSpace(string(f.Severity)) == "" {
+			slogWarnFn("structuring left a finding without a severity label; defaulting to INFO", "title", f.Title)
+			f.Severity = report.SeverityInfo
+		}
+		if strings.TrimSpace(string(f.Confidence)) == "" {
+			slogWarnFn("structuring left a finding without a confidence label; defaulting to uncertain", "title", f.Title)
+			f.Confidence = report.ConfidenceUncertain
+		}
+	}
 }
 
 // slogWarnFn is the warn-logging seam (mirrors progress.go's slogInfoFn) so the
@@ -95,7 +120,7 @@ func (c *Client) repairInvalidReview(result *report.ReviewResult) error {
 }
 
 func buildStructurePrompt(rawReview string) string {
-	return `Convert the following code review output into structured JSON. Extract every finding mentioned.
+	return `Transcribe the following code review output into structured JSON. This is a TRANSCRIPTION pass, not an analysis pass: extract every finding the review states and copy what it already decided — never re-classify, re-judge, or add anything the review did not provide.
 
 ` + jsonSchemaOnlyLine() + `
 
@@ -103,18 +128,18 @@ func buildStructurePrompt(rawReview string) string {
   "findings": [
     {
       "id": "",
-      "severity": "BLOCKING|CRITICAL|WARNING|INFO",
+      "severity": "copy the finding's stated Severity label (BLOCKING|CRITICAL|WARNING|INFO); empty string if it states none",
       "title": "Short title",
       "file": "path/to/file.go",
       "line": 42,
       "line_end": 45,
-      "pattern": "Pattern name if triggered by a review pattern, otherwise omit",
-      "actionability": "auto-fix|needs-discussion|architectural",
-      "confidence": "verified|likely|uncertain",
+      "pattern": "Pattern name if the review names one, otherwise omit",
+      "actionability": "copy the finding's stated Actionability label (auto-fix|needs-discussion|architectural); empty string if it states none",
+      "confidence": "copy the finding's stated Confidence label (verified|likely|uncertain); empty string if it states none",
       "problem": "Description of the problem",
       "action": "What should be done to fix it",
-      "code_snippet": "The exact problematic lines from the diff, preserving indentation",
-      "suggested_fix": "The exact replacement code for auto-fix findings (no markdown fences, no comments, correct indentation), or a concrete description for others",
+      "code_snippet": "The exact lines the review quoted, preserving indentation; omit if the review quoted none",
+      "suggested_fix": "The replacement code or fix description the review gave; omit if it gave none",
       "fix_options": [
         {
           "id": "A",
@@ -126,41 +151,21 @@ func buildStructurePrompt(rawReview string) string {
         }
       ],
       "recommended_option": "A",
-      "recommendation_reasoning": "1-2 sentences citing codebase pattern, review-pattern source, or project constraint",
+      "recommendation_reasoning": "1-2 sentences, copied from the review",
       "related_to": ["titles of related findings from this review"]
     }
   ],
-  "summary": "Overall summary: what was done well, key issues found, and overall quality assessment (2-4 sentences, balanced and constructive)",
-  "recommendation": "Whether the PR should be merged and under what conditions",
+  "summary": "Copy the review's overall summary",
+  "recommendation": "Copy the review's merge recommendation",
   "source_finding_count": 0
 }
 
-Severity levels:
-- BLOCKING: Fundamental architecture or security issues — PR must not be merged
-- CRITICAL: Bugs, security vulnerabilities, severe problems — must be fixed before merge
-- WARNING: Code quality issues, potential problems — should be fixed
-- INFO: Style suggestions, minor improvements — optional
-
-Actionability classification (determines fix approach):
-- auto-fix: A senior engineer would apply this fix without discussion (dead code removal, N+1 query fixes, stale comment cleanup, magic number extraction, missing error wrapping, simple nil checks). These will be marked as AUTO-FIX — an agent should apply them directly.
-- needs-discussion: Requires team input before fixing (security fixes, race condition resolutions, API/design changes, anything changing observable behavior). These will be marked as ASK — requires human confirmation.
-- architectural: Fundamental design issue that needs a broader conversation (wrong abstraction, missing layer, significant refactor needed). These will be marked as ASK.
-
-Confidence levels:
-- verified: The issue is directly visible in the code with certainty
-- likely: Strong evidence but depends on context outside the diff
-- uncertain: Potential issue that requires further investigation
-
-Field rules:
-- Leave the "id" field as an empty string — it will be assigned automatically.
-- "code_snippet": REQUIRED for every finding. Quote the exact lines from the diff.
-- "suggested_fix": REQUIRED for auto-fix findings. Must contain ONLY the replacement code — no markdown fences, no inline comments explaining the fix, correct indentation from the original file. For other findings, provide a concrete description of what to change.
-- "line_end": Include when the finding spans multiple lines. Omit if it is a single-line issue.
-- "confidence": REQUIRED for every finding.
-- "fix_options": REQUIRED (2-3 entries) for findings with actionability "needs-discussion" or "architectural". MUST be omitted (or an empty array) for "auto-fix" findings. Each entry: id ("A","B","C",…), approach, pros, cons, effort (LOW|MED|HIGH), risk_if_skipped.
-- "recommended_option": REQUIRED when fix_options is set. Must equal one of the fix_options ids. Omit when fix_options is empty.
-- "recommendation_reasoning": REQUIRED when recommended_option is set; 1-2 sentences. Omit otherwise.
-- "related_to": Include titles of other findings in this review that are related. Use an empty array if none.
+Field rules — transcribe, do not analyze:
+- ` + emptyIDLine() + `
+- "severity", "actionability", "confidence": copy the label the finding STATES, verbatim. When the finding states no such label, leave the field an empty string ("") — NEVER infer, guess, or default one. Classification was decided upstream where the code was read; assigning it here is wrong.
+- "code_snippet", "suggested_fix", "fix_options", "recommended_option", "recommendation_reasoning": copy them ONLY when the review states them. Do NOT invent a snippet, a fix, or an option set the review did not provide.
+- "line_end": include only when the review gives a line range. Omit for a single-line issue.
+- "related_to": include titles of other findings in this review that the review connects. Use an empty array if none.
 - Extract ONLY findings actually present in the review output below. Do NOT invent new findings, and do NOT re-introduce any issue the review text explicitly suppressed or chose not to flag.
 - If there are no findings, return an empty findings array.
 - "source_finding_count": count the distinct findings in the <review-output> below from your reading of the source, and report that integer here. The "findings" array MUST then contain exactly that many entries — if it ends up shorter you dropped a finding during transcription, so recount the source and add the missing one back.

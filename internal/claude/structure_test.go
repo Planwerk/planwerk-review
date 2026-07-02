@@ -177,6 +177,33 @@ func TestWarnOnDroppedFindings(t *testing.T) {
 	}
 }
 
+func TestNormalizeTranscribedLabels(t *testing.T) {
+	restore := slogWarnFn
+	warns := 0
+	slogWarnFn = func(string, ...any) { warns++ }
+	t.Cleanup(func() { slogWarnFn = restore })
+
+	result := &report.ReviewResult{Findings: []report.Finding{
+		{Title: "no labels"}, // both empty → defaulted, 2 warns
+		{Title: "labelled", Severity: report.SeverityCritical, Confidence: report.ConfidenceVerified}, // untouched
+		{Title: "sev only", Severity: report.SeverityWarning},                                         // confidence empty → 1 warn
+	}}
+	normalizeTranscribedLabels(result)
+
+	if result.Findings[0].Severity != report.SeverityInfo || result.Findings[0].Confidence != report.ConfidenceUncertain {
+		t.Errorf("empty labels must default to INFO/uncertain, got %q/%q", result.Findings[0].Severity, result.Findings[0].Confidence)
+	}
+	if result.Findings[1].Severity != report.SeverityCritical || result.Findings[1].Confidence != report.ConfidenceVerified {
+		t.Errorf("stated labels must be untouched, got %q/%q", result.Findings[1].Severity, result.Findings[1].Confidence)
+	}
+	if result.Findings[2].Confidence != report.ConfidenceUncertain {
+		t.Errorf("empty confidence must default to uncertain, got %q", result.Findings[2].Confidence)
+	}
+	if warns != 3 {
+		t.Errorf("expected 3 warnings (2 for the label-less finding, 1 for the confidence-less one), got %d", warns)
+	}
+}
+
 func validFinding() report.Finding {
 	return report.Finding{
 		Title:      "Missing error wrapping",
